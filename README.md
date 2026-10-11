@@ -56,6 +56,20 @@ repowarden code-mort                  # nouveau code mort de ta branche
 
 Sans Node : `git clone https://github.com/SimBienvenueHoulBoumi/repowarden.git ~/repowarden && ~/repowarden/install.sh --global` (mise à jour : `git -C ~/repowarden pull`).
 
+### 4. GitHub App pour l'automatisation (merge auto, tickets, releases)
+
+Pour que les workflows déclenchent les autres workflows (merge auto, tickets, releases), il faut une GitHub App au lieu du `GITHUB_TOKEN` :
+
+```bash
+repowarden app init
+```
+
+1. Ouvre la page locale → clique "Create GitHub App" sur GitHub
+2. Clique "Install" sur ton repo/org
+3. Les secrets `REPOWARDEN_APP_CLIENT_ID` / `REPOWARDEN_APP_KEY` sont configurés automatiquement
+
+Sans cette étape, le `GITHUB_TOKEN` des Actions est utilisé : **ce qu'il fait ne déclenche pas les autres workflows** (merge auto, tickets, préversions).
+
 **Tester la prochaine version** (avant sa sortie en production) : `npm install -g repowarden@next`, ou `uses: SimBienvenueHoulBoumi/repowarden@develop` en CI. Retour à la version stable : `npm install -g repowarden@latest`. Les problèmes se signalent en [issue](https://github.com/SimBienvenueHoulBoumi/repowarden/issues).
 
 ### 2. Dans un projet d'équipe : les mêmes règles pour tous
