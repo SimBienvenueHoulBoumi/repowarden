@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# Relancer un workflow GitHub Actions échoué
+#   repowarden run rerun <run-id|--failed|--workflow>
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+# shellcheck source=../hooks/lib/common.sh
+source "$ROOT/hooks/lib/common.sh"
+# shellcheck source=../hooks/lib/i18n.sh
+source "$ROOT/hooks/lib/i18n.sh"
+
+aide() {
+    cat <<EOF
+Usage: repowarden run rerun <run-id|--failed|--workflow <nom>>
+
+Relance un workflow GitHub Actions.
+
+Options:
+  <run-id>           ID du run à relancer
+  --failed           Relance le dernier run échoué du repo
+  --workflow <nom>   Relance le dernier run du workflow spécifié
+
+Exemples:
+  repowarden run rerun 123456789
+  repowarden run rerun --failed
+  repowarden run rerun --workflow "CI"
+EOF
+}
+
+[ $# -ge 1 ] || { aide >&2; exit 1; }
+if [[ "$1" == "--help" || "$1" == "-h" ]]; then
+    aide
+    exit 0
+fi
+command -v gh >/dev/null || { err_t bot.no_gh; exit 1; }
+
+arg="${1}"
+run_id=""
+
+case "$arg" in
+    --failed)
+        step_t run.rerun.failed
+        run_id=$(gh run list --repo "${GH_REPO:-$(gh repo view --json nameWithOwner -q .nameWithOwner)}" --limit 1 --json databaseId,conclusion --jq '.[] | select(.conclusion=="failure") | .databaseId')
+        [ -n "$run_id" ] || { err_t run.rerun.none_failed; exit 1; }
+        ;;
+    --workflow)
+        shift
+        workflow="${1:?--workflow attend un nom}"
+        step_t run.rerun.workflow "$workflow"
+        run_id=$(gh run list --repo "${GH_REPO:-$(gh repo view --json nameWithOwner -q .nameWithOwner)}" --workflow "$workflow" --limit 1 --json databaseId --jq '.[0].databaseId')
+        [ -n "$run_id" ] || { err_t run.rerun.none_workflow "$workflow"; exit 1; }
+        ;;
+    *)
+        if [[ "$arg" =~ ^[0-9]+$ ]]; then
+            run_id="$arg"
+        else
+            err_t install.unknown_arg "$arg"
+            exit 1
+        fi
+        ;;
+esac
+
+step_t run.rerun.running "$run_id"
+gh run rerun "$run_id"
+ok_t run.rerun.done "$run_id"
