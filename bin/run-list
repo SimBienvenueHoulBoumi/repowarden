@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# Lister les runs de workflow GitHub Actions
+#   repowarden run list [--workflow <nom>] [--limit N]
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+# shellcheck source=../hooks/lib/common.sh
+source "$ROOT/hooks/lib/common.sh"
+# shellcheck source=../hooks/lib/i18n.sh
+source "$ROOT/hooks/lib/i18n.sh"
+
+aide() {
+    cat <<EOF
+Usage: repowarden run list [--workflow <nom>] [--limit N]
+
+Liste les runs de workflows récents.
+
+Options:
+  --workflow <nom>   Filtre par nom de workflow
+  --limit N          Nombre max de runs (défaut: 20)
+
+Exemples:
+  repowarden run list
+  repowarden run list --workflow "CI" --limit 10
+EOF
+}
+
+if [[ "$1" == "--help" || "$1" == "-h" ]]; then
+    aide
+    exit 0
+fi
+command -v gh >/dev/null || { err_t bot.no_gh; exit 1; }
+
+workflow=""
+limit=20
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --workflow) shift; workflow="${1:?--workflow attend un nom}" ;;
+        --limit) shift; limit="${1:?--limit attend un nombre}" ;;
+        *) err_t install.unknown_arg "$1"; exit 1 ;;
+    esac
+    shift
+done
+
+repo="${GH_REPO:-$(gh repo view --json nameWithOwner -q .nameWithOwner)}"
+
+if [ -n "$workflow" ]; then
+    step_t run.listing.workflow "$workflow"
+    gh run list --repo "$repo" --workflow "$workflow" --limit "$limit" \
+        --json databaseId,name,conclusion,createdAt,headBranch \
+        --template '{{range .}}{{.databaseId}}	{{.name}}	{{.conclusion}}	{{.createdAt}}	{{.headBranch}}{{"\n"}}{{end}}'
+else
+    step_t run.listing.all
+    gh run list --repo "$repo" --limit "$limit" \
+        --json databaseId,name,conclusion,createdAt,headBranch \
+        --template '{{range .}}{{.databaseId}}	{{.name}}	{{.conclusion}}	{{.createdAt}}	{{.headBranch}}{{"\n"}}{{end}}'
+fi

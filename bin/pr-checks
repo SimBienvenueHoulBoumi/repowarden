@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Vérifier les checks d'une PR
+#   repowarden pr checks <n>
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+# shellcheck source=../hooks/lib/common.sh
+source "$ROOT/hooks/lib/common.sh"
+# shellcheck source=../hooks/lib/i18n.sh
+source "$ROOT/hooks/lib/i18n.sh"
+
+aide() {
+    cat <<EOF
+Usage: repowarden pr checks <n>
+
+Affiche l'état des checks de la PR #<n>.
+
+Exemple:
+  repowarden pr checks 123
+EOF
+}
+
+[ $# -eq 1 ] || { aide >&2; exit 1; }
+if [[ "$1" == "--help" || "$1" == "-h" ]]; then
+    aide
+    exit 0
+fi
+command -v gh >/dev/null || { err_t bot.no_gh; exit 1; }
+
+n="${1}"
+
+step_t pr.checks.checking "$n"
+gh api "repos/{{owner}}/{{repo}}/pulls/$n/check-runs" --jq '.check_runs[] | {name: .name, conclusion: .conclusion, status: .status, url: .html_url}' 2>/dev/null | while IFS= read -r line; do
+    echo "$line"
+done
