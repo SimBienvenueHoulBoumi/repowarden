@@ -47,14 +47,22 @@ cmd_pr() {
         return 0
     fi
 
-    # Aucun ticket : créé à partir de la PR, à valider, et relié à la PR
+    # Aucun ticket : si auto-create activé, créé à partir de la PR, à valider,
+    # et relié à la PR ; sinon, échec de la vérification avec la marche à suivre.
     if [ -z "$tickets" ]; then
-        _tr tk.created_body "$PR"
-        url="$(gh issue create --title "$(gh pr view "$PR" --json title -q .title)" \
-            --body "$_T" --label "$S_AVALIDER")"
-        tickets="${url##*/}"
-        gh pr edit "$PR" --body "$(printf '%s\n\nTicket : #%s\n' "$body" "$tickets")" >/dev/null
-        notice_t tk.created "$tickets" "$PR"
+        if [ "${AUTO_CREATE:-false}" = true ]; then
+            _tr tk.created_body "$PR"
+            url="$(gh issue create --title "$(gh pr view "$PR" --json title -q .title)" \
+                --body "$_T" --label "$S_AVALIDER")"
+            tickets="${url##*/}"
+            gh pr edit "$PR" --body "$(printf '%s\n\nTicket : #%s\n' "$body" "$tickets")" >/dev/null
+            notice_t tk.created "$tickets" "$PR"
+        else
+            _tr tk.created_body "$PR"
+            gh api "repos/$GH_REPO/statuses/$HEAD_SHA" -f state=failure -f context=ticket \
+                -f description="PR sans ticket : créez-en un avec 'repowarden ticket nouveau \"<titre>\"' ou citez 'Ticket : #N' dans la description" >/dev/null
+            return 0
+        fi
     fi
 
     # Statut du travail (seulement pour un ticket validé)

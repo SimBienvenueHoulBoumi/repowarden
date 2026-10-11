@@ -419,6 +419,8 @@ _msg_fr() {
         tk.init_exists) _M="%s existe déjà : laissé tel quel." ;;
         tk.init_written) _M="%s créé." ;;
         tk.init_done) _M="Suivi des tickets prêt." ;;
+        tk.init_auto_create_on) _M="Création auto de ticket : ACTIVÉE (ticketAutoCreate = true)" ;;
+        tk.init_auto_create_off) _M="Création auto de ticket : DÉSACTIVÉE (défaut). Pour l'activer : git config repowarden.ticketAutoCreate true" ;;
         tk.init_next) _M="Ensuite : committer ces fichiers ; exiger la vérification « ticket » (repowarden proteger --checks \"…,ticket\") ; dans release.yml, brancher le job tickets (voir la doc Tickets)." ;;
         tk.prerelease) _M="Disponible en préversion **%s** : à tester avant la production." ;;
         tk.released) _M="Publié dans **%s**." ;;
