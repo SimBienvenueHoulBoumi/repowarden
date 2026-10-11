@@ -8,10 +8,42 @@
 | `pre-commit` | Rejects badly named branches, blocks direct commits on protected branches (`main`/`master` by default), detects secrets, formats **only the staged content** (unstaged work is preserved) |
 | `prepare-commit-msg` | Prefixes the message based on the branch: on `feat/bean`, `git commit -m "add X"` → `feat(bean): add X` |
 | `commit-msg` | Enforces [Conventional Commits](https://www.conventionalcommits.org), 72 characters maximum |
-| `pre-push` | Rejects badly named branches and direct pushes to protected branches (`protectedBranches`, initial creation allowed); builds and tests **the pushed commit**, only for the affected projects |
+| `pre-push` | Rejects badly named branches and direct pushes to protected branches (`protectedBranches`, initial creation allowed); **lint** (shellcheck for shell scripts, actionlint for GitHub workflows) then builds and tests **the pushed commit**, only for the affected projects |
 | `post-merge` | After a `git pull`: deletes merged local branches (regular or squash merge) whose remote branch has been deleted; never a branch containing unintegrated work |
 
 One-off bypass: `git commit --no-verify`, `git push --no-verify` — the [CI](ci.md) re-runs the checks.
+
+## Lint at pre-push
+
+The `pre-push` hook runs linters on changed files **before** tests:
+
+| Linter | Targeted files | Required tool |
+|---|---|---|
+| **shellcheck** | `*.sh`, `*.bash` and scripts without extension with shebang (`#!/bin/sh`, `#!/bin/bash`, `#!/usr/bin/env bash`…) | `shellcheck` |
+| **actionlint** | `.github/workflows/*.yml`, `.github/workflows/*.yaml` | `actionlint` |
+
+### shellcheck severity
+
+Setting `repowarden.lintSeverity` (in `.repowarden.conf` or `git config`):
+
+| Value | Behavior | Checks enabled |
+|---|---|---|
+| `error` | Blocks only on errors | Mandatory error level |
+| `warning` (default) | Blocks on errors + warnings | Mandatory error + warning |
+| `style` | Also blocks on style suggestions | All + optional (`-o all`) |
+| `info` | Blocks on everything | All + optional (`-o all`) |
+
+### Disable lint
+
+- `repowarden.skip lint` (git config or `.repowarden.conf`): completely disables lint at push.
+- Strict CI mode (`REPOWARDEN_WARN_FILE` set): missing tool = failure.
+
+### Tool installation
+
+If a linter is missing, a warning message shows the install command for the OS:
+- macOS: `brew install shellcheck` / `brew install actionlint`
+- Linux: `apt-get install shellcheck` / `go install github.com/rhysd/actionlint/cmd/actionlint@latest`
+- Windows: `choco install shellcheck` / `scoop install actionlint`
 
 ## Commit messages
 

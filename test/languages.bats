@@ -329,18 +329,32 @@ load_engine() {
     [[ "$output" == *"actionlint"* ]]
 }
 
-@test "pre-push : shellcheck sur fichier shell modifie -> bloque si erreur SC2015" {
+@test "pre-push : shellcheck bloque sur warning (SC2034) avec severite par defaut" {
     require shellcheck
-    printf '#!/bin/sh\n[ -f x ] && true || false\n' >script.sh
+    printf '#!/bin/sh\necho "hello"\n' >script.sh
     git add script.sh
     git commit -q -m "ajoute script"
     git push -q --no-verify origin feat/x
-    # Introduce SC2015: note that && and || have equal precedence
-    printf '#!/bin/sh\n# modified\n[ -f x ] && true || false\n' >script.sh
+    # Introduce SC2034 (warning): variable non utilisee
+    printf '#!/bin/sh\nvar="test"\necho "hello"\n' >script.sh
     git commit -q -am "modifie script"
     run git push -q origin feat/x
     [ "$status" -ne 0 ]
-    [[ "$output" == *"SC2015"* ]]
+    [[ "$output" == *"SC2034"* ]]
+}
+
+@test "pre-push : severite=warning n bloque pas sur style/info (SC2248)" {
+    require shellcheck
+    printf '#!/bin/bash\necho "hello"\n' >script.sh
+    git add script.sh
+    git commit -q -m "ajoute script"
+    git push -q --no-verify origin feat/x
+    # Introduce SC2248 (style): guillemets manquants sur variable sure
+    printf '#!/bin/bash\nvar=hello\necho $var\n' >script.sh
+    git commit -q -am "modifie script"
+    run git push -q origin feat/x
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"SC2248"* ]]
 }
 
 @test "pre-push : actionlint sur workflow modifie -> bloque si invalide" {
@@ -361,15 +375,78 @@ load_engine() {
 @test "pre-push : repowarden.skip lint desactive le linting" {
     require shellcheck
     git config repowarden.skip lint
-    printf '#!/bin/sh\n[ -f x ] && true || false\n' >script.sh
+    printf '#!/bin/sh\necho "hello"\n' >script.sh
     git add script.sh
     git commit -q -m "ajoute script"
     git push -q --no-verify origin feat/x
-    # Introduce SC2015
-    printf '#!/bin/sh\n# modified\n[ -f x ] && true || false\n' >script.sh
+    # Introduce SC2034
+    printf '#!/bin/sh\nvar="test"\necho "hello"\n' >script.sh
     git commit -q -am "modifie script"
     run git push -q origin feat/x
     [ "$status" -eq 0 ]
+}
+
+@test "pre-push : lintSeverity=error n bloque pas sur warning (SC2034)" {
+    require shellcheck
+    git config repowarden.lintSeverity error
+    printf '#!/bin/sh\necho "hello"\n' >script.sh
+    git add script.sh
+    git commit -q -m "ajoute script"
+    git push -q --no-verify origin feat/x
+    # SC2034 (warning) : ne doit pas bloquer avec severity=error
+    printf '#!/bin/sh\nvar="test"\necho "hello"\n' >script.sh
+    git commit -q -am "modifie script"
+    run git push -q origin feat/x
+    [ "$status" -eq 0 ]
+}
+
+@test "pre-push : lintSeverity=style bloque sur style (SC2248)" {
+    require shellcheck
+    git config repowarden.lintSeverity style
+    printf '#!/bin/bash\necho "hello"\n' >script.sh
+    git add script.sh
+    git commit -q -m "ajoute script"
+    git push -q --no-verify origin feat/x
+    # SC2248 (style) : doit bloquer avec severity=style
+    printf '#!/bin/bash\nvar=hello\necho $var\n' >script.sh
+    git commit -q -am "modifie script"
+    run git push -q origin feat/x
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"SC2248"* ]]
+}
+
+@test "pre-push : shellcheck detecte script sans extension avec shebang" {
+    require shellcheck
+    printf '#!/bin/bash\necho "hello"\n' >myscript
+    git add myscript
+    git commit -q -m "ajoute script sans extension"
+    git push -q --no-verify origin feat/x
+    # Introduce SC2034
+    printf '#!/bin/bash\nvar="test"\necho "hello"\n' >myscript
+    git commit -q -am "modifie script"
+    run git push -q origin feat/x
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"SC2034"* ]]
+}
+
+@test "pre-push : lint.missing recoit outil, fichier et commande installation" {
+    require shellcheck
+    # On simule l'absence de shellcheck en le masquant temporairement
+    mkdir -p "$F/bin"
+    PATH="$F/bin:$PATH"
+    printf '#!/bin/bash\necho "hello"\n' >script.sh
+    git add script.sh
+    git commit -q -m "ajoute script"
+    git push -q --no-verify origin feat/x
+    # Introduce SC2034
+    printf '#!/bin/bash\nvar="test"\necho "hello"\n' >script.sh
+    git commit -q -am "modifie script"
+    run git push -q origin feat/x
+    [ "$status" -ne 0 ]
+    # Le message d'avertissement doit contenir les 3 valeurs
+    [[ "$output" == *"shellcheck"* ]]
+    [[ "$output" == *"script.sh"* ]]
+    [[ "$output" == *"brew install shellcheck"* || "$output" == *"apt-get install shellcheck"* || "$output" == *"choco install shellcheck"* || "$output" == *"https://www.shellcheck.net/"* ]]
 }
 
 @test "python : pas de faux succes avec un .pyc perime (meme taille, meme seconde)" {

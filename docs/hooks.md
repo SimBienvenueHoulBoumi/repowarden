@@ -8,10 +8,42 @@
 | `pre-commit` | Refuse les branches mal nommées, bloque les commits directs sur les branches protégées (`main`/`master` par défaut), détecte les secrets, formate **uniquement le contenu stagé** (le travail non stagé est préservé) |
 | `prepare-commit-msg` | Préfixe le message d'après la branche : sur `feat/bean`, `git commit -m "ajoute X"` → `feat(bean): ajoute X` |
 | `commit-msg` | Impose [Conventional Commits](https://www.conventionalcommits.org), 72 caractères maximum |
-| `pre-push` | Refuse les branches mal nommées et le push direct sur les branches protégées (`protectedBranches`, création initiale permise) ; build et tests **du commit poussé**, seulement pour les projets touchés |
+| `pre-push` | Refuse les branches mal nommées et le push direct sur les branches protégées (`protectedBranches`, création initiale permise) ; **lint** (shellcheck pour les scripts shell, actionlint pour les workflows GitHub) puis build et tests **du commit poussé**, seulement pour les projets touchés |
 | `post-merge` | Après un `git pull` : supprime les branches locales mergées (classique ou squash) dont la branche distante a été supprimée ; jamais une branche contenant du travail non intégré |
 
 Contournement ponctuel : `git commit --no-verify`, `git push --no-verify` — la [CI](ci.md) refait les vérifications.
+
+## Lint au pre-push
+
+Le hook `pre-push` lance des linters sur les fichiers modifiés **avant** les tests :
+
+| Linter | Fichiers ciblés | Outil requis |
+|---|---|---|
+| **shellcheck** | `*.sh`, `*.bash` et scripts sans extension avec shebang (`#!/bin/sh`, `#!/bin/bash`, `#!/usr/bin/env bash`…) | `shellcheck` |
+| **actionlint** | `.github/workflows/*.yml`, `.github/workflows/*.yaml` | `actionlint` |
+
+### Sévérité shellcheck
+
+Réglage `repowarden.lintSeverity` (dans `.repowarden.conf` ou `git config`) :
+
+| Valeur | Comportement | Checks activés |
+|---|---|---|
+| `error` | Bloque seulement sur les erreurs | Obligatoires niveau error |
+| `warning` (défaut) | Bloque sur erreurs + avertissements | Obligatoires error + warning |
+| `style` | Bloque aussi sur les remarques de style | Tous + optionnels (`-o all`) |
+| `info` | Bloque sur tout | Tous + optionnels (`-o all`) |
+
+### Désactiver le lint
+
+- `repowarden.skip lint` (git config ou `.repowarden.conf`) : désactive complètement le lint au push.
+- Mode strict CI (`REPOWARDEN_WARN_FILE` défini) : outil manquant = échec.
+
+### Installation des outils
+
+Si un linter est absent, un message d'avertissement indique la commande d'installation selon l'OS :
+- macOS : `brew install shellcheck` / `brew install actionlint`
+- Linux : `apt-get install shellcheck` / `go install github.com/rhysd/actionlint/cmd/actionlint@latest`
+- Windows : `choco install shellcheck` / `scoop install actionlint`
 
 ## Messages de commit
 
