@@ -93,6 +93,24 @@ on:
         # release ne modifie aucun fichier de .github/workflows/ (le jeton des
         # Actions n'en a pas le droit)
         default: v4
+      preversion-on-push:
+        description: >-
+          Mode tag : préversion à chaque merge sur la branche d'intégration.
+          false (défaut) : préversion regroupée, seulement lors d'un
+          déclenchement planifié ou manuel, si la branche a changé.
+        type: boolean
+        default: false
+      delivery-on-push:
+        description: >-
+          Mode tag : demande de livraison (approbation) à chaque merge. false
+          (défaut) : seulement dans la fenêtre (déclenchement planifié
+          delivery-schedule, ou manuel), ou pour un merge étiqueté « urgent ».
+        type: boolean
+        default: false
+      delivery-schedule:
+        description: "Mode tag : expression cron du déclenchement planifié qui ouvre la fenêtre de livraison (doit figurer dans les déclencheurs de l'appelant)"
+        type: string
+        default: ""
       delivery-environment:
         description: >-
           Mode tag : environnement de déploiement dont l'approbation (« Approve
@@ -392,6 +410,12 @@ jobs:
           MAIN: ${{ inputs.main-branch }}
           INITIAL_VERSION: ${{ inputs.initial-version }}
           MODE: ${{ inputs.mode }}
+          # Livraison approuvée (environnement) : la PR part d'un instantané de
+          # develop, créé seulement à la demande (fenêtre, manuelle, urgence)
+          INSTANTANE: ${{ inputs.mode == 'tag' && inputs.delivery-environment != '' }}
+          DEMANDE: >-
+            ${{ github.event_name == 'workflow_dispatch' || inputs.delivery-on-push ||
+            (github.event_name == 'schedule' && github.event.schedule == inputs.delivery-schedule) }}
         run: |
           git fetch -q origin "$MAIN"
           pr="$(gh pr list --head "$INTEGRATION" --base "$MAIN" --state open --json number -q '.[0].number // empty')"
@@ -413,6 +437,37 @@ jobs:
             title="chore(release): livrer $INTEGRATION sur $MAIN"
             body="Aucune nouvelle version : maintenance uniquement (ci, chore, docs…)."
           fi
+          if [ "$INSTANTANE" = true ]; then
+            # Instantané : l'approbation porte sur ce commit exact ; ce qui est
+            # mergé ensuite dans develop partira à la livraison suivante
+            if [ "$DEMANDE" != true ]; then
+              echo "Livraison à venir : $title (demandée dans la fenêtre de livraison)."
+              exit 0
+            fi
+            # Une seule demande en attente : les précédentes sont fermées
+            while IFS=$'\t' read -r ancienne tete; do
+              [ -n "$ancienne" ] || continue
+              if [[ "$tete" == livraison/* ]]; then
+                gh pr close "$ancienne" --delete-branch --comment "Remplacée par une demande de livraison plus récente." >/dev/null
+              else
+                gh pr close "$ancienne" --comment "Remplacée par une demande de livraison sur un instantané de $INTEGRATION." >/dev/null
+              fi
+            done < <(gh pr list --base "$MAIN" --state open --json number,headRefName \
+              -q ".[] | select(.headRefName == \"$INTEGRATION\" or (.headRefName | startswith(\"livraison/\"))) | [.number, .headRefName] | @tsv")
+            branche="livraison/${version:+v}${version:-maintenance}"
+            gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$branche" >/dev/null 2>&1 || true
+            gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/heads/$branche" -f sha="$GITHUB_SHA" >/dev/null
+            # PR ouverte par le jeton des Actions : le suivi des tickets ne s'y
+            # lance pas ; une livraison n'exige pas de ticket
+            gh api "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" -f state=success -f context=ticket \
+              -f description="Livraison : sans ticket" >/dev/null
+            body="$(printf '%s\n\n_Instantané de %s au commit %s : approuver la demande de déploiement suffit, le travail mergé ensuite partira à la livraison suivante._\n' \
+              "$body" "$INTEGRATION" "${GITHUB_SHA:0:7}")"
+            url="$(gh pr create --head "$branche" --base "$MAIN" --title "$title" --body "$body")"
+            echo "pr=${url##*/}" >>"$GITHUB_OUTPUT"
+            echo "::notice::Demande de livraison : $title ($branche)"
+            exit 0
+          fi
           if [ -n "$pr" ]; then
             gh pr edit "$pr" --title "$title" --body "$body" >/dev/null
             echo "::notice::PR #$pr : $title"
@@ -423,11 +478,33 @@ jobs:
           fi
           echo "pr=$pr" >>"$GITHUB_OUTPUT"
 
+      # Merge étiqueté « urgent » (faille, régression bloquante) : demande de
+      # livraison tout de suite, dans un run manuel (sa propre file : un run de
+      # push en attente d'approbation bloquerait les merges suivants)
+      - name: Urgence
+        if: >-
+          inputs.mode == 'tag' && inputs.delivery-environment != '' && !inputs.delivery-on-push &&
+          github.event_name == 'push' && github.ref_name == inputs.integration-branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          INTEGRATION: ${{ inputs.integration-branch }}
+          CALLER: ${{ github.workflow_ref }}
+        run: |
+          if [ "$(gh api "repos/$GH_REPO/commits/$GITHUB_SHA/pulls" -q '[.[].labels[].name] | index("urgent") != null')" = true ]; then
+            fichier="${CALLER%%@*}"
+            gh workflow run "${fichier##*/}" --ref "$INTEGRATION"
+            echo "::notice::Merge urgent : demande de livraison lancée."
+          fi
+
       # Mode cycle : préversion de test à chaque merge sur la branche
       # d'intégration ; numéro = commits depuis la branche principale
       - name: Préversion
         id: preversion
-        if: (inputs.mode == 'tag' || inputs.mode == 'cycle') && inputs.preversion != '' && github.ref_name == inputs.integration-branch
+        if: >-
+          (inputs.mode == 'tag' || inputs.mode == 'cycle') && inputs.preversion != '' &&
+          github.ref_name == inputs.integration-branch &&
+          (inputs.mode == 'cycle' || github.event_name != 'push' || inputs.preversion-on-push)
         env:
           GH_TOKEN: ${{ github.token }}
           MAIN: ${{ inputs.main-branch }}
@@ -487,6 +564,12 @@ jobs:
           fi
           bash .repowarden-ci/ci/version.sh notes HEAD >"$RUNNER_TEMP/notes.md"
           gh release create "$tag" --target "$GITHUB_SHA" --title "$tag" --notes-file "$RUNNER_TEMP/notes.md"
+          # Ses préversions ont servi : retirées de GitHub (releases et tags) ;
+          # sur npm elles restent (une version publiée ne se retire pas)
+          for pre in $(git tag --list "$tag-*"); do
+            gh release delete "$pre" --yes --cleanup-tag >/dev/null 2>&1 ||
+              echo "::warning::Préversion $pre non retirée (tags protégés ?)."
+          done
           {
             echo "release_created=true"
             echo "tag_name=$tag"
@@ -550,17 +633,39 @@ jobs:
   # la release sur la branche principale.
   livraison:
     needs: tag
+    # Fenêtre de livraison : déclenchement planifié delivery-schedule, ou
+    # manuel (dont l'urgence) ; à chaque merge seulement avec delivery-on-push
     if: >-
       inputs.mode == 'tag' && inputs.delivery-environment != '' &&
-      github.ref_name == inputs.integration-branch && needs.tag.outputs.delivery_pr != ''
+      github.ref_name == inputs.integration-branch && needs.tag.outputs.delivery_pr != '' &&
+      (github.event_name == 'workflow_dispatch' || inputs.delivery-on-push ||
+      (github.event_name == 'schedule' && github.event.schedule == inputs.delivery-schedule))
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: ${{ inputs.delivery-environment }}
     concurrency:
       group: livraison-${{ github.repository }}
       cancel-in-progress: true
-    permissions: {}
+    permissions:
+      actions: read # approbations du run (vérification ci-dessous)
     steps:
+      # Garde-fou : un environnement sans approbateur (ex. créé par GitHub au
+      # premier run, avant repowarden proteger) laisserait passer ce job sans
+      # personne ; rien n'est armé sans une approbation humaine de ce run
+      - name: Approbation humaine
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN: ${{ github.run_id }}
+          ENV: ${{ inputs.delivery-environment }}
+        run: |
+          qui="$(gh api "repos/$GH_REPO/actions/runs/$RUN/approvals" \
+            -q "[.[] | select(.state == \"approved\" and ([.environments[].name] | index(\"$ENV\"))) | .user.login] | join(\", \")")"
+          if [ -z "$qui" ]; then
+            echo "::error::Livraison non approuvée : l'environnement $ENV n'exige aucune approbation. Lancer repowarden proteger (approbateurs de l'environnement, règle de main), puis relancer ce run."
+            exit 1
+          fi
+          echo "::notice::Livraison approuvée par $qui."
       - name: Jeton de l'App
         id: app
         if: inputs.app-client-id != ''

@@ -374,6 +374,10 @@ _msg_en() {
         tk.merged) _M="Merged by PR #%s into %s: in pre-production, available in the next pre-release." ;;
         tk.branch_created) _M="Ticket validated: its branch \`%s\` is created from \`%s\`.\n\nTo work on it:\n\n\`\`\`bash\nrepowarden ticket %s\n\`\`\`\n\n(or \`git fetch && git switch %s\`). The first push opens the draft PR." ;;
         tk.branch_notice) _M="Branch %s created for ticket #%s" ;;
+        tk.multi) _M="PR linked to several tickets (%s): one PR = one ticket, split it." ;;
+        tk.bad_branch) _M="Branch \"%s\": it must carry the ticket number (type/%s-topic); repowarden ticket <n> creates it." ;;
+        tk.no_design) _M="Design missing on #%s: write it as a ticket comment (\"Conception retenue\") before the code." ;;
+        tk.other_ticket) _M="A commit references ticket #%s while the PR handles #%s: one PR = one ticket." ;;
         tk.automerge_armed) _M="PR #%s: auto-merge armed (squash), as soon as the checks are green." ;;
         tk.automerge_no_app) _M="PR #%s: auto-merge not armed, no GitHub App (repowarden app init): with the Actions token, the merge would trigger no workflow." ;;
         tk.automerge_failed) _M="PR #%s: auto-merge not armed (auto-merge not allowed on the repository: repowarden proteger)." ;;

@@ -12,7 +12,7 @@ brew install bats-core shellcheck actionlint gitleaks   # ou équivalents apt / 
 ## Avant chaque PR
 
 ```bash
-shellcheck bin/* ci/*.sh hooks/pre-commit hooks/prepare-commit-msg hooks/commit-msg hooks/pre-push hooks/post-checkout hooks/post-merge hooks/lib/*.sh hooks/lib/i18n/*.sh hooks/lang/*.sh install.sh
+shellcheck bin/* ci/*.sh ci/tickets/*.sh hooks/pre-commit hooks/prepare-commit-msg hooks/commit-msg hooks/pre-push hooks/post-checkout hooks/post-merge hooks/lib/*.sh hooks/lib/i18n/*.sh hooks/lang/*.sh install.sh
 actionlint .github/workflows/*.yml
 bats test/                      # tests unitaires et d'intégration
 test/e2e/run.sh python go       # tests réels (les langages dont l'outillage est installé)

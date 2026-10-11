@@ -120,6 +120,8 @@ types_help() {
 branch_name_valid() {
     local branch="$1" allowed pat
     [ -z "$branch" ] && return 0 # HEAD détachée
+    # Instantané de develop créé par la demande de livraison : toujours admis
+    [[ "$branch" != livraison/* ]] || return 0
     cfg_r allowedBranches "$DEFAULT_ALLOWED_BRANCHES"
     allowed="$REPLY"
     set -f # pas d'expansion de "release/*" sur le disque
@@ -143,10 +145,11 @@ pr_targets_r() {
     integration="$REPLY"
     [ -n "$integration" ] || return 0
     cfg_r mainBranch main
-    # Seule la branche d'intégration entre dans la branche principale : tout
-    # le reste (correctifs urgents compris) passe par elle et ses préversions
+    # Seule la branche d'intégration entre dans la branche principale (ou son
+    # instantané livraison/vX.Y.Z, figé à la demande de livraison) : tout le
+    # reste (correctifs urgents compris) passe par elle et ses préversions
     case "$1" in
-        "$integration" | release-please--*) ;;
+        "$integration" | livraison/* | release-please--*) ;;
         *) REPLY="$integration" ;;
     esac
 }

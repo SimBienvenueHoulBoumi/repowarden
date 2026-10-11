@@ -54,6 +54,10 @@ on:
         description: "Ticket ouvert par un mainteneur (droits d'écriture) validé d'office : maintainers, ou never (un mainteneur pose toujours « validé »)"
         type: string
         default: maintainers
+      require-design:
+        description: "Vérification « ticket » : le ticket doit porter une « Conception retenue » écrite par un mainteneur avant le code"
+        type: boolean
+        default: true
       auto-merge:
         description: "Merge automatique (squash) des PR de travail prêtes vers la branche d'intégration, ticket validé ; seulement avec la GitHub App"
         type: boolean
@@ -127,6 +131,7 @@ jobs:
           ISSUE_ASSOCIATION: ${{ github.event.issue.author_association }}
           AUTO_VALIDATE: ${{ inputs.auto-validate }}
           AUTO_MERGE: ${{ inputs.auto-merge }}
+          REQUIRE_DESIGN: ${{ inputs.require-design }}
           APP_TOKEN: ${{ steps.app.outputs.token != '' }}
           LABEL: ${{ github.event.label.name }}
           STATE_REASON: ${{ github.event.issue.state_reason }}

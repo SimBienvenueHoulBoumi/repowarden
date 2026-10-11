@@ -24,6 +24,8 @@
   },
   "files": [
     "bin/",
+    "ci/tickets.sh",
+    "ci/tickets/",
     "hooks/",
     "install.sh"
   ],

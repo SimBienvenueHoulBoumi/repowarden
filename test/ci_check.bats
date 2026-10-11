@@ -195,6 +195,19 @@ setup() {
     done
 }
 
+@test "ci : flux develop, instantane de livraison (livraison/vX.Y.Z) admis vers main, meme avec allowedBranches" {
+    git config repowarden.integrationBranch develop
+    git config repowarden.allowedBranches "main develop"
+    REPOWARDEN_BRANCH=livraison/v4.4.0 REPOWARDEN_TARGET=main run "$CHECK" branch
+    [ "$status" -eq 0 ] || { echo "$output"; return 1; }
+    # vers develop : refusee (un instantane ne va que vers main)
+    REPOWARDEN_BRANCH=livraison/v4.4.0 REPOWARDEN_TARGET=develop run "$CHECK" branch
+    [ "$status" -ne 0 ]
+    # toute autre source vers main reste refusee
+    REPOWARDEN_BRANCH=release/4.4.0 REPOWARDEN_TARGET=main run "$CHECK" branch
+    [ "$status" -ne 0 ]
+}
+
 @test "ci : flux develop, seul develop entre dans main (hotfix et release compris)" {
     git config repowarden.integrationBranch develop
     for b in hotfix/crash release/1.2.0 fix/x; do

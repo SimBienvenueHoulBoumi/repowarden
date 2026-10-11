@@ -374,6 +374,10 @@ _msg_fr() {
         tk.merged) _M="Mergé par la PR #%s dans %s : en préprod, disponible dans la prochaine préversion." ;;
         tk.branch_created) _M="Ticket validé : sa branche \`%s\` est créée depuis \`%s\`.\n\nPour y travailler :\n\n\`\`\`bash\nrepowarden ticket %s\n\`\`\`\n\n(ou \`git fetch && git switch %s\`). Le premier push ouvre la PR en brouillon." ;;
         tk.branch_notice) _M="Branche %s créée pour le ticket #%s" ;;
+        tk.multi) _M="PR liée à plusieurs tickets (%s) : une PR = un ticket, la découper." ;;
+        tk.bad_branch) _M="Branche « %s » : elle doit porter le numéro du ticket (type/%s-sujet) ; repowarden ticket <n> la crée." ;;
+        tk.no_design) _M="Conception absente sur #%s : l'écrire en commentaire du ticket (« Conception retenue ») avant le code." ;;
+        tk.other_ticket) _M="Un commit cite le ticket #%s alors que la PR traite #%s : une PR = un ticket." ;;
         tk.automerge_armed) _M="PR #%s : merge automatique armé (squash), dès que les vérifications sont vertes." ;;
         tk.automerge_no_app) _M="PR #%s : merge automatique non armé, pas de GitHub App (repowarden app init) : avec le jeton des Actions, le merge ne déclencherait aucun workflow." ;;
         tk.automerge_failed) _M="PR #%s : merge automatique non armé (dépôt sans merge automatique autorisé : repowarden proteger)." ;;

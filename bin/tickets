@@ -70,6 +70,7 @@ type: fix|d73a4a|Correction de bug (branche fix/…)
 type: docs|0075ca|Documentation (branche docs/…)
 type: refactor|cfd3d7|Restructuration (branche refactor/…)
 type: chore|ededed|Maintenance (branche chore/…)
+urgent|b60205|Livraison immédiate au merge (faille, régression bloquante)
 ETIQUETTES
 
 # 2. Modèle de ticket et workflow (jamais écrasés)

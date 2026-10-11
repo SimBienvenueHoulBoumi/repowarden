@@ -20,6 +20,7 @@ case "$1 $2" in
         case "$*" in
             *"-q .body"*) cat "$F/pr_body.$3" 2>/dev/null || cat "$F/pr_body" 2>/dev/null || true ;;
             *"-q .title"*) echo "feat: panier" ;;
+            *commits*) cat "$F/pr_commits" 2>/dev/null || true ;;
         esac ;;
     "pr edit")
         while [ $# -gt 0 ]; do [ "$1" = --body ] && printf '%s' "$2" >"$F/pr_body"; shift; done ;;
@@ -55,6 +56,8 @@ case "$1 $2" in
         case "$*" in
             *"-q .title"*) cat "$F/issues/$3.title" 2>/dev/null || echo "Ajoute le panier" ;;
             *"-q .id"*) echo "I_$3" ;;
+            # conception écrite par un mainteneur (sauf ticket marqué sans)
+            *authorAssociation*) [ -e "$F/issues/$3.sansconception" ] || echo "## Conception retenue (avant code)" ;;
             *comments*) cat "$F/issues/$3.comments" 2>/dev/null || true ;;
             *assignees*) cat "$F/issues/$3.assignees" 2>/dev/null || true ;;
             *) etiquettes "$3" ;;
@@ -84,7 +87,7 @@ exit 0
 GH
     chmod +x "$F/bin/gh"
     export PATH="$F/bin:$PATH" FAKE="$F" GH_REPO=o/r
-    export PR=7 HEAD=feat/panier BASE=develop HEAD_SHA=abc AUTHOR=dev DRAFT=false MERGED=false
+    export PR=7 HEAD=feat/12-panier BASE=develop HEAD_SHA=abc AUTHOR=dev DRAFT=false MERGED=false
 }
 
 labels() { cat "$F/issues/$1.labels" 2>/dev/null; }
@@ -102,7 +105,7 @@ ticket() { printf '%s\n' "$@" >"$F/issues/$N.labels"; }
 
 @test "tickets : PR sans ticket -> ticket cree a valider, relie, PR bloquee" {
     printf 'Ajoute le panier.' >"$F/pr_body"
-    ACTION=opened run "$TICKETS" pr
+    HEAD=feat/panier ACTION=opened run "$TICKETS" pr
     # bloquee par le statut « ticket », le job reste vert (pas une panne)
     [ "$status" -eq 0 ]
     grep -qxF "statut: à valider" "$F/issues/42.labels"
@@ -125,7 +128,7 @@ ticket() { printf '%s\n' "$@" >"$F/issues/$N.labels"; }
 @test "tickets : etiquette valide -> backlog et PR en attente debloquee" {
     N=12 ticket "statut: à valider" "validé"
     printf 'Ticket : #12' >"$F/pr_body"
-    FAKE_PRS=$'7\tfeat/panier\tabc' ISSUE=12 ACTION=labeled LABEL=validé run "$TICKETS" issue
+    FAKE_PRS=$'7\tfeat/12-panier\tabc' ISSUE=12 ACTION=labeled LABEL=validé run "$TICKETS" issue
     [ "$status" -eq 0 ]
     [ "$(labels 12 | grep statut)" = "statut: backlog" ]
     grep -qx "statut-pr success" "$F/events"
@@ -174,6 +177,12 @@ ticket() { printf '%s\n' "$@" >"$F/issues/$N.labels"; }
     [ "$status" -eq 0 ]
     ACTION=opened HEAD=develop run "$TICKETS" pr
     [ "$status" -eq 0 ]
+    [ ! -e "$F/issues/42.labels" ]
+    # instantane de livraison vers main : sans ticket
+    : >"$F/events"
+    ACTION=opened HEAD=livraison/v4.4.0 BASE=main run "$TICKETS" pr
+    [ "$status" -eq 0 ]
+    grep -qx "statut-pr success" "$F/events"
     [ ! -e "$F/issues/42.labels" ]
 }
 
@@ -381,9 +390,48 @@ ticket() { printf '%s\n' "$@" >"$F/issues/$N.labels"; }
 @test "tickets : ticket valide plus tard -> merge automatique arme sur sa PR prete" {
     N=12 ticket "statut: à valider" "validé"
     printf 'Ticket : #12' >"$F/pr_body"
-    FAKE_PRS=$'7\tfeat/panier\tabc\tdevelop\tfalse' APP_TOKEN=true ISSUE=12 ACTION=labeled LABEL=validé run "$TICKETS" issue
+    FAKE_PRS=$'7\tfeat/12-panier\tabc\tdevelop\tfalse' APP_TOKEN=true ISSUE=12 ACTION=labeled LABEL=validé run "$TICKETS" issue
     [ "$status" -eq 0 ]
     grep -qx "merge-auto 7" "$F/events"
+}
+
+@test "tickets : controles (pas des consignes) -> conception, un seul ticket, branche du ticket, commits du meme ticket" {
+    N=12 ticket "validé" "statut: en cours"
+    printf 'Ticket : #12' >"$F/pr_body"
+    # conception absente : refusee
+    touch "$F/issues/12.sansconception"
+    ACTION=synchronize run "$TICKETS" pr
+    [[ "$output" == *"Conception absente sur #12"* ]]
+    grep -qx "statut-pr failure" "$F/events"
+    # reglage : conception non exigee
+    : >"$F/events"
+    REQUIRE_DESIGN=false ACTION=synchronize run "$TICKETS" pr
+    grep -qx "statut-pr success" "$F/events"
+    rm "$F/issues/12.sansconception"
+    # plusieurs tickets (cas de #236 : #201 et #202 melanges)
+    N=13 ticket "validé" "statut: en cours"
+    printf 'Tickets : #12, #13' >"$F/pr_body"
+    : >"$F/events"
+    ACTION=synchronize run "$TICKETS" pr
+    [[ "$output" == *"plusieurs tickets (#12, #13)"* ]]
+    grep -qx "statut-pr failure" "$F/events"
+    # branche hors convention (cas de feat/ticket201-test)
+    printf 'Ticket : #12' >"$F/pr_body"
+    : >"$F/events"
+    HEAD=feat/ticket12-test ACTION=synchronize run "$TICKETS" pr
+    [[ "$output" == *"doit porter le numéro du ticket"* ]]
+    grep -qx "statut-pr failure" "$F/events"
+    # commit qui cite un autre ticket
+    printf 'fix: x\n\nTicket : #12\nfeat: y\n\nTicket : #13\n' >"$F/pr_commits"
+    : >"$F/events"
+    ACTION=synchronize run "$TICKETS" pr
+    [[ "$output" == *"cite le ticket #13"* ]]
+    grep -qx "statut-pr failure" "$F/events"
+    # tout en regle
+    printf 'fix: x\n\nTicket : #12\n' >"$F/pr_commits"
+    : >"$F/events"
+    ACTION=synchronize run "$TICKETS" pr
+    grep -qx "statut-pr success" "$F/events"
 }
 
 @test "tickets : nom de branche du ticket (type, numero, titre sans accents, tronque)" {

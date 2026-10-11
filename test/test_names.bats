@@ -44,6 +44,20 @@ PY
     [ ! -e release-please-config.json ] && [ ! -e .release-please-manifest.json ]
 }
 
+@test "release : livraison regroupee (fenetre, file distincte), jamais a chaque merge" {
+    cd "$BATS_TEST_DIRNAME/.."
+    # Une demande d'approbation en attente ne doit pas bloquer les merges :
+    # une file par déclencheur
+    grep -q 'group: release-${{ github.ref_name }}-${{ github.event.schedule || github.event_name }}' .github/workflows/release.yml
+    # La demande de livraison n'est lancée qu'en fenêtre, à la main, ou à chaque merge si demandé
+    grep -q "github.event.schedule == inputs.delivery-schedule" .github/workflows/release-auto.yml
+    grep -q 'delivery-schedule: "0 7 \* \* 5"' .github/workflows/release.yml
+    grep -q -- '- cron: "0 7 \* \* 5"' .github/workflows/release.yml
+    # La livraison porte sur un instantané figé de develop (l'approbation ne
+    # devient pas caduque quand develop avance)
+    grep -q 'branche="livraison/' .github/workflows/release-auto.yml
+}
+
 @test "scripts : aucun tube vers grep -q ou head (SIGPIPE + pipefail = echec aleatoire)" {
     cd "$BATS_TEST_DIRNAME/.."
     # grep -q et head s'arrêtent avant la fin : la commande qui écrit reçoit

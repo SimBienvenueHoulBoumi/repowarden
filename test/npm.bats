@@ -57,8 +57,12 @@ setup() {
     for f in bin/repowarden bin/commit install.sh hooks/lib/common.sh hooks/pre-commit; do
         [[ "$output" == *"\"$f\""* ]]
     done
-    # Rien d'inutile sur une machine : tests, scripts de CI (accès réseau), modèles
-    for d in test/ ci/ templates/; do
+    # Rien d'inutile sur une machine : tests, scripts de CI (accès réseau), modèles ;
+    # sauf le suivi des tickets, appelé par « repowarden tickets init »
+    for f in ci/tickets.sh ci/tickets/commun.sh ci/tickets/adopter.sh; do
+        [[ "$output" == *"\"$f\""* ]]
+    done
+    for d in test/ ci/check.sh ci/version.sh templates/; do
         [[ "$output" != *"\"$d"* ]]
     done
 }

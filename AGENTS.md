@@ -16,7 +16,8 @@ le détail est dans la doc, voir « Où trouver le reste ».
    brouillon, elle se merge **seule en squash** quand la CI est verte.
 5. **Seul `develop` entre dans `main`**, par la PR de livraison, **toujours
    avec une approbation humaine**. Le ticket est fermé à la release.
-6. **Création de tickets gelée** tant que le backlog actif n'est pas traité :
+6. **Ces règles sont des contrôles** : la vérification `ticket` (exigée) refuse une PR sans conception écrite sur son ticket, qui cite plusieurs tickets, dont la branche ne porte pas le numéro du ticket, ou dont un commit cite un autre ticket.
+7. **Création de tickets gelée** tant que le backlog actif n'est pas traité :
    un défaut découvert est noté sur le ticket existant le plus proche.
 
 ## Commandes
@@ -34,7 +35,7 @@ repowarden cc -m "…" --type … --scope … --body "…" --refs "Ticket : #<n>
 - Avant chaque push, les mêmes vérifications que la CI :
 
 ```bash
-shellcheck bin/* ci/*.sh hooks/pre-commit hooks/prepare-commit-msg hooks/commit-msg hooks/pre-push hooks/post-checkout hooks/post-merge hooks/lib/*.sh hooks/lib/i18n/*.sh hooks/lang/*.sh install.sh
+shellcheck bin/* ci/*.sh ci/tickets/*.sh hooks/pre-commit hooks/prepare-commit-msg hooks/commit-msg hooks/pre-push hooks/post-checkout hooks/post-merge hooks/lib/*.sh hooks/lib/i18n/*.sh hooks/lang/*.sh install.sh
 actionlint .github/workflows/*.yml
 bats test/
 ```
