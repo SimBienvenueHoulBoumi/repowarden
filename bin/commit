@@ -335,9 +335,9 @@ ticket=""
 branch_ticket_r "$branch"
 [ -z "$REPLY" ] || ticket="Ticket : #$REPLY"
 # Branche de travail sans ticket : prévenu, jamais bloqué. Création proposée
-# seulement si repowarden gère la vie des tickets du projet (et sans -m)
+# seulement si repowarden gère la vie des tickets du projet ET ticketAutoCreate (et sans -m)
 if [ -z "$ticket" ] && [ -z "$DRY_RUN" ] && ! skipped tickets && work_branch "$branch"; then
-    if [ -z "$BATCH" ] && tickets_managed && has gh; then
+    if [ -z "$BATCH" ] && tickets_managed && ticket_auto_create && has gh; then
         t cc.ticket_offer
         ask_yn "$REPLY" n
         if [ -n "$YN" ] && n="$(bash "$ROOT/bin/ticket" nouveau "$description" --type "$type" --porcelain)" && [ -n "$n" ]; then

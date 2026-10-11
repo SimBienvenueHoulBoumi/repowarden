@@ -118,6 +118,8 @@ _msg_en() {
         hook.pre_push.5) _M="%s: no changed file, nothing to test." ;;
         hook.pre_push.6) _M="Nothing to test (branch deletion only)." ;;
         hook.pre_push.7) _M="Pre-push OK" ;;
+        hook.pre_push.lint.missing) _M="%s not installed, %s not checked (install: %s)." ;;
+        hook.pre_push.lint.run) _M="%s: %s" ;;
         hook.branch_hint.1) _M="Branch name \"%s\" does not follow the convention: commits and pushes will be refused. Rename:" ;;
         hook.branch_hint.2) _M="  Format <type>/<topic> (e.g. feat/signup); full help on the next commit." ;;
         hook.post_merge.1) _M="🧹 Local branch deleted (merged and deleted on the server): %s" ;;
@@ -417,6 +419,8 @@ _msg_en() {
         tk.init_exists) _M="%s already exists: left as is." ;;
         tk.init_written) _M="%s created." ;;
         tk.init_done) _M="Ticket tracking ready." ;;
+        tk.init_auto_create_on) _M="Auto ticket creation: ENABLED (ticketAutoCreate = true)" ;;
+        tk.init_auto_create_off) _M="Auto ticket creation: DISABLED (default). To enable: git config repowarden.ticketAutoCreate true" ;;
         tk.init_next) _M="Next: commit these files; require the \"ticket\" check (repowarden proteger --checks \"…,ticket\"); in release.yml, wire the tickets job (see the Tickets docs)." ;;
         tk.prerelease) _M="Available in pre-release **%s**: to be tested before production." ;;
         tk.released) _M="Released in **%s**." ;;

@@ -58,6 +58,10 @@ on:
         description: "Vérification « ticket » : le ticket doit porter une « Conception retenue » écrite par un mainteneur avant le code"
         type: boolean
         default: true
+      auto-create:
+        description: "Création automatique de ticket pour une PR sans ticket : true = crée un ticket « à valider », false = échec de la vérification avec la marche à suivre"
+        type: boolean
+        default: false
       auto-merge:
         description: "Merge automatique (squash) des PR de travail prêtes vers la branche d'intégration, ticket validé ; seulement avec la GitHub App"
         type: boolean
@@ -86,6 +90,9 @@ jobs:
   tickets:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    concurrency:
+      group: tickets-${{ github.event.issue.number || github.event.pull_request.number || github.sha }}
+      cancel-in-progress: false
     permissions:
       contents: write # branche du ticket : création à la validation, suppression à l'abandon
       issues: write # tickets : création, statuts, commentaires, fermeture
@@ -99,10 +106,13 @@ jobs:
           path: .repowarden-ci
           persist-credentials: false
       # Jeton de la GitHub App : ce qu'il fait (PR brouillon, merge) déclenche
-      # les autres workflows, contrairement au jeton des Actions
+      # les autres workflows, contrairement au jeton des Actions.
+      # Sur les branches dependabot/forks, le secret app-key n'est pas dispo :
+      # continue-on-error évite l'échec, le fallback github.token prend le relais.
       - name: Jeton de l'App
         id: app
         if: inputs.app-client-id != ''
+        continue-on-error: true
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ inputs.app-client-id }}
@@ -140,6 +150,7 @@ jobs:
           PUSHER: ${{ github.actor }}
           SHA: ${{ github.sha }}
           REVIEW_STATE: ${{ github.event.review.state }}
+          AUTO_CREATE: ${{ inputs.auto-create }}
         run: |
           if [ -n "$TAG" ]; then
             bash .repowarden-ci/ci/tickets.sh release

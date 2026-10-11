@@ -52,10 +52,22 @@ cmd_issue() {
             accepter "$ISSUE"
             ;;
         assigned)
-            # Pris en charge : sa branche (s'il est validé), en cours s'il
-            # attendait dans le backlog
-            est_valide "$ISSUE" && creer_branche "$ISSUE"
-            grep -qxF "$S_BACKLOG" <<<"$(etiquettes "$ISSUE")" && statut "$ISSUE" "$S_ENCOURS"
+            # Pris en charge : sa branche (s'il est validé), en cours s'il est
+            # validé ET assigné (quelle que soit la présence du label backlog,
+            # pour gérer la race validation+assignation quasi simultanée).
+            # Ne passe en cours que s'il n'est pas déjà plus loin (relecture, préprod, done).
+            if est_valide "$ISSUE"; then
+                creer_branche "$ISSUE"
+                local labels
+                labels="$(etiquettes "$ISSUE")"
+                if grep -qxF "$S_AVALIDER" <<<"$labels" || grep -qxF "$S_BACKLOG" <<<"$labels"; then
+                    # Pas de label plus avancé (relecture, préprod, done) ?
+                    grep -qxF "$S_RELECTURE" <<<"$labels" && return 0
+                    grep -qxF "$S_PREPROD" <<<"$labels" && return 0
+                    grep -qxF "$S_DONE" <<<"$labels" && return 0
+                    statut "$ISSUE" "$S_ENCOURS"
+                fi
+            fi
             return 0
             ;;
         closed)

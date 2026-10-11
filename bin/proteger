@@ -182,12 +182,12 @@ if [ -n "$integration" ]; then
     # release). Une livraison n'apporte que develop, vérifiée par la CI ; le
     # retour reste fait quand main a un contenu propre (correctif direct).
     [ -z "$others" ] || rulesets+=("$(branch_ruleset repowarden "$others" '"merge"' false "$livraison" "$last_push" "$deploiement")")
-    # Branche d'intégration : PR à jour non exigée. Le retour de main (après
-    # une release) serait sinon presque toujours en retard, et « mettre à jour »
-    # fusionnerait develop dans main en contournant la livraison ; la CI
-    # vérifie de toute façon chaque push sur develop.
+    # Branche d'intégration : squash seul (un commit par PR de travail, titre =
+    # message : les commits intermédiaires n'entrent jamais) ; plus de retour
+    # main → develop à merger, seuls develop et ses instantanés livraison/*
+    # entrant dans main. PR à jour non exigée : la CI vérifie chaque push.
     [[ " $existing " != *" $integration "* ]] ||
-        rulesets+=("$(branch_ruleset "repowarden ($integration)" "$integration" '"squash", "merge"' false)")
+        rulesets+=("$(branch_ruleset "repowarden ($integration)" "$integration" '"squash"' false)")
     merge_commit=true
     # Nettoyage par le workflow nettoyage-branches (garde une branche encore
     # source d'une autre PR ouverte)
