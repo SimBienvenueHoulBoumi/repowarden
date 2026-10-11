@@ -103,7 +103,7 @@ Une PR = un commit sur `main`, dont le message est le **titre de la PR** : chang
 repowarden proteger --checks "repowarden,build"   # vérifications séparées par des virgules ; gh connecté (admin)
 ```
 
-Le script pose le ruleset « repowarden » (PR obligatoire, vérifications exigées à jour, ni suppression ni push forcé), les modes de merge (squash ; avec un flux `develop` : merge commit sur `main`, squash ou merge commit sur `develop`, qui devient la branche par défaut ; dans ce flux, les PR n'ont pas à être à jour de leur cible : le merge commit d'une livraison n'existe que sur `main` et bloquerait sinon la livraison suivante), réserve les tags `v*` aux workflows (ruleset « repowarden (tags) »), prend le titre de PR comme message de commit et autorise GitHub Actions à créer des PR (releases automatiques).
+Le script pose le ruleset « repowarden » (PR obligatoire, vérifications exigées à jour, ni suppression ni push forcé), les modes de merge (squash ; avec un flux `develop` : merge commit sur `main`, **squash seul** sur `develop` (un commit par PR de travail : les commits intermédiaires n'y entrent jamais), qui devient la branche par défaut ; dans ce flux, les PR n'ont pas à être à jour de leur cible : le merge commit d'une livraison n'existe que sur `main` et bloquerait sinon la livraison suivante), réserve les tags `v*` aux workflows (ruleset « repowarden (tags) »), prend le titre de PR comme message de commit et autorise GitHub Actions à créer des PR (releases automatiques).
 
 À la main : *Settings → Rules → Rulesets* (ou *Branches → Branch protection rules*) sur `main` :
 
