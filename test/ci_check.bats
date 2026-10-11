@@ -407,7 +407,7 @@ print(json.dumps(out))' <<<"$(sed -n '/^{/,$p' <<<"$1")"
     [[ "$output" != *"branche par défaut"* ]]
 }
 
-@test "proteger : flux develop -> main en merge commit, develop squash ou merge, defaut develop" {
+@test "proteger : flux develop -> main en merge commit, develop squash seul, defaut develop" {
     require python3
     fake_gh_repo
     git config repowarden.integrationBranch develop
@@ -418,7 +418,7 @@ print(json.dumps(out))' <<<"$(sed -n '/^{/,$p' <<<"$1")"
         assert m["conditions"]["ref_name"]["include"]==["refs/heads/main"]; \
         assert m["rules"][2]["parameters"]["allowed_merge_methods"]==["merge"]; \
         assert d["name"]=="repowarden (develop)" and d["conditions"]["ref_name"]["include"]==["refs/heads/develop"]; \
-        assert d["rules"][2]["parameters"]["allowed_merge_methods"]==["squash","merge"]; \
+        assert d["rules"][2]["parameters"]["allowed_merge_methods"]==["squash"]; \
         assert [c["context"] for c in d["rules"][3]["parameters"]["required_status_checks"]]==["repowarden","tests (ubuntu-latest)"]; \
         assert m["rules"][3]["parameters"]["strict_required_status_checks_policy"] is False; \
         assert d["rules"][3]["parameters"]["strict_required_status_checks_policy"] is False; \
