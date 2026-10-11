@@ -234,7 +234,7 @@ load_engine() {
 }
 
 @test "pre-push : simple script sans projet -> rien a tester, push OK" {
-    printf 'echo hi\n' >deploy.sh
+    printf '#!/bin/sh\necho hi\n' >deploy.sh
     git add deploy.sh
     git commit -q -m "ajoute script"
     run git push -q origin feat/x
@@ -327,6 +327,49 @@ load_engine() {
     run git push -q origin feat/x
     [ "$status" -ne 0 ]
     [[ "$output" == *"actionlint"* ]]
+}
+
+@test "pre-push : shellcheck sur fichier shell modifie -> bloque si erreur SC2015" {
+    require shellcheck
+    printf '#!/bin/sh\n[ -f x ] && true || false\n' >script.sh
+    git add script.sh
+    git commit -q -m "ajoute script"
+    git push -q --no-verify origin feat/x
+    # Introduce SC2015: note that && and || have equal precedence
+    printf '#!/bin/sh\n# modified\n[ -f x ] && true || false\n' >script.sh
+    git commit -q -am "modifie script"
+    run git push -q origin feat/x
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"SC2015"* ]]
+}
+
+@test "pre-push : actionlint sur workflow modifie -> bloque si invalide" {
+    require actionlint
+    mkdir -p .github/workflows
+    printf 'name: ci\non: push\njobs:\n  b:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo\n' >.github/workflows/ci.yml
+    git add -A
+    git commit -q -m "ci: workflow"
+    git push -q --no-verify origin feat/x
+    # Introduce invalid workflow
+    printf 'name: ci\non: push\njobs:\n  b:\n    runs-onn: ubuntu-latest\n    steps:\n      - run: echo\n' >.github/workflows/ci.yml
+    git commit -q -am "modifie workflow"
+    run git push -q origin feat/x
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"actionlint"* ]]
+}
+
+@test "pre-push : repowarden.skip lint desactive le linting" {
+    require shellcheck
+    git config repowarden.skip lint
+    printf '#!/bin/sh\n[ -f x ] && true || false\n' >script.sh
+    git add script.sh
+    git commit -q -m "ajoute script"
+    git push -q --no-verify origin feat/x
+    # Introduce SC2015
+    printf '#!/bin/sh\n# modified\n[ -f x ] && true || false\n' >script.sh
+    git commit -q -am "modifie script"
+    run git push -q origin feat/x
+    [ "$status" -eq 0 ]
 }
 
 @test "python : pas de faux succes avec un .pyc perime (meme taille, meme seconde)" {

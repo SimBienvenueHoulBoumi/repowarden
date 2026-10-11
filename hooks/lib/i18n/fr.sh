@@ -116,6 +116,8 @@ _msg_fr() {
         hook.pre_push.5) _M="%s : aucun fichier modifié, rien à tester." ;;
         hook.pre_push.6) _M="Rien à tester (suppression de branche uniquement)." ;;
         hook.pre_push.7) _M="Pre-push OK" ;;
+        hook.pre_push.lint.missing) _M="%s absent, %s non vérifié (installation : %s)." ;;
+        hook.pre_push.lint.run) _M="%s : %s" ;;
         hook.branch_hint.1) _M="Nom de branche « %s » non conforme : commits et push seront refusés. Renommer :" ;;
         hook.branch_hint.2) _M="  Format <type>/<sujet> (ex. feat/inscription) ; aide complète au prochain commit." ;;
         hook.post_merge.1) _M="🧹 Branche locale supprimée (mergée et supprimée sur le serveur) : %s" ;;

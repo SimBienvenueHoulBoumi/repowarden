@@ -46,8 +46,6 @@ if ! skipped protect-branch; then
     done <<<"$REFS"
 fi
 
-skipped tests && { info "Tests désactivés (repowarden.skip)."; exit 0; }
-
 REMOTE="${1:-origin}"
 
 # Fichiers modifiés par le push de <sha> : depuis l'état distant connu, ou pour
@@ -67,6 +65,48 @@ changed_files() {
         git ls-tree -r --name-only "$sha"
     fi
 }
+
+# Linting des fichiers modifiés (shellcheck, actionlint, etc.) : ce que la CI
+# refusera doit être vu avant le push. Désactivable avec repowarden.skip lint.
+if ! skipped lint; then
+    lint_changed_files() {
+        local changed_file rc=0
+        while IFS= read -r changed_file; do
+            [ -f "$changed_file" ] || continue
+            case "$changed_file" in
+                *.sh|*.bash)
+                    if has shellcheck; then
+                        step_t hook.pre_push.lint.run "shellcheck" "$changed_file"
+                        shellcheck "$changed_file" || rc=1
+                    else
+                        warn_t hook.pre_push.lint.missing "shellcheck" "$changed_file"
+                        [ -n "${REPOWARDEN_WARN_FILE:-}" ] && return 1
+                    fi
+                    ;;
+                .github/workflows/*.yml|.github/workflows/*.yaml)
+                    if has actionlint; then
+                        step_t hook.pre_push.lint.run "actionlint" "$changed_file"
+                        actionlint "$changed_file" || rc=1
+                    else
+                        warn_t hook.pre_push.lint.missing "actionlint" "$changed_file"
+                        [ -n "${REPOWARDEN_WARN_FILE:-}" ] && return 1
+                    fi
+                    ;;
+            esac
+        done
+        return "$rc"
+    }
+
+    LINT_FAILED=0
+    while read -r _ local_sha _ remote_sha; do
+        # suppression de branche : rien à lint
+        if [ -z "$local_sha" ] || [[ "$local_sha" =~ ^0+$ ]]; then continue; fi
+        changed_files "$local_sha" "$remote_sha" | lint_changed_files || LINT_FAILED=1
+    done <<<"$REFS"
+    [ "$LINT_FAILED" -eq 0 ] || exit 1
+fi
+
+skipped tests && { info "Tests désactivés (repowarden.skip)."; exit 0; }
 
 run_tests_for() { test_projects <"$1"; }
 
