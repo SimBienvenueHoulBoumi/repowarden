@@ -108,7 +108,7 @@ jobs:
   tickets:
     needs: release
     if: needs.release.outputs.release_created == 'true' || needs.release.outputs.prerelease_created == 'true'
-    uses: SimBienvenueHoulBoumi/repowarden/.github/workflows/tickets.yml@develop
+    uses: SimBienvenueHoulBoumi/repowarden/.github/workflows/tickets.yml@2dcd77fac1389c7a2dcce82d5cf98923d76b176d
     permissions: { contents: write, issues: write, pull-requests: write, statuses: write }
     with:
       tag: ${{ needs.release.outputs.tag_name || needs.release.outputs.prerelease_tag }}
