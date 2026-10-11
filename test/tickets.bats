@@ -103,15 +103,24 @@ ticket() { printf '%s\n' "$@" >"$F/issues/$N.labels"; }
     [ -z "$REPLY" ]
 }
 
-@test "tickets : PR sans ticket -> ticket cree a valider, relie, PR bloquee" {
+@test "tickets : PR sans ticket -> ticket cree a valider, relie, PR bloquee (auto-create=true)" {
     printf 'Ajoute le panier.' >"$F/pr_body"
-    HEAD=feat/panier ACTION=opened run "$TICKETS" pr
+    HEAD=feat/panier ACTION=opened AUTO_CREATE=true run "$TICKETS" pr
     # bloquee par le statut « ticket », le job reste vert (pas une panne)
     [ "$status" -eq 0 ]
     grep -qxF "statut: à valider" "$F/issues/42.labels"
     grep -q "Ticket : #42" "$F/pr_body"
     grep -qx "statut-pr failure" "$F/events"
     [[ "$output" == *"#42 à valider"* ]]
+}
+
+@test "tickets : PR sans ticket -> echec verification avec marche a suivre (auto-create=false)" {
+    printf 'Ajoute le panier.' >"$F/pr_body"
+    HEAD=feat/panier ACTION=opened run "$TICKETS" pr
+    # echec de la verification ticket, pas de ticket cree
+    [ "$status" -eq 0 ]
+    [ ! -f "$F/issues/42.labels" ]
+    grep -qx "statut-pr failure" "$F/events"
 }
 
 @test "tickets : ticket valide -> en cours (brouillon), en relecture (prete), PR debloquee" {

@@ -126,8 +126,11 @@ jobs:
     uses: SimBienvenueHoulBoumi/repowarden/.github/workflows/tickets.yml@v4
     permissions: { contents: write, issues: write, pull-requests: write, statuses: write }
     # GitHub App (repowarden app init) : ses actions déclenchent les autres workflows
+    # auto-create : true = crée un ticket « à valider » pour PR sans ticket,
+    # false = échec de la vérification avec la marche à suivre (défaut false)
     with:
       app-client-id: ${{ vars.REPOWARDEN_APP_CLIENT_ID }}
+      auto-create: false
     secrets:
       app-key: ${{ secrets.REPOWARDEN_APP_KEY }}
 YAML
@@ -135,6 +138,16 @@ YAML
 # 3. Tickets et branches existants (relançable : rien n'est fait deux fois)
 step_t tk.init_adopt
 GH_REPO="$REPO" AUTO_VALIDATE="${AUTO_VALIDATE:-maintainers}" "$ROOT/ci/tickets.sh" adopter | sed 's/^/  /'
+
+# Afficher l'état de ticketAutoCreate
+echo
+if git config --get repowarden.ticketAutoCreate | grep -qE '^(true|oui|yes)$'; then
+    t tk.init_auto_create_on
+    hint "$_T"
+else
+    t tk.init_auto_create_off
+    hint "$_T"
+fi
 
 echo
 ok_t tk.init_done

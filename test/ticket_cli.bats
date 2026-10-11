@@ -80,6 +80,7 @@ gere() {
 
 @test "ticket cli : git cc, suivi gere -> ticket cree sur demande et cite" {
     gere
+    git config repowarden.ticketAutoCreate true
     git add .github && git commit -q --no-verify -m "ci: tickets"
     git switch -q -c feat/panier
     echo a >a.txt && git add a.txt

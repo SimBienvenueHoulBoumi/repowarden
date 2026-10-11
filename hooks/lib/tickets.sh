@@ -90,6 +90,21 @@ tickets_managed() {
     [ "$TICKETS_MANAGED" = oui ]
 }
 
+# Vrai si la création automatique de ticket est activée : réglage
+# ticketAutoCreate = true (défaut false)
+TICKET_AUTO_CREATE=""
+ticket_auto_create() {
+    if [ -z "$TICKET_AUTO_CREATE" ]; then
+        TICKET_AUTO_CREATE=non
+        cfg_r ticketAutoCreate ""
+        case "$REPLY" in
+            true | oui | yes) TICKET_AUTO_CREATE=oui ;;
+            false | non | no | "") ;;
+        esac
+    fi
+    [ "$TICKET_AUTO_CREATE" = oui ]
+}
+
 # Branche de travail sans ticket : avertissement, jamais bloquant. Création
 # proposée seulement si repowarden gère la vie des tickets du projet (et que
 # gh est là pour la faire) ; sinon, comment faire taire l'avertissement.
