@@ -106,10 +106,13 @@ jobs:
           path: .repowarden-ci
           persist-credentials: false
       # Jeton de la GitHub App : ce qu'il fait (PR brouillon, merge) déclenche
-      # les autres workflows, contrairement au jeton des Actions
+      # les autres workflows, contrairement au jeton des Actions.
+      # Sur les branches dependabot/forks, le secret app-key n'est pas dispo :
+      # continue-on-error évite l'échec, le fallback github.token prend le relais.
       - name: Jeton de l'App
         id: app
         if: inputs.app-client-id != ''
+        continue-on-error: true
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ inputs.app-client-id }}

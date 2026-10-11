@@ -69,30 +69,77 @@ changed_files() {
 # Linting des fichiers modifiés (shellcheck, actionlint, etc.) : ce que la CI
 # refusera doit être vu avant le push. Désactivable avec repowarden.skip lint.
 if ! skipped lint; then
+    # Sévérité shellcheck : warning (défaut), error, style. Config : repowarden.lintSeverity.
+    cfg_r lintSeverity warning
+    LINT_SEVERITY="$REPLY"
+
+    # Commande d'installation suggérée selon l'OS
+    lint_install_cmd() {
+        case "$1" in
+            shellcheck)
+                case "${OSTYPE:-}" in
+                    darwin*) printf 'brew install shellcheck' ;;
+                    linux*)  printf 'apt-get install shellcheck' ;;
+                    msys*|cygwin*|win*) printf 'choco install shellcheck' ;;
+                    *) printf 'https://www.shellcheck.net/' ;;
+                esac
+                ;;
+            actionlint)
+                case "${OSTYPE:-}" in
+                    darwin*) printf 'brew install actionlint' ;;
+                    linux*)  printf 'go install github.com/rhysd/actionlint/cmd/actionlint@latest' ;;
+                    msys*|cygwin*|win*) printf 'scoop install actionlint' ;;
+                    *) printf 'https://github.com/rhysd/actionlint' ;;
+                esac
+                ;;
+            *) printf '%s' "$1" ;;
+        esac
+    }
+
+    # Vrai si le fichier $1 est un script shell (extension .sh/.bash ou shebang)
+    is_shell_script() {
+        local file="$1" first_line
+        case "$file" in
+            *.sh|*.bash) return 0 ;;
+        esac
+        # Pas d'extension reconnue : on lit la 1re ligne (shebang)
+        IFS= read -r first_line <"$file" 2>/dev/null || return 1
+        case "$first_line" in
+            '#!/bin/sh'|'#!/bin/bash'|'#!/usr/bin/env sh'|'#!/usr/bin/env bash'|'#!/usr/bin/env -S bash'*)
+                return 0 ;;
+        esac
+        return 1
+    }
+
     lint_changed_files() {
         local changed_file rc=0
+        # Les checks optionnels (style, info) ne sont activés que si la sévérité le demande
+        local shellcheck_opts="--severity=$LINT_SEVERITY"
+        case "$LINT_SEVERITY" in
+            style|info) shellcheck_opts="$shellcheck_opts -o all" ;;
+        esac
         while IFS= read -r changed_file; do
             [ -f "$changed_file" ] || continue
-            case "$changed_file" in
-                *.sh|*.bash)
-                    if has shellcheck; then
-                        step_t hook.pre_push.lint.run "shellcheck" "$changed_file"
-                        shellcheck "$changed_file" || rc=1
-                    else
-                        warn_t hook.pre_push.lint.missing "shellcheck" "$changed_file"
-                        [ -n "${REPOWARDEN_WARN_FILE:-}" ] && return 1
-                    fi
-                    ;;
-                .github/workflows/*.yml|.github/workflows/*.yaml)
-                    if has actionlint; then
-                        step_t hook.pre_push.lint.run "actionlint" "$changed_file"
-                        actionlint "$changed_file" || rc=1
-                    else
-                        warn_t hook.pre_push.lint.missing "actionlint" "$changed_file"
-                        [ -n "${REPOWARDEN_WARN_FILE:-}" ] && return 1
-                    fi
-                    ;;
-            esac
+            if is_shell_script "$changed_file"; then
+                if has shellcheck; then
+                    step_t hook.pre_push.lint.run "shellcheck" "$changed_file"
+                    # shellcheck disable=SC2086
+                    shellcheck $shellcheck_opts "$changed_file" || rc=1
+                else
+                    local install_cmd; install_cmd="$(lint_install_cmd shellcheck)"
+                    warn_t hook.pre_push.lint.missing "shellcheck" "$changed_file" "$install_cmd"
+                    [ -n "${REPOWARDEN_WARN_FILE:-}" ] && return 1
+                fi
+            elif case "$changed_file" in .github/workflows/*.yml|.github/workflows/*.yaml) true;; *) false;; esac; then
+                if has actionlint; then
+                    step_t hook.pre_push.lint.run "actionlint" "$changed_file"
+                    actionlint "$changed_file" || rc=1
+                else
+                    local install_cmd; install_cmd="$(lint_install_cmd actionlint)"
+                    warn_t hook.pre_push.lint.missing "actionlint" "$changed_file" "$install_cmd"
+                    [ -n "${REPOWARDEN_WARN_FILE:-}" ] && return 1
+                fi
+            fi
         done
         return "$rc"
     }
