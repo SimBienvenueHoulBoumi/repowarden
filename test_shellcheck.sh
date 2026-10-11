@@ -1,2 +1,2 @@
 #!/bin/sh
-[ -f x ] && true || false
+if [ -f x ]; then true; else false; fi
