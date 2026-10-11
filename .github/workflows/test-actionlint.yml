@@ -2,6 +2,6 @@ name: test
 on: push
 jobs:
   test:
-    runs-onn: ubuntu-latest
+    runs-on: ubuntu-latest
     steps:
       - run: echo
