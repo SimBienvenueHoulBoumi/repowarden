@@ -279,6 +279,8 @@ _msg_en() {
         ci.proteger.unattributed_invalid) _M="unattributedApproval: true or false." ;;
         ci.proteger.no_branch) _M="None of the branches \"%s\" exists on %s." ;;
         ci.proteger.no_cleanup) _M="Automatic branch deletion disabled (it would delete develop): add a workflow calling nettoyage-branches.yml, otherwise merged branches remain (see In an organisation)." ;;
+        ci.proteger.no_delivery_env) _M="main will require a successful \"%s\" deployment, but no workflow creates that deployment: a deployment nothing creates would block main forever. Call release-auto.yml with delivery-environment (see docs/releases.md, develop flow), or set deliveryApproval = review in .repowarden.conf." ;;
+        ci.proteger.stale_concurrency) _M="%s: a pending delivery request (manual or scheduled) would silently block the next ones. Set cancel-in-progress: \${{ github.event_name != 'push' }} (a new request replaces the pending one) and one group per trigger: release-\${{ github.ref_name }}-\${{ github.event.schedule || github.event_name }}." ;;
         ci.proteger.delivery) _M="  delivery into main: %s approval(s) required (moving to a new version); auto-merge of work PRs into develop: %s" ;;
         ci.proteger.methods_flow) _M="main: merge commit; %s: squash or merge commit" ;;
         ci.proteger.tags_org) _M="reserved for workflows" ;;
