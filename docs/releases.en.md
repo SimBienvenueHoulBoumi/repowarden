@@ -100,8 +100,8 @@ on:
     branches: [main, develop]
 
 concurrency:
-  group: release-${{ github.ref_name }}   # one queue per branch
-  cancel-in-progress: false
+  group: release-${{ github.ref_name }}-${{ github.event.schedule || github.event_name }}   # one queue per branch and trigger
+  cancel-in-progress: ${{ github.event_name != 'push' }}   # manual or scheduled request: replaces the pending one
 
 jobs:
   release:
