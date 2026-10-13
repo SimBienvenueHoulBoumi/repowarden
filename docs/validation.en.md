@@ -19,7 +19,7 @@ The risk is not the machine. It is human approval that is too light. This page d
 
 | Decision | GitHub mechanism | repowarden |
 |---|---|---|
-| Review code before it gets in | required approvals; approval dismissed by a new commit; the last pusher cannot approve their own push | `repowarden proteger --relecteurs N` |
+| Review code before it gets in | required approvals; approval dismissed by a new commit; the last pusher cannot approve their own push (except in a solo repository: a single person with write access, no rule requires another person) | `repowarden proteger --relecteurs N` |
 | Have sensitive areas reviewed by their owners | `CODEOWNERS` file + required code owner review | `repowarden proteger --codeowners` |
 | Decide to publish | deployment environment: the job waits for approval from a designated person | `repowarden proteger --environnement production` |
 | Decide to deliver (`develop` flow) | one **"Approve and deploy"** click on the `production` environment (notification, mobile app, run page); the GitHub App then merges the `develop` → `main` delivery PR. `main` requires this successful deployment: nothing enters it without this approval | `tag` mode, `deliveryApproval = deployment` (default; `review`: PR review instead) |

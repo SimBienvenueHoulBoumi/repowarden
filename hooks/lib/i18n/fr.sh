@@ -264,6 +264,7 @@ _msg_fr() {
         ci.proteger.5) _M="  tags v* : %s" ;;
         ci.proteger.6) _M="  branche par défaut : %s" ;;
         ci.proteger.7) _M="  approbations exigées : %s ; revue des CODEOWNERS : %s ; approbation des changements non attribués : %s" ;;
+        ci.proteger.solo) _M="  dépôt solo (une seule personne avec l'écriture) : aucune approbation par une autre personne exigée" ;;
         ci.proteger.8) _M="  (les admins gardent un contournement explicite, tracé dans l'historique de la PR)" ;;
         ci.proteger.9) _M="  environnement « %s » : approbation de %s ; branches protégées et tags v*" ;;
         ci.proteger.10) _M="Ruleset « %s » mis à jour." ;;
