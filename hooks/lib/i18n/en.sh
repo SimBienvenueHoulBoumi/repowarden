@@ -415,6 +415,7 @@ _msg_en() {
         tk.init_adopt) _M="Existing tickets and branches" ;;
         tk.abandoned) _M="Ticket #%s abandoned: PR closed, branch deleted." ;;
         tk.branch_deleted) _M="Branch %s deleted (ticket #%s abandoned)" ;;
+        tk.branch_kept) _M="Branch \`%s\` kept: %s commit(s) missing from the integration branch, open PR(s): %s. Delete it by hand if the work lives elsewhere." ;;
         tk.draft_opened) _M="Draft PR #%s opened for ticket #%s" ;;
         tk.draft_updated) _M="PR #%s (ticket #%s): title and description taken from the ticket" ;;
         tk.created_body) _M="Ticket created automatically for PR #%s, which cited none. To be validated by a maintainer (\"validé\" label)." ;;

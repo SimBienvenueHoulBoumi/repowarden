@@ -50,6 +50,25 @@ branche_du_ticket_r() {
     done < <(gh api "repos/$GH_REPO/git/matching-refs/heads/" --paginate -q '.[].ref' 2>/dev/null || true)
 }
 
+# Ticket $1 terminé : sa branche, si elle existe encore (travail passé par une
+# autre branche), est supprimée quand elle n'apporte rien à la branche
+# d'intégration et qu'aucune PR ouverte n'en part ; sinon gardée et signalée
+nettoyer_branche() {
+    local n="$1" branche avance prs
+    branche_du_ticket_r "$n"
+    branche="$REPLY"
+    [ -n "$branche" ] || return 0
+    prs="$(gh pr list --state open --head "$branche" --json number -q 'map("#\(.number)") | join(" ")')"
+    avance="$(gh api "repos/$GH_REPO/compare/${INTEGRATION:-develop}...$branche" -q .ahead_by 2>/dev/null || true)"
+    if [ -z "$prs" ] && [ "$avance" = 0 ]; then
+        gh api -X DELETE "repos/$GH_REPO/git/refs/heads/$branche" >/dev/null
+        notice_t tk.branch_deleted "$branche" "$n"
+    else
+        _tr tk.branch_kept "$branche" "${avance:-?}" "${prs:--}"
+        gh issue comment "$n" --body "$_T" >/dev/null
+    fi
+}
+
 # Ticket $1 validé : sa branche naît de la branche d'intégration, liée au
 # ticket (panneau « Development »). Rien si elle existe déjà, ou si une PR
 # ouverte cite déjà le ticket (travail commencé hors de sa branche).
