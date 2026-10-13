@@ -124,7 +124,7 @@ gh secret set REPOWARDEN_WEBHOOK      # adresse collée en saisie masquée
 ```yaml
 jobs:
   release:
-    uses: SimBienvenueHoulBoumi/repowarden/.github/workflows/release-auto.yml@v4
+    uses: simdevWarden/repowarden/.github/workflows/release-auto.yml@v4
     secrets:
       webhook: ${{ secrets.REPOWARDEN_WEBHOOK }}
     with:

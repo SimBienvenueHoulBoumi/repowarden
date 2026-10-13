@@ -20,7 +20,7 @@ permissions: {}
 
 jobs:
   release:
-    uses: SimBienvenueHoulBoumi/repowarden/.github/workflows/release-auto.yml@v4
+    uses: simdevWarden/repowarden/.github/workflows/release-auto.yml@v4
     permissions:
       contents: write
       pull-requests: write
@@ -29,7 +29,7 @@ jobs:
       statuses: write
 ```
 
-Full template: [`templates/project/.github/workflows/release.yml`](https://github.com/SimBienvenueHoulBoumi/repowarden/blob/main/templates/project/.github/workflows/release.yml).
+Full template: [`templates/project/.github/workflows/release.yml`](https://github.com/simdevWarden/repowarden/blob/main/templates/project/.github/workflows/release.yml).
 
 Two prerequisites:
 
@@ -85,7 +85,7 @@ The project type is detected from the files at the root:
 | other | `version.txt` |
 
 !!! tip "Changelog in French, monorepo, options"
-    A `release-please-config.json` file at the root (with `.release-please-manifest.json`) takes precedence over detection: changelog sections, multiple packages, additional files to version… See the [repowarden configuration](https://github.com/SimBienvenueHoulBoumi/repowarden/blob/main/release-please-config.json) for an example in French.
+    A `release-please-config.json` file at the root (with `.release-please-manifest.json`) takes precedence over detection: changelog sections, multiple packages, additional files to version… See the [repowarden configuration](https://github.com/simdevWarden/repowarden/blob/main/release-please-config.json) for an example in French.
 
 !!! note "Maven"
     After each release, release-please proposes switching back to `-SNAPSHOT` (PR merged automatically in the same way). To skip it: `"skip-snapshot": true` in `release-please-config.json`.
@@ -105,7 +105,7 @@ concurrency:
 
 jobs:
   release:
-    uses: SimBienvenueHoulBoumi/repowarden/.github/workflows/release-auto.yml@v4
+    uses: simdevWarden/repowarden/.github/workflows/release-auto.yml@v4
     permissions: { contents: write, pull-requests: write, actions: write, checks: read, statuses: write }
     with:
       mode: tag
@@ -155,7 +155,7 @@ on:
 
 jobs:
   release:
-    uses: SimBienvenueHoulBoumi/repowarden/.github/workflows/release-auto.yml@v4
+    uses: simdevWarden/repowarden/.github/workflows/release-auto.yml@v4
     permissions: { contents: write, pull-requests: write, actions: write, checks: read, statuses: write }
     with:
       mode: cycle
@@ -178,7 +178,7 @@ The pre-release is published like a stable version, from the `prerelease_created
   npm-next:
     needs: release
     if: needs.release.outputs.prerelease_created == 'true'
-    uses: SimBienvenueHoulBoumi/repowarden/.github/workflows/npm-publish.yml@v4
+    uses: simdevWarden/repowarden/.github/workflows/npm-publish.yml@v4
     permissions: { contents: read, id-token: write }
     with:
       tag: ${{ needs.release.outputs.prerelease_tag }}
@@ -217,7 +217,7 @@ Then, in `.github/workflows/release.yml`:
   npm:
     needs: release
     if: vars.REPOWARDEN_NPM == 'true' && (needs.release.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch')
-    uses: SimBienvenueHoulBoumi/repowarden/.github/workflows/npm-publish.yml@v4
+    uses: simdevWarden/repowarden/.github/workflows/npm-publish.yml@v4
     permissions: { contents: read, id-token: write }
     with:
       tag: ${{ needs.release.outputs.tag_name }}

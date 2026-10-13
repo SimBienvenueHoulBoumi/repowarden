@@ -17,7 +17,7 @@ The repository must be **readable by all developers and by CI**:
 - GitLab: import/mirror the repository into an internal group (e.g. `outils/repowarden`);
 - GitHub: public repository, or internal to the organization.
 
-Replace `SimBienvenueHoulBoumi/repowarden` with that path in the templates (`templates/`).
+Replace `simdevWarden/repowarden` with that path in the templates (`templates/`).
 
 ## 2. Versions and releases (automatic)
 
@@ -89,7 +89,7 @@ One PR = one commit on `main`, whose message is the **PR title**: a clean change
       types: [closed]
   jobs:
     nettoyage:
-      uses: SimBienvenueHoulBoumi/repowarden/.github/workflows/nettoyage-branches.yml@v4
+      uses: simdevWarden/repowarden/.github/workflows/nettoyage-branches.yml@v4
       permissions: { contents: write, pull-requests: read }
   ```
 

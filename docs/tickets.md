@@ -64,7 +64,7 @@ Dans `.github/workflows/release.yml`, les tickets passent en préprod à chaque 
   tickets:
     needs: release
     if: needs.release.outputs.release_created == 'true' || needs.release.outputs.prerelease_created == 'true'
-    uses: SimBienvenueHoulBoumi/repowarden/.github/workflows/tickets.yml@v4
+    uses: simdevWarden/repowarden/.github/workflows/tickets.yml@v4
     permissions: { contents: write, issues: write, pull-requests: write, statuses: write }
     with:
       tag: ${{ needs.release.outputs.tag_name || needs.release.outputs.prerelease_tag }}

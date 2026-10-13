@@ -41,7 +41,7 @@ Three paths, depending on your use case. The fastest way to try it: **On my mach
     **Without Node**: same result from a clone, updated with `git -C ~/repowarden pull` (the commands become `~/repowarden/install.sh`, `~/repowarden/bin/code-mort`…).
 
     ```bash
-    git clone https://github.com/SimBienvenueHoulBoumi/repowarden.git ~/repowarden
+    git clone https://github.com/simdevWarden/repowarden.git ~/repowarden
     ~/repowarden/install.sh --global
     ```
 
@@ -49,7 +49,7 @@ Three paths, depending on your use case. The fastest way to try it: **On my mach
 
     1. **Everyone** installs repowarden once on their machine ("On my machine" tab): `npm install -g repowarden`, then `repowarden install --global`.
 
-    2. **The project** adds the templates from [`templates/project/`](https://github.com/SimBienvenueHoulBoumi/repowarden/tree/main/templates/project):
+    2. **The project** adds the templates from [`templates/project/`](https://github.com/simdevWarden/repowarden/tree/main/templates/project):
 
         | File | Role |
         |---|---|
@@ -69,7 +69,7 @@ Three paths, depending on your use case. The fastest way to try it: **On my mach
 === "Contributing to repowarden"
 
     ```bash
-    git clone https://github.com/SimBienvenueHoulBoumi/repowarden.git && cd repowarden
+    git clone https://github.com/simdevWarden/repowarden.git && cd repowarden
     ./install.sh                         # repowarden checks itself
     bats test/                           # tests (bats-core), also run on push
     ```

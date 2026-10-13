@@ -2,7 +2,7 @@
 #
 #   jobs:
 #     release:
-#       uses: SimBienvenueHoulBoumi/repowarden/.github/workflows/release-auto.yml@v4
+#       uses: simdevWarden/repowarden/.github/workflows/release-auto.yml@v4
 #       permissions: { contents: write, pull-requests: write, actions: write, checks: read, statuses: write }
 #
 # 1. release-please tient à jour une PR "release x.y.z" : version calculée
@@ -195,7 +195,7 @@ jobs:
       # la version repowarden-ref (validation et merge des PR : ci/merger-pr.sh)
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: SimBienvenueHoulBoumi/repowarden
+          repository: simdevWarden/repowarden
           ref: ${{ inputs.repowarden-ref }}
           path: .repowarden-ci
           persist-credentials: false
@@ -396,7 +396,7 @@ jobs:
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: SimBienvenueHoulBoumi/repowarden
+          repository: simdevWarden/repowarden
           ref: ${{ inputs.repowarden-ref }}
           path: .repowarden-ci
           persist-credentials: false
@@ -679,7 +679,7 @@ jobs:
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: SimBienvenueHoulBoumi/repowarden
+          repository: simdevWarden/repowarden
           ref: ${{ inputs.repowarden-ref }}
           path: .repowarden-ci
           persist-credentials: false

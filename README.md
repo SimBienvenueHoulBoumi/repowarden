@@ -1,18 +1,18 @@
 # repowarden
 
-[![CI](https://github.com/SimBienvenueHoulBoumi/repowarden/actions/workflows/ci.yml/badge.svg)](https://github.com/SimBienvenueHoulBoumi/repowarden/actions/workflows/ci.yml)
-[![e2e](https://github.com/SimBienvenueHoulBoumi/repowarden/actions/workflows/e2e.yml/badge.svg)](https://github.com/SimBienvenueHoulBoumi/repowarden/actions/workflows/e2e.yml)
-[![Release](https://img.shields.io/github/v/release/SimBienvenueHoulBoumi/repowarden)](https://github.com/SimBienvenueHoulBoumi/repowarden/releases)
+[![CI](https://github.com/simdevWarden/repowarden/actions/workflows/ci.yml/badge.svg)](https://github.com/simdevWarden/repowarden/actions/workflows/ci.yml)
+[![e2e](https://github.com/simdevWarden/repowarden/actions/workflows/e2e.yml/badge.svg)](https://github.com/simdevWarden/repowarden/actions/workflows/e2e.yml)
+[![Release](https://img.shields.io/github/v/release/simdevWarden/repowarden)](https://github.com/simdevWarden/repowarden/releases)
 [![npm](https://img.shields.io/npm/v/repowarden)](https://www.npmjs.com/package/repowarden)
-[![Documentation](https://img.shields.io/badge/docs-site-indigo)](https://simbienvenuehoulboumi.github.io/repowarden/)
-[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/SimBienvenueHoulBoumi/repowarden/badge)](https://scorecard.dev/viewer/?uri=github.com/SimBienvenueHoulBoumi/repowarden)
+[![Documentation](https://img.shields.io/badge/docs-site-indigo)](https://simdevwarden.github.io/repowarden/)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/simdevWarden/repowarden/badge)](https://scorecard.dev/viewer/?uri=github.com/simdevWarden/repowarden)
 [![Licence MIT](https://img.shields.io/badge/licence-MIT-blue)](LICENSE)
 
 **repowarden** garde l'entrée de vos dépôts Git : messages de commit, nommage des branches, secrets, formatage et tests, **quel que soit le langage** — sur les postes (hooks), en CI (GitHub, GitLab) et côté serveur.
 
-📖 **Documentation : https://simbienvenuehoulboumi.github.io/repowarden/** · 🇬🇧 **English: https://simbienvenuehoulboumi.github.io/repowarden/en/**
+📖 **Documentation : https://simdevwarden.github.io/repowarden/** · 🇬🇧 **English: https://simdevwarden.github.io/repowarden/en/**
 
-> **v4 : repogarde devient repowarden** (paquet npm `repowarden`) et lefthook n'est plus pris en charge. Les anciens noms restent lus en v4. Marche à suivre : [Passer à la v4](https://simbienvenuehoulboumi.github.io/repowarden/migration-v4/).
+> **v4 : repogarde devient repowarden** (paquet npm `repowarden`) et lefthook n'est plus pris en charge. Les anciens noms restent lus en v4. Marche à suivre : [Passer à la v4](https://simdevwarden.github.io/repowarden/migration-v4/).
 
 ## Ce qu'il fait
 
@@ -25,11 +25,11 @@
 - **Tickets** : chaque PR est reliée à un ticket validé (créé automatiquement s'il manque), suivi de « à valider » à « done » à la release ; `repowarden tickets init`.
 - **Versions et releases** : les commits étant conventionnels, la version suivante (semver) et le changelog se déduisent de l'historique ; un workflow réutilisable en fait des releases automatiques (PR de release validée par la CI puis mergée, tag, release), sans jeton ; dans le flux `develop` → `main`, un clic d'approbation par livraison.
 
-**Plus de 25 technologies** : Java (Maven, Gradle), JavaScript / TypeScript, Python, Go, Rust, PHP, Ruby, .NET, Dart / Flutter, Swift, Elixir, C / C++, Shell, Terraform, Packer, Ansible, Helm, Kubernetes, Docker, GitHub Actions — [détail](https://simbienvenuehoulboumi.github.io/repowarden/technologies/). Linux, macOS, Windows.
+**Plus de 25 technologies** : Java (Maven, Gradle), JavaScript / TypeScript, Python, Go, Rust, PHP, Ruby, .NET, Dart / Flutter, Swift, Elixir, C / C++, Shell, Terraform, Packer, Ansible, Helm, Kubernetes, Docker, GitHub Actions — [détail](https://simdevwarden.github.io/repowarden/technologies/). Linux, macOS, Windows.
 
 ## Ce que tu fais à la main
 
-Le reste est automatique. Pas à pas et pièges : [où cliquer](https://simbienvenuehoulboumi.github.io/repowarden/validation/#ou-cliquer).
+Le reste est automatique. Pas à pas et pièges : [où cliquer](https://simdevwarden.github.io/repowarden/validation/#ou-cliquer).
 
 | Geste | Où |
 |---|---|
@@ -69,7 +69,7 @@ repowarden code-mort                  # nouveau code mort de ta branche
 | Mettre à jour | `npm update -g repowarden` (les hooks suivent) |
 | Désinstaller | `repowarden uninstall --global`, **puis** `npm uninstall -g repowarden` (dans cet ordre : npm n'exécute rien à la désinstallation, les hooks resteraient branchés sur un dossier supprimé) |
 
-Sans Node : `git clone https://github.com/SimBienvenueHoulBoumi/repowarden.git ~/repowarden && ~/repowarden/install.sh --global` (mise à jour : `git -C ~/repowarden pull`).
+Sans Node : `git clone https://github.com/simdevWarden/repowarden.git ~/repowarden && ~/repowarden/install.sh --global` (mise à jour : `git -C ~/repowarden pull`).
 
 ### 4. GitHub App pour l'automatisation (merge auto, tickets, releases)
 
@@ -85,7 +85,7 @@ repowarden app init
 
 Sans cette étape, le `GITHUB_TOKEN` des Actions est utilisé : **ce qu'il fait ne déclenche pas les autres workflows** (merge auto, tickets, préversions).
 
-**Tester la prochaine version** (avant sa sortie en production) : `npm install -g repowarden@next`, ou `uses: SimBienvenueHoulBoumi/repowarden@develop` en CI. Retour à la version stable : `npm install -g repowarden@latest`. Les problèmes se signalent en [issue](https://github.com/SimBienvenueHoulBoumi/repowarden/issues).
+**Tester la prochaine version** (avant sa sortie en production) : `npm install -g repowarden@next`, ou `uses: simdevWarden/repowarden@develop` en CI. Retour à la version stable : `npm install -g repowarden@latest`. Les problèmes se signalent en [issue](https://github.com/simdevWarden/repowarden/issues).
 
 ### 2. Dans un projet d'équipe : les mêmes règles pour tous
 
@@ -100,7 +100,7 @@ L'essentiel des deux fichiers :
 
 ```yaml
 # .github/workflows/repowarden.yml : vérifications de la PR (dernière version 4.x)
-- uses: SimBienvenueHoulBoumi/repowarden@v4
+- uses: simdevWarden/repowarden@v4
   with: { strict: true }      # un outil manquant fait échouer la CI
 ```
 
@@ -112,22 +112,22 @@ L'essentiel des deux fichiers :
 
 Puis rendre la CI obligatoire pour merger : `repowarden proteger` (protection de `main`, check `repowarden` exigé).
 
-Exemple complet : [repowarden-demo](https://github.com/SimBienvenueHoulBoumi/repowarden-demo) · Releases automatiques : [documentation](https://simbienvenuehoulboumi.github.io/repowarden/releases/).
+Exemple complet : [repowarden-demo](https://github.com/simdevWarden/repowarden-demo) · Releases automatiques : [documentation](https://simdevwarden.github.io/repowarden/releases/).
 
 ### 3. Contribuer à repowarden
 
 ```bash
-git clone https://github.com/SimBienvenueHoulBoumi/repowarden.git && cd repowarden
+git clone https://github.com/simdevWarden/repowarden.git && cd repowarden
 ./install.sh                         # repowarden se vérifie lui-même (hooks de ce dépôt)
 bats test/                           # tests (bats-core), aussi lancés au push
 ```
 
 Les PR visent `develop` ; `main` ne reçoit que les livraisons, qui déclenchent les releases. Voir [CONTRIBUTING.md](CONTRIBUTING.md).
 
-**Dans VS Code** : l'extension [repowarden-vscode](https://github.com/SimBienvenueHoulBoumi/repowarden-vscode) guide la rédaction des commits, signale une branche mal nommée et des hooks inactifs. En attendant sa publication sur le Marketplace : `.vsix` dans ses [releases](https://github.com/SimBienvenueHoulBoumi/repowarden-vscode/releases), puis `code --install-extension repowarden-X.Y.Z.vsix`.
+**Dans VS Code** : l'extension [repowarden-vscode](https://github.com/simdevWarden/repowarden-vscode) guide la rédaction des commits, signale une branche mal nommée et des hooks inactifs. En attendant sa publication sur le Marketplace : `.vsix` dans ses [releases](https://github.com/simdevWarden/repowarden-vscode/releases), puis `code --install-extension repowarden-X.Y.Z.vsix`.
 
 ## Liens
 
-[Démarrage rapide](https://simbienvenuehoulboumi.github.io/repowarden/demarrage/) · [Hooks et règles](https://simbienvenuehoulboumi.github.io/repowarden/hooks/) · [Technologies](https://simbienvenuehoulboumi.github.io/repowarden/technologies/) · [Configuration](https://simbienvenuehoulboumi.github.io/repowarden/configuration/) · [CI](https://simbienvenuehoulboumi.github.io/repowarden/ci/) · [Versions et releases](https://simbienvenuehoulboumi.github.io/repowarden/releases/) · [Validation humaine](https://simbienvenuehoulboumi.github.io/repowarden/validation/) · [Code mort](https://simbienvenuehoulboumi.github.io/repowarden/code-mort/) · [En organisation](https://simbienvenuehoulboumi.github.io/repowarden/industrialisation/) · [Sources internes (Nexus, Artifactory)](https://simbienvenuehoulboumi.github.io/repowarden/industrialisation/#8-sources-internes-reseau-ferme-nexus-artifactory) · [Désinstallation](https://simbienvenuehoulboumi.github.io/repowarden/desinstallation/) · [Sécurité](SECURITY.md) · [Contribuer](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
+[Démarrage rapide](https://simdevwarden.github.io/repowarden/demarrage/) · [Hooks et règles](https://simdevwarden.github.io/repowarden/hooks/) · [Technologies](https://simdevwarden.github.io/repowarden/technologies/) · [Configuration](https://simdevwarden.github.io/repowarden/configuration/) · [CI](https://simdevwarden.github.io/repowarden/ci/) · [Versions et releases](https://simdevwarden.github.io/repowarden/releases/) · [Validation humaine](https://simdevwarden.github.io/repowarden/validation/) · [Code mort](https://simdevwarden.github.io/repowarden/code-mort/) · [En organisation](https://simdevwarden.github.io/repowarden/industrialisation/) · [Sources internes (Nexus, Artifactory)](https://simdevwarden.github.io/repowarden/industrialisation/#8-sources-internes-reseau-ferme-nexus-artifactory) · [Désinstallation](https://simdevwarden.github.io/repowarden/desinstallation/) · [Sécurité](SECURITY.md) · [Contribuer](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
 
 Licence [MIT](LICENSE).

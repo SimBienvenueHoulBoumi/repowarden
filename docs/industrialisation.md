@@ -17,7 +17,7 @@ Le dépôt doit être **lisible par tous les développeurs et par la CI** :
 - GitLab : importer/mirrorer le dépôt dans un groupe interne (ex. `outils/repowarden`) ;
 - GitHub : dépôt public, ou interne à l'organisation.
 
-Remplacer `SimBienvenueHoulBoumi/repowarden` par ce chemin dans les templates (`templates/`).
+Remplacer `simdevWarden/repowarden` par ce chemin dans les templates (`templates/`).
 
 ## 2. Versions et releases (automatiques)
 
@@ -89,7 +89,7 @@ Une PR = un commit sur `main`, dont le message est le **titre de la PR** : chang
       types: [closed]
   jobs:
     nettoyage:
-      uses: SimBienvenueHoulBoumi/repowarden/.github/workflows/nettoyage-branches.yml@v4
+      uses: simdevWarden/repowarden/.github/workflows/nettoyage-branches.yml@v4
       permissions: { contents: write, pull-requests: read }
   ```
 
