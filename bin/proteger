@@ -295,6 +295,7 @@ sig_attendue() {
         "$(sed -n 's/.*"require_last_push_approval": \([a-z]*\).*/\1/p' <<<"$r")" \
         "$(sed -n 's/.*"require_code_owner_review": \([a-z]*\).*/\1/p' <<<"$r")" "$deps" "$checks"
 }
+# shellcheck disable=SC2016 # expression jq (gh --jq), pas du shell
 SIG_EN_LIGNE='(.rules | map(select(.type == "pull_request"))[0].parameters) as $p
     | "approbations=\($p.required_approving_review_count) dernier_push=\($p.require_last_push_approval) codeowners=\($p.require_code_owner_review) deploiement=\([.rules[] | select(.type == "required_deployments") | .parameters.required_deployment_environments[]] | join(",")) verifications=\([.rules[] | select(.type == "required_status_checks") | .parameters.required_status_checks[].context] | sort | join(","))"'
 
