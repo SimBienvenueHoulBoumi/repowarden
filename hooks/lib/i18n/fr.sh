@@ -279,6 +279,11 @@ _msg_fr() {
         ci.proteger.unattributed_invalid) _M="unattributedApproval : true ou false." ;;
         ci.proteger.no_branch) _M="Aucune des branches « %s » n'existe sur %s." ;;
         ci.proteger.no_cleanup) _M="Suppression automatique des branches désactivée (elle supprimerait develop) : ajouter un workflow qui appelle nettoyage-branches.yml, sinon les branches mergées restent (voir En organisation)." ;;
+        ci.proteger.urgent) _M="  étiquette « urgent » créée (son merge lance la demande de livraison)" ;;
+        ci.proteger.verify_missing) _M="%s : ruleset absent en ligne" ;;
+        ci.proteger.verify_diff) _M="%s : règles en ligne différentes\n    en ligne : %s\n    attendu  : %s" ;;
+        ci.proteger.verify_fix) _M="Règles périmées : relancer repowarden proteger pour les mettre à jour." ;;
+        ci.proteger.verify_ok) _M="Règles en ligne à jour." ;;
         ci.proteger.delivery) _M="  livraison vers main : %s approbation(s) exigée(s) (passage à une nouvelle version) ; merge automatique des PR de travail vers develop : %s" ;;
         ci.proteger.methods_flow) _M="main : merge commit ; %s : squash ou merge commit" ;;
         ci.proteger.tags_org) _M="réservés aux workflows" ;;
@@ -366,6 +371,7 @@ _msg_fr() {
         st.repo_version_old) _M="Le projet demande repowarden %s ; installé : %s" ;;
         st.repo_version_ok) _M="Version demandée par le projet (%s) : respectée" ;;
         st.repo_forge) _M="Plateforme : %s" ;;
+        st.repo_rules) _M="Règles GitHub à jour ? repowarden proteger --verifier (lecture seule)" ;;
         st.tools) _M="Outils présents : %s · absents : %s (selon les langages des projets)" ;;
         st.next) _M="Étape suivante :" ;;
         st.ready) _M="Tout est prêt : git cc pour commiter, repowarden code-mort sur une branche." ;;
