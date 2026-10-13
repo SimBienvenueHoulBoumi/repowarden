@@ -1,6 +1,6 @@
 # Contribuer
 
-Règles de travail (tickets, commits, interdits) : [`AGENTS.md`](https://github.com/SimBienvenueHoulBoumi/repowarden/blob/develop/AGENTS.md), à lire avant tout changement.
+Règles de travail (tickets, commits, interdits) : [`AGENTS.md`](https://github.com/simdevWarden/repowarden/blob/develop/AGENTS.md), à lire avant tout changement.
 
 ## Mise en place
 
@@ -40,4 +40,4 @@ La CI relance tout sur Linux, macOS et Windows, plus un job e2e par langage avec
 
 - Les PR visent **`develop`** (branche par défaut) ; une PR ouverte vers `main` est reciblée automatiquement. **Seul `develop` entre dans `main`**, par la PR de livraison, toujours avec une approbation humaine.
 - À chaque merge sur `develop` : une **préversion** `vX.Y.Z-next.N` (npm `next`) et la **PR de livraison** `develop` → `main` tenue à jour (version à venir, notes). La merger, en merge commit, publie : tag `vX.Y.Z`, release GitHub (notes de version), `v4`, npm `latest`, site. Aucun fichier n'est écrit : la version est portée par le tag.
-- Détail : [Versions et releases, mode tag](https://simbienvenuehoulboumi.github.io/repowarden/releases/#flux-develop-main-mode-tag-recommande).
+- Détail : [Versions et releases, mode tag](https://simdevwarden.github.io/repowarden/releases/#flux-develop-main-mode-tag-recommande).

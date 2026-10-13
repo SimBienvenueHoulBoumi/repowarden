@@ -41,7 +41,7 @@ Trois parcours, selon l'usage. Le plus rapide pour essayer : **Sur mon poste**.
     **Sans Node** : même résultat depuis un clone, mis à jour avec `git -C ~/repowarden pull` (les commandes deviennent `~/repowarden/install.sh`, `~/repowarden/bin/code-mort`…).
 
     ```bash
-    git clone https://github.com/SimBienvenueHoulBoumi/repowarden.git ~/repowarden
+    git clone https://github.com/simdevWarden/repowarden.git ~/repowarden
     ~/repowarden/install.sh --global
     ```
 
@@ -49,7 +49,7 @@ Trois parcours, selon l'usage. Le plus rapide pour essayer : **Sur mon poste**.
 
     1. **Chaque personne** installe repowarden une fois sur son poste (onglet « Sur mon poste ») : `npm install -g repowarden`, puis `repowarden install --global`.
 
-    2. **Le projet** ajoute les modèles de [`templates/project/`](https://github.com/SimBienvenueHoulBoumi/repowarden/tree/main/templates/project) :
+    2. **Le projet** ajoute les modèles de [`templates/project/`](https://github.com/simdevWarden/repowarden/tree/main/templates/project) :
 
         | Fichier | Rôle |
         |---|---|
@@ -69,7 +69,7 @@ Trois parcours, selon l'usage. Le plus rapide pour essayer : **Sur mon poste**.
 === "Contribuer à repowarden"
 
     ```bash
-    git clone https://github.com/SimBienvenueHoulBoumi/repowarden.git && cd repowarden
+    git clone https://github.com/simdevWarden/repowarden.git && cd repowarden
     ./install.sh                         # repowarden se vérifie lui-même
     bats test/                           # tests (bats-core), aussi lancés au push
     ```

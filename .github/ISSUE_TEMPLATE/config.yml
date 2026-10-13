@@ -1,5 +1,5 @@
 blank_issues_enabled: false
 contact_links:
   - name: Vulnérabilité de sécurité
-    url: https://github.com/SimBienvenueHoulBoumi/repowarden/security/advisories/new
+    url: https://github.com/simdevWarden/repowarden/security/advisories/new
     about: Signalement privé (voir SECURITY.md)

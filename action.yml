@@ -3,7 +3,7 @@
 #   - uses: actions/checkout@v4
 #     with:
 #       fetch-depth: 0
-#   - uses: SimBienvenueHoulBoumi/repowarden@v4
+#   - uses: simdevWarden/repowarden@v4
 name: repowarden
 description: Vérifie messages de commit, nom de branche, secrets, formatage et tests des projets touchés ; linters via MegaLinter en option.
 author: SimBienvenueHoulBoumi

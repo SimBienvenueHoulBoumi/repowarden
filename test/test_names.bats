@@ -69,3 +69,11 @@ PY
         $(git ls-files ci hooks bin install.sh)
     [ -z "$output" ] || { echo "$output"; return 1; }
 }
+
+@test "depot dans l'organisation : aucun lien vers l'ancien proprietaire (hors historique)" {
+    cd "$BATS_TEST_DIRNAME/.."
+    # CHANGELOG.md : historique ; la personne (licence, auteur, CODEOWNERS) reste citée
+    ancien="simbienvenue""houlboumi" # découpé : ce test ne se trouve pas lui-même
+    run git grep -n -i -e "$ancien/repowarden" -e "$ancien\.github\.io" -- . ':!CHANGELOG.md'
+    [ -z "$output" ] || { echo "Liens vers l'ancien propriétaire :"; echo "$output"; return 1; }
+}

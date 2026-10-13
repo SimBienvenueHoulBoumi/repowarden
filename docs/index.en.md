@@ -32,7 +32,7 @@ flowchart LR
 
 **More than 25 technologies** detected automatically — Java, JavaScript/TypeScript, Python, Go, Rust, PHP, Ruby, .NET, Flutter, Swift, Elixir, C/C++, Terraform, Helm, Kubernetes, Ansible, Docker… → [the full list](technologies.md).
 
-**In VS Code** — the [repowarden-vscode](https://github.com/SimBienvenueHoulBoumi/repowarden-vscode) extension applies the same rules in the editor: commit assistant, branch name checked in the status bar, alert if the hooks no longer run.
+**In VS Code** — the [repowarden-vscode](https://github.com/simdevWarden/repowarden-vscode) extension applies the same rules in the editor: commit assistant, branch name checked in the status bar, alert if the hooks no longer run.
 
 ## In 30 seconds
 
@@ -44,14 +44,14 @@ repowarden install --global
 ```yaml title=".github/workflows/repowarden.yml — CI (excerpt)"
 - uses: actions/checkout@v7
   with: { fetch-depth: 0 }
-- uses: SimBienvenueHoulBoumi/repowarden@v4
+- uses: simdevWarden/repowarden@v4
   with: { strict: true }
 ```
 
-→ [Quick start](demarrage.md) · [full example: repowarden-demo](https://github.com/SimBienvenueHoulBoumi/repowarden-demo)
+→ [Quick start](demarrage.md) · [full example: repowarden-demo](https://github.com/simdevWarden/repowarden-demo)
 
 ## Reliability
 
 - Each language and tool is checked in CI on **a real project** with its own tooling.
 - Tested on **Linux, macOS and Windows**; **signed** releases ([verify a release](securite.md)).
-- Project assessed by [OpenSSF Scorecard](https://scorecard.dev/viewer/?uri=github.com/SimBienvenueHoulBoumi/repowarden).
+- Project assessed by [OpenSSF Scorecard](https://scorecard.dev/viewer/?uri=github.com/simdevWarden/repowarden).

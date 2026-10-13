@@ -10,11 +10,11 @@
     "ci",
     "release"
   ],
-  "homepage": "https://simbienvenuehoulboumi.github.io/repowarden/",
-  "bugs": "https://github.com/SimBienvenueHoulBoumi/repowarden/issues",
+  "homepage": "https://simdevwarden.github.io/repowarden/",
+  "bugs": "https://github.com/simdevWarden/repowarden/issues",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/SimBienvenueHoulBoumi/repowarden.git"
+    "url": "git+https://github.com/simdevWarden/repowarden.git"
   },
   "license": "MIT",
   "author": "SimBienvenueHoulBoumi (https://github.com/SimBienvenueHoulBoumi)",

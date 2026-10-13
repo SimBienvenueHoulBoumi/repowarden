@@ -1,8 +1,8 @@
 site_name: repowarden
 site_description: Hooks git et CI multi-langages — messages de commit, nommage des branches, secrets, formatage, tests ciblés, releases.
-site_url: https://simbienvenuehoulboumi.github.io/repowarden/
-repo_url: https://github.com/SimBienvenueHoulBoumi/repowarden
-repo_name: SimBienvenueHoulBoumi/repowarden
+site_url: https://simdevwarden.github.io/repowarden/
+repo_url: https://github.com/simdevWarden/repowarden
+repo_name: simdevWarden/repowarden
 edit_uri: edit/main/docs/
 copyright: Licence MIT
 

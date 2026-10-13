@@ -7,7 +7,7 @@ include:
     ref: v4 # dernière 4.x (vX.Y.Z pour figer)
     file: templates/gitlab/repowarden.gitlab-ci.yml
   # ou depuis GitHub (dépôt public) :
-  # - remote: https://raw.githubusercontent.com/SimBienvenueHoulBoumi/repowarden/v4/templates/gitlab/repowarden.gitlab-ci.yml
+  # - remote: https://raw.githubusercontent.com/simdevWarden/repowarden/v4/templates/gitlab/repowarden.gitlab-ci.yml
 
 stages: [test]
 
