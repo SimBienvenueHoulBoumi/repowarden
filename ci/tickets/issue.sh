@@ -83,7 +83,10 @@ cmd_issue() {
                     _tr tk.reopened "$fpr" "$fbase"
                     gh issue comment "$ISSUE" --body "$_T" >/dev/null
                     notice "$_T"
+                    return 0
                 fi
+                # Terminé à la main ou en production : branche restante nettoyée
+                nettoyer_branche "$ISSUE"
                 return 0
             fi
             # Abandonné : PR fermées, branche supprimée (un ticket terminé est

@@ -22,10 +22,10 @@ Chaque release contient une archive source signée avec [Sigstore](https://www.s
 
 ```bash
 TAG=v1.1.0
-gh release download "$TAG" --repo SimBienvenueHoulBoumi/repowarden -p "repowarden-$TAG*"
+gh release download "$TAG" --repo simdevWarden/repowarden -p "repowarden-$TAG*"
 cosign verify-blob "repowarden-$TAG.tar.gz" \
   --bundle "repowarden-$TAG.tar.gz.sigstore.json" \
-  --certificate-identity-regexp '^https://github.com/SimBienvenueHoulBoumi/repowarden/\.github/workflows/release\.yml@' \
+  --certificate-identity-regexp '^https://github.com/simdevWarden/repowarden/\.github/workflows/release\.yml@' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 
@@ -34,7 +34,7 @@ Chaque release contient aussi une **preuve de provenance [SLSA](https://slsa.dev
 ```bash
 slsa-verifier verify-artifact "repowarden-$TAG.tar.gz" \
   --provenance-path "repowarden-$TAG.intoto.jsonl" \
-  --source-uri github.com/SimBienvenueHoulBoumi/repowarden --source-branch main
+  --source-uri github.com/simdevWarden/repowarden --source-branch main
 ```
 
 (`--source-branch main` : les releases sont construites par le workflow lancé sur `main`, qui crée ensuite le tag.)

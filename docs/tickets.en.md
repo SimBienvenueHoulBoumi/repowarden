@@ -15,6 +15,8 @@ Every change starts from a **ticket** (GitHub issue): **the branch derives from 
 
 Ticket closed as **abandoned** (*not planned*): its PR is closed and its branch deleted.
 
+**Finished** ticket (moved to `done` at release, or closed by hand) whose branch still exists, because the work went through another branch: the branch is deleted if it has no commit missing from `develop` and no open PR comes from it. Otherwise it is kept and the ticket says so: nothing is ever lost.
+
 Everything is automatic except validation: it is the only human decision, and GitHub only lets people with rights on the repository add the `validé` label. A ticket **opened by a maintainer** (write access: owner, member, collaborator) is **validated straight away**: opening it is already their decision. Only community tickets wait for the label. To always require a separate validation: `auto-validate: never` input of the `tickets.yml` workflow. The branch type comes from the ticket's `type: …` label (`feat` by default), its name from the title (lowercase, no accents).
 
 ## On the developer machine
@@ -64,7 +66,7 @@ In `.github/workflows/release.yml`, tickets move to pre-production on each pre-r
   tickets:
     needs: release
     if: needs.release.outputs.release_created == 'true' || needs.release.outputs.prerelease_created == 'true'
-    uses: SimBienvenueHoulBoumi/repowarden/.github/workflows/tickets.yml@v4
+    uses: simdevWarden/repowarden/.github/workflows/tickets.yml@v4
     permissions: { contents: write, issues: write, pull-requests: write, statuses: write }
     with:
       tag: ${{ needs.release.outputs.tag_name || needs.release.outputs.prerelease_tag }}
@@ -73,6 +75,8 @@ In `.github/workflows/release.yml`, tickets move to pre-production on each pre-r
 An existing `tickets.yml` is never overwritten: for the branch created on validation and the draft PR, add the `pull_request_review`, `issues` (`assigned`, `closed`) and `push` events to it, and the `contents: write` permission (see the template written by `repowarden tickets init`).
 
 No key or token: everything goes through the Actions token. The workflow uses `pull_request_target` without ever fetching the PR's code: PRs from forks are handled safely.
+
+Delivery opened by the release workflow (`release-auto`): with `delivery-workflow: true`, a `develop` → `main` PR opened by hand is closed, with the steps to follow; it would never get a deployment approval. Default `false`: delivering through a manual PR remains possible.
 
 ## Board
 

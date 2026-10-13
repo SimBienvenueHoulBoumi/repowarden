@@ -21,7 +21,7 @@ permissions: {}
 
 jobs:
   release:
-    uses: SimBienvenueHoulBoumi/repowarden/.github/workflows/release-auto.yml@v4
+    uses: simdevWarden/repowarden/.github/workflows/release-auto.yml@v4
     permissions:
       contents: write
       pull-requests: write
@@ -41,7 +41,7 @@ jobs:
   # npm:
   #   needs: release
   #   if: vars.REPOWARDEN_NPM == 'true' && (needs.release.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch')
-  #   uses: SimBienvenueHoulBoumi/repowarden/.github/workflows/npm-publish.yml@v4
+  #   uses: simdevWarden/repowarden/.github/workflows/npm-publish.yml@v4
   #   permissions: { contents: read, id-token: write }
   #   with:
   #     tag: ${{ needs.release.outputs.tag_name }}
@@ -53,7 +53,7 @@ jobs:
   # tickets:
   #   needs: release
   #   if: needs.release.outputs.release_created == 'true' || needs.release.outputs.prerelease_created == 'true'
-  #   uses: SimBienvenueHoulBoumi/repowarden/.github/workflows/tickets.yml@v4
+  #   uses: simdevWarden/repowarden/.github/workflows/tickets.yml@v4
   #   permissions: { issues: write, pull-requests: write, statuses: write }
   #   with:
   #     tag: ${{ needs.release.outputs.tag_name || needs.release.outputs.prerelease_tag }}

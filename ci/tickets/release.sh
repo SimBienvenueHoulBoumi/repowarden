@@ -15,6 +15,7 @@ cmd_release() {
             _tr tk.released "$TAG"
             statut "$n" "$S_DONE"
             gh issue close "$n" --comment "$_T" >/dev/null
+            nettoyer_branche "$n"
         fi
     done < <(gh issue list --state open --label "$S_PREPROD" --limit 500 --json number -q '.[].number')
 }

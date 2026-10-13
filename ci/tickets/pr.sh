@@ -22,6 +22,14 @@ cmd_pr() {
             _tr tk.pr_backmerge_empty "$HEAD" "$BASE"
             gh pr close "$PR" --comment "$_T" >/dev/null
             notice "$_T"
+        # Livraison ouverte par le workflow de release : celle d'une personne
+        # n'aurait jamais d'approbation de déploiement, elle resterait bloquée
+        elif [ "$HEAD" = "${INTEGRATION:-develop}" ] && [ "${DELIVERY_WORKFLOW:-false}" = true ] &&
+            [[ "${AUTHOR:-}" != *"[bot]" ]]; then
+            _tr tk.pr_delivery_manual "$HEAD" "$BASE" "$HEAD" "$HEAD"
+            gh pr close "$PR" --comment "$_T" >/dev/null
+            notice "$_T"
+            return 0
         fi
     fi
     # Bots de dépendances, PR de release, livraisons et retours : pas de ticket

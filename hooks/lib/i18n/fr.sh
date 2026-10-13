@@ -279,6 +279,13 @@ _msg_fr() {
         ci.proteger.unattributed_invalid) _M="unattributedApproval : true ou false." ;;
         ci.proteger.no_branch) _M="Aucune des branches « %s » n'existe sur %s." ;;
         ci.proteger.no_cleanup) _M="Suppression automatique des branches désactivée (elle supprimerait develop) : ajouter un workflow qui appelle nettoyage-branches.yml, sinon les branches mergées restent (voir En organisation)." ;;
+        ci.proteger.no_delivery_env) _M="main exigera un déploiement « %s » réussi, mais aucun workflow ne crée ce déploiement : un déploiement que rien ne crée bloquerait main pour toujours. Appeler release-auto.yml avec delivery-environment (voir docs/releases.md, flux develop), ou deliveryApproval = review dans .repowarden.conf." ;;
+        ci.proteger.stale_concurrency) _M="%s : une demande de livraison (manuelle ou planifiée) en attente bloquerait en silence les suivantes. Mettre cancel-in-progress: \${{ github.event_name != 'push' }} (une nouvelle demande remplace celle en attente) et un groupe par déclencheur : release-\${{ github.ref_name }}-\${{ github.event.schedule || github.event_name }}." ;;
+        ci.proteger.urgent) _M="  étiquette « urgent » créée (son merge lance la demande de livraison)" ;;
+        ci.proteger.verify_missing) _M="%s : ruleset absent en ligne" ;;
+        ci.proteger.verify_diff) _M="%s : règles en ligne différentes\n    en ligne : %s\n    attendu  : %s" ;;
+        ci.proteger.verify_fix) _M="Règles périmées : relancer repowarden proteger pour les mettre à jour." ;;
+        ci.proteger.verify_ok) _M="Règles en ligne à jour." ;;
         ci.proteger.delivery) _M="  livraison vers main : %s approbation(s) exigée(s) (passage à une nouvelle version) ; merge automatique des PR de travail vers develop : %s" ;;
         ci.proteger.methods_flow) _M="main : merge commit ; %s : squash ou merge commit" ;;
         ci.proteger.tags_org) _M="réservés aux workflows" ;;
@@ -366,6 +373,7 @@ _msg_fr() {
         st.repo_version_old) _M="Le projet demande repowarden %s ; installé : %s" ;;
         st.repo_version_ok) _M="Version demandée par le projet (%s) : respectée" ;;
         st.repo_forge) _M="Plateforme : %s" ;;
+        st.repo_rules) _M="Règles GitHub à jour ? repowarden proteger --verifier (lecture seule)" ;;
         st.tools) _M="Outils présents : %s · absents : %s (selon les langages des projets)" ;;
         st.next) _M="Étape suivante :" ;;
         st.ready) _M="Tout est prêt : git cc pour commiter, repowarden code-mort sur une branche." ;;
@@ -406,12 +414,14 @@ _msg_fr() {
         tk.validated_waiting) _M="Ticket validé, en attente d'être pris : sa branche sera créée à l'assignation, ou en le prenant soi-même avec \`repowarden ticket %s\`." ;;
         tk.pr_inverted) _M="PR fermée automatiquement : une PR de \`%s\` vers \`%s\` est sans objet. Une branche persistante ne part que pour une livraison (develop → main) ou un retour (main → develop). Pour mettre une branche de travail à jour : sur cette branche, \`git merge origin/%s\`, puis \`git push\`." ;;
         tk.pr_backmerge_empty) _M="PR fermée automatiquement : \`%s\` n'apporte aucun contenu à \`%s\`. Le retour est fait automatiquement après une release, seulement quand il y a quelque chose à rapporter." ;;
+        tk.pr_delivery_manual) _M="PR fermée automatiquement : la livraison \`%s\` → \`%s\` est ouverte par le workflow de release ; une PR ouverte à la main n'aurait jamais d'approbation de déploiement. Lancer *Actions → release → Run workflow* sur \`%s\` (ou \`gh workflow run release.yml --ref %s\`), puis **Approve and deploy** sur le run." ;;
         tk.branch_registered) _M="Branche du ticket : \`%s\`." ;;
         tk.branch_second) _M="Seconde branche pour ce ticket : \`%s\` (déjà : %s). Un ticket, une branche : regrouper le travail, ou ouvrir un ticket séparé." ;;
         tk.adopted) _M="Tickets existants : %s rangé(s), %s branche(s) inscrite(s)." ;;
         tk.init_adopt) _M="Tickets et branches existants" ;;
         tk.abandoned) _M="Ticket #%s abandonné : PR fermée, branche supprimée." ;;
         tk.branch_deleted) _M="Branche %s supprimée (ticket #%s abandonné)" ;;
+        tk.branch_kept) _M="Branche \`%s\` gardée : %s commit(s) absent(s) de la branche d'intégration, PR ouverte(s) : %s. À supprimer à la main si le travail est ailleurs." ;;
         tk.draft_opened) _M="PR #%s ouverte en brouillon pour le ticket #%s" ;;
         tk.draft_updated) _M="PR #%s (ticket #%s) : titre et description repris du ticket" ;;
         tk.created_body) _M="Ticket créé automatiquement pour la PR #%s, qui n'en citait aucun. À valider par un mainteneur (étiquette « validé »)." ;;

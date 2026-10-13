@@ -5,7 +5,7 @@
 #       types: [closed]
 #   jobs:
 #     nettoyage:
-#       uses: SimBienvenueHoulBoumi/repowarden/.github/workflows/nettoyage-branches.yml@v4
+#       uses: simdevWarden/repowarden/.github/workflows/nettoyage-branches.yml@v4
 #       permissions: { contents: write, pull-requests: read }
 #
 # Contrairement à la suppression automatique de GitHub, une branche encore

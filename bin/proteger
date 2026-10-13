@@ -11,8 +11,10 @@
 #
 #   bin/proteger [--repo propriétaire/nom] [--checks "repowarden,tests (ubuntu-latest)"] [--relecteurs N]
 #                [--codeowners] [--environnement NOM] [--approbateurs "login …"]
-#                [--sans-tags] [--dry-run]
+#                [--sans-tags] [--dry-run] [--verifier]
 # --sans-tags : dépôt qui déplace lui-même un tag (tag majeur flottant v2…).
+# --verifier : compare les règles en ligne à celles attendues, sans rien modifier
+# (après une mise à jour de repowarden ou de .repowarden.conf).
 # Réglages équivalents dans .repowarden.conf (requiredReviews, codeOwnerReview,
 # unattributedApproval, deliveryApproval, environment, environmentReviewers). Demande un gh connecté, admin du dépôt.
 set -euo pipefail
@@ -38,17 +40,20 @@ APPROVERS="$REPLY"
 REPO=""
 CHECKS="repowarden"
 DRY_RUN=""
+VERIFY=""
+CHECKS_SET=""
 NO_TAGS=""
 while [ $# -gt 0 ]; do
     case "$1" in
         --repo) shift; REPO="${1:?--repo attend propriétaire/nom}" ;;
-        --checks) shift; CHECKS="${1:?--checks attend une liste}" ;;
+        --checks) shift; CHECKS="${1:?--checks attend une liste}"; CHECKS_SET=1 ;;
         --relecteurs) shift; REVIEWS="${1:?--relecteurs attend un nombre}" ;;
         --codeowners) CODEOWNERS=true ;;
         --environnement) shift; ENVIRONMENT="${1:?--environnement attend un nom}" ;;
         --approbateurs) shift; APPROVERS="${1:?--approbateurs attend des logins}" ;;
         --sans-tags) NO_TAGS=1 ;;
         --dry-run) DRY_RUN=1 ;;
+        --verifier) VERIFY=1 ;;
         -h | --help) sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) err_t install.unknown_arg "$1"; exit 1 ;;
     esac
@@ -209,6 +214,19 @@ if [ -n "$integration" ]; then
     if ! grep -qs "nettoyage-branches.yml" "$GIT_TOPLEVEL"/.github/workflows/*.y*ml; then
         attention_t ci.proteger.no_cleanup
     fi
+    # Règle de déploiement sans workflow qui crée ce déploiement : main
+    # bloquée pour toujours (la livraison n'aurait jamais d'approbation)
+    if [ "$DELIVERY" = deployment ] &&
+        ! grep -qs "delivery-environment:" "$GIT_TOPLEVEL"/.github/workflows/*.y*ml; then
+        attention_t ci.proteger.no_delivery_env "$ENVIRONMENT"
+    fi
+    # Demande de livraison (manuelle, planifiée) qui ne remplace pas celle en
+    # attente : une demande oubliée bloquerait en silence les suivantes
+    for wf in "$GIT_TOPLEVEL"/.github/workflows/*.y*ml; do
+        grep -qs "release-auto.yml" "$wf" && grep -qsE "workflow_dispatch|schedule:" "$wf" &&
+            grep -qs "cancel-in-progress: false" "$wf" &&
+            attention_t ci.proteger.stale_concurrency "${wf#"$GIT_TOPLEVEL"/}"
+    done
     t ci.proteger.methods_flow "$integration"
     methods="$REPLY"
 else
@@ -279,6 +297,56 @@ if [ -n "$ENVIRONMENT" ]; then
   \"deployment_branch_policy\": {\"protected_branches\": false, \"custom_branch_policies\": true}}"
     echo_t ci.proteger.9 "$ENVIRONMENT" "$APPROVERS"
 fi
+# Signature des champs posés par ce script : attendue (JSON produit ci-dessus)
+# et en ligne (gh --jq), comparables sans jq ni python
+sig_attendue() {
+    local r="$1" deps checks
+    deps="$(sed -n 's/.*"required_deployment_environments": \[\(.*\)\].*/\1/p' <<<"$r" | tr -d '" ')"
+    checks="$(grep -o '"context": "[^"]*"' <<<"$r" | sed 's/"context": "\(.*\)"/\1/' | LC_ALL=C sort | paste -sd, -)"
+    printf 'approbations=%s dernier_push=%s codeowners=%s deploiement=%s verifications=%s' \
+        "$(sed -n 's/.*"required_approving_review_count": \([0-9]*\).*/\1/p' <<<"$r")" \
+        "$(sed -n 's/.*"require_last_push_approval": \([a-z]*\).*/\1/p' <<<"$r")" \
+        "$(sed -n 's/.*"require_code_owner_review": \([a-z]*\).*/\1/p' <<<"$r")" "$deps" "$checks"
+}
+# shellcheck disable=SC2016 # expression jq (gh --jq), pas du shell
+SIG_EN_LIGNE='(.rules | map(select(.type == "pull_request"))[0].parameters) as $p
+    | "approbations=\($p.required_approving_review_count) dernier_push=\($p.require_last_push_approval) codeowners=\($p.require_code_owner_review) deploiement=\([.rules[] | select(.type == "required_deployments") | .parameters.required_deployment_environments[]] | join(",")) verifications=\([.rules[] | select(.type == "required_status_checks") | .parameters.required_status_checks[].context] | sort | join(","))"'
+
+if [ -n "$VERIFY" ]; then
+    ecarts=0
+    for ruleset in "${rulesets[@]}"; do
+        grep -q '"target": "branch"' <<<"$ruleset" || continue
+        name="$(sed -n 's/^  "name": "\(.*\)",$/\1/p' <<<"$ruleset")"
+        attendu="$(sig_attendue "$ruleset")"
+        id="$(gh api "repos/$REPO/rulesets" --jq ".[] | select(.name == \"$name\") | .id")"
+        en_ligne=""
+        [ -z "$id" ] || en_ligne="$(gh api "repos/$REPO/rulesets/$id" --jq "$SIG_EN_LIGNE")"
+        # Vérifications exigées : comparées seulement si --checks est donné (la
+        # liste n'est pas dans .repowarden.conf ; sinon faux écart)
+        if [ -z "$CHECKS_SET" ]; then
+            attendu="${attendu% verifications=*}"
+            en_ligne="${en_ligne% verifications=*}"
+        fi
+        if [ -z "$en_ligne" ]; then
+            err_t ci.proteger.verify_missing "$name"
+            ecarts=$((ecarts + 1))
+        elif [ "$en_ligne" != "$attendu" ]; then
+            err_t ci.proteger.verify_diff "$name" "$en_ligne" "$attendu"
+            ecarts=$((ecarts + 1))
+        fi
+    done
+    [ "$ecarts" = 0 ] || { err_t ci.proteger.verify_fix; exit 1; }
+    ok_t ci.proteger.verify_ok
+    exit 0
+fi
+
+# Étiquette « urgent » (flux develop) : son merge lance la demande de livraison
+urgent=""
+if [ -n "$integration" ] && ! gh api "repos/$REPO/labels/urgent" --silent 2>/dev/null; then
+    urgent=1
+    info_t ci.proteger.urgent
+fi
+
 if [ -n "$DRY_RUN" ]; then
     printf '%s\n' "${rulesets[@]}"
     [ -z "$env_json" ] || printf '%s\n' "$env_json"
@@ -319,4 +387,6 @@ if [ -n "$env_json" ]; then
     done
     ok_t ci.proteger.12 "$ENVIRONMENT"
 fi
+[ -z "$urgent" ] || gh label create urgent -R "$REPO" --color B60205 \
+    --description "Livraison immédiate après merge" >/dev/null
 ok_t ci.proteger.13

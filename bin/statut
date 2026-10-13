@@ -81,6 +81,7 @@ if [ -n "$GIT_TOPLEVEL" ]; then
         fi
     fi
     info_t st.repo_forge "$FORGE"
+    [ "$FORGE" != github ] || dim_t st.repo_rules
 fi
 
 # Outils : secrets, code mort (selon les langages)

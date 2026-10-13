@@ -20,7 +20,7 @@ permissions: {}
 
 jobs:
   release:
-    uses: SimBienvenueHoulBoumi/repowarden/.github/workflows/release-auto.yml@v4
+    uses: simdevWarden/repowarden/.github/workflows/release-auto.yml@v4
     permissions:
       contents: write
       pull-requests: write
@@ -29,7 +29,7 @@ jobs:
       statuses: write
 ```
 
-Full template: [`templates/project/.github/workflows/release.yml`](https://github.com/SimBienvenueHoulBoumi/repowarden/blob/main/templates/project/.github/workflows/release.yml).
+Full template: [`templates/project/.github/workflows/release.yml`](https://github.com/simdevWarden/repowarden/blob/main/templates/project/.github/workflows/release.yml).
 
 Two prerequisites:
 
@@ -85,7 +85,7 @@ The project type is detected from the files at the root:
 | other | `version.txt` |
 
 !!! tip "Changelog in French, monorepo, options"
-    A `release-please-config.json` file at the root (with `.release-please-manifest.json`) takes precedence over detection: changelog sections, multiple packages, additional files to version… See the [repowarden configuration](https://github.com/SimBienvenueHoulBoumi/repowarden/blob/main/release-please-config.json) for an example in French.
+    A `release-please-config.json` file at the root (with `.release-please-manifest.json`) takes precedence over detection: changelog sections, multiple packages, additional files to version… See the [repowarden configuration](https://github.com/simdevWarden/repowarden/blob/main/release-please-config.json) for an example in French.
 
 !!! note "Maven"
     After each release, release-please proposes switching back to `-SNAPSHOT` (PR merged automatically in the same way). To skip it: `"skip-snapshot": true` in `release-please-config.json`.
@@ -98,17 +98,28 @@ For a project with two long-lived branches ([`integrationBranch` flow](configura
 on:
   push:
     branches: [main, develop]
+  schedule:
+    - cron: "0 19 * * *"   # evening pre-release, if develop changed
+    - cron: "0 7 * * 5"    # delivery window: approval request on Friday morning
+  workflow_dispatch:       # by hand (and emergencies): pre-release and delivery request
 
+# One queue per branch and trigger; a manual or scheduled request replaces
+# the pending one; a push never cancels a running run
 concurrency:
-  group: release-${{ github.ref_name }}   # one queue per branch
-  cancel-in-progress: false
+  group: release-${{ github.ref_name }}-${{ github.event.schedule || github.event_name }}
+  cancel-in-progress: ${{ github.event_name != 'push' }}
 
 jobs:
   release:
-    uses: SimBienvenueHoulBoumi/repowarden/.github/workflows/release-auto.yml@v4
+    uses: simdevWarden/repowarden/.github/workflows/release-auto.yml@v4
     permissions: { contents: write, pull-requests: write, actions: write, checks: read, statuses: write }
     with:
       mode: tag
+      delivery-environment: production       # "Approve and deploy" validates the delivery
+      delivery-schedule: "0 7 * * 5"         # same cron as the window above
+      app-client-id: ${{ vars.REPOWARDEN_APP_CLIENT_ID }}   # the GitHub App merges the approved delivery
+    secrets:
+      app-key: ${{ secrets.REPOWARDEN_APP_KEY }}
 
   publish:
     needs: release
@@ -122,6 +133,9 @@ jobs:
       - run: gh release upload "${{ needs.release.outputs.tag_name }}" target/*.jar
         env: { GH_TOKEN: "${{ github.token }}" }
 ```
+
+!!! warning "Updating an existing release.yml"
+    `repowarden proteger` requires a `production` deployment on `main` (default setting `deliveryApproval = deployment`): without `delivery-environment`, nothing creates it and `main` stays blocked. Copy the concurrency block too: with `cancel-in-progress: false`, a forgotten delivery request silently blocks the next ones. `repowarden proteger` reports both cases.
 
 1. On every merge into `develop`: the **delivery PR** `develop` → `main` (upcoming version, notes) is kept up to date, **without a release**. A test **pre-release** (`vX.Y.Z-next.N`, GitHub "pre-release") is published **at most once a day**, in the evening, if `develop` changed (`preversion-on-push` input for the former behaviour);
 2. **a delivery window**, by default on Friday morning (`delivery-schedule` input, cron of the scheduled trigger): a **single** approval request, containing everything accumulated: a **snapshot** of `develop` (`livraison/vX.Y.Z` branch, frozen at the request's commit) and its PR into `main`. Validating it: **one "Approve and deploy" click** on the `production` environment (`delivery-environment` input), from the notification or the run page; the GitHub App then merges the delivery PR (**merge commit**: every commit stays visible), which publishes the `vX.Y.Z` tag and the release on `main`; the version is computed from **all** the delivered commits (merges excluded). Only one validation pending at a time: the latest;
@@ -155,7 +169,7 @@ on:
 
 jobs:
   release:
-    uses: SimBienvenueHoulBoumi/repowarden/.github/workflows/release-auto.yml@v4
+    uses: simdevWarden/repowarden/.github/workflows/release-auto.yml@v4
     permissions: { contents: write, pull-requests: write, actions: write, checks: read, statuses: write }
     with:
       mode: cycle
@@ -178,7 +192,7 @@ The pre-release is published like a stable version, from the `prerelease_created
   npm-next:
     needs: release
     if: needs.release.outputs.prerelease_created == 'true'
-    uses: SimBienvenueHoulBoumi/repowarden/.github/workflows/npm-publish.yml@v4
+    uses: simdevWarden/repowarden/.github/workflows/npm-publish.yml@v4
     permissions: { contents: read, id-token: write }
     with:
       tag: ${{ needs.release.outputs.prerelease_tag }}
@@ -217,7 +231,7 @@ Then, in `.github/workflows/release.yml`:
   npm:
     needs: release
     if: vars.REPOWARDEN_NPM == 'true' && (needs.release.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch')
-    uses: SimBienvenueHoulBoumi/repowarden/.github/workflows/npm-publish.yml@v4
+    uses: simdevWarden/repowarden/.github/workflows/npm-publish.yml@v4
     permissions: { contents: read, id-token: write }
     with:
       tag: ${{ needs.release.outputs.tag_name }}

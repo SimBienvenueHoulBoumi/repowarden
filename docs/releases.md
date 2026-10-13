@@ -20,7 +20,7 @@ permissions: {}
 
 jobs:
   release:
-    uses: SimBienvenueHoulBoumi/repowarden/.github/workflows/release-auto.yml@v4
+    uses: simdevWarden/repowarden/.github/workflows/release-auto.yml@v4
     permissions:
       contents: write
       pull-requests: write
@@ -29,7 +29,7 @@ jobs:
       statuses: write
 ```
 
-Modèle complet : [`templates/project/.github/workflows/release.yml`](https://github.com/SimBienvenueHoulBoumi/repowarden/blob/main/templates/project/.github/workflows/release.yml).
+Modèle complet : [`templates/project/.github/workflows/release.yml`](https://github.com/simdevWarden/repowarden/blob/main/templates/project/.github/workflows/release.yml).
 
 Deux prérequis :
 
@@ -85,7 +85,7 @@ Le type de projet est détecté d'après les fichiers à la racine :
 | autre | `version.txt` |
 
 !!! tip "Changelog en français, monorepo, options"
-    Un fichier `release-please-config.json` à la racine (avec `.release-please-manifest.json`) prend le pas sur la détection : sections du changelog, plusieurs paquets, fichiers supplémentaires à versionner… Voir la [configuration de repowarden](https://github.com/SimBienvenueHoulBoumi/repowarden/blob/main/release-please-config.json) pour un exemple en français.
+    Un fichier `release-please-config.json` à la racine (avec `.release-please-manifest.json`) prend le pas sur la détection : sections du changelog, plusieurs paquets, fichiers supplémentaires à versionner… Voir la [configuration de repowarden](https://github.com/simdevWarden/repowarden/blob/main/release-please-config.json) pour un exemple en français.
 
 !!! note "Maven"
     Après chaque release, release-please propose de repasser en `-SNAPSHOT` (PR mergée automatiquement de la même façon). Pour s'en passer : `"skip-snapshot": true` dans `release-please-config.json`.
@@ -98,17 +98,28 @@ Pour un projet à deux branches longues ([flux `integrationBranch`](configuratio
 on:
   push:
     branches: [main, develop]
+  schedule:
+    - cron: "0 19 * * *"   # préversion du soir, si develop a changé
+    - cron: "0 7 * * 5"    # fenêtre de livraison : demande d'approbation le vendredi matin
+  workflow_dispatch:       # à la main (et urgence) : préversion et demande de livraison
 
+# Une file par branche et par déclencheur ; une demande manuelle ou planifiée
+# remplace celle en attente ; un push n'annule jamais un run en cours
 concurrency:
-  group: release-${{ github.ref_name }}   # une file par branche
-  cancel-in-progress: false
+  group: release-${{ github.ref_name }}-${{ github.event.schedule || github.event_name }}
+  cancel-in-progress: ${{ github.event_name != 'push' }}
 
 jobs:
   release:
-    uses: SimBienvenueHoulBoumi/repowarden/.github/workflows/release-auto.yml@v4
+    uses: simdevWarden/repowarden/.github/workflows/release-auto.yml@v4
     permissions: { contents: write, pull-requests: write, actions: write, checks: read, statuses: write }
     with:
       mode: tag
+      delivery-environment: production       # « Approve and deploy » valide la livraison
+      delivery-schedule: "0 7 * * 5"         # même cron que la fenêtre ci-dessus
+      app-client-id: ${{ vars.REPOWARDEN_APP_CLIENT_ID }}   # la GitHub App merge la livraison approuvée
+    secrets:
+      app-key: ${{ secrets.REPOWARDEN_APP_KEY }}
 
   publier:
     needs: release
@@ -122,6 +133,9 @@ jobs:
       - run: gh release upload "${{ needs.release.outputs.tag_name }}" target/*.jar
         env: { GH_TOKEN: "${{ github.token }}" }
 ```
+
+!!! warning "Mettre à jour un release.yml existant"
+    `repowarden proteger` exige sur `main` un déploiement `production` (réglage par défaut `deliveryApproval = deployment`) : sans `delivery-environment`, rien ne le crée et `main` reste bloquée. Copier aussi la concurrence : avec `cancel-in-progress: false`, une demande de livraison oubliée bloque en silence les suivantes. `repowarden proteger` signale ces deux cas.
 
 1. À chaque merge sur `develop` : la **PR de livraison** `develop` → `main` (version à venir, notes) est tenue à jour, **sans release**. Une **préversion** de test (`vX.Y.Z-next.N`, release GitHub « pre-release ») est publiée **au plus une fois par jour**, le soir, si `develop` a changé (entrée `preversion-on-push` pour l'ancien comportement) ;
 2. **une fenêtre de livraison**, par défaut le vendredi matin (entrée `delivery-schedule`, cron du déclenchement planifié) : une **seule** demande d'approbation, qui contient tout ce qui s'est accumulé : un **instantané** de `develop` (branche `livraison/vX.Y.Z`, figée au commit de la demande) et sa PR vers `main`. La valider : **un clic « Approve and deploy »** sur l'environnement `production` (entrée `delivery-environment`), depuis la notification ou la page du run ; la GitHub App merge alors la PR de livraison (**merge commit** : chaque commit reste visible), ce qui publie sur `main` le tag `vX.Y.Z` et la release ; la version est calculée à partir de **tous** les commits livrés (merges exclus). Une seule validation en attente à la fois : la plus récente ;
@@ -155,7 +169,7 @@ on:
 
 jobs:
   release:
-    uses: SimBienvenueHoulBoumi/repowarden/.github/workflows/release-auto.yml@v4
+    uses: simdevWarden/repowarden/.github/workflows/release-auto.yml@v4
     permissions: { contents: write, pull-requests: write, actions: write, checks: read, statuses: write }
     with:
       mode: cycle
@@ -178,7 +192,7 @@ La préversion se publie comme une version stable, depuis les sorties `prereleas
   npm-next:
     needs: release
     if: needs.release.outputs.prerelease_created == 'true'
-    uses: SimBienvenueHoulBoumi/repowarden/.github/workflows/npm-publish.yml@v4
+    uses: simdevWarden/repowarden/.github/workflows/npm-publish.yml@v4
     permissions: { contents: read, id-token: write }
     with:
       tag: ${{ needs.release.outputs.prerelease_tag }}
@@ -217,7 +231,7 @@ Puis, dans `.github/workflows/release.yml` :
   npm:
     needs: release
     if: vars.REPOWARDEN_NPM == 'true' && (needs.release.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch')
-    uses: SimBienvenueHoulBoumi/repowarden/.github/workflows/npm-publish.yml@v4
+    uses: simdevWarden/repowarden/.github/workflows/npm-publish.yml@v4
     permissions: { contents: read, id-token: write }
     with:
       tag: ${{ needs.release.outputs.tag_name }}

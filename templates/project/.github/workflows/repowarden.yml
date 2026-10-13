@@ -31,6 +31,6 @@ jobs:
       #   with: { node-version: 24, cache: npm }
       # - run: npm ci
 
-      - uses: SimBienvenueHoulBoumi/repowarden@v4
+      - uses: simdevWarden/repowarden@v4
         with:
           strict: true

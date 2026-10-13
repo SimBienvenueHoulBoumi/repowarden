@@ -378,6 +378,10 @@ case "$*" in
     "api repos/moi/projet/branches/"*) [[ " $GH_BRANCHES " == *" ${2##*/} "* ]] && echo "${2##*/}" ;;
     # rulesets existants = $GH_RULESETS (JSON), filtrés comme le ferait gh
     "api repos/moi/projet/rulesets --jq "*) jq -r "$4" <<<"${GH_RULESETS:-[]}" ;;
+    # un ruleset par son id, filtré comme le ferait gh
+    "api repos/moi/projet/rulesets/"*) jq -c --argjson id "${2##*/}" '.[] | select(.id == $id)' <<<"${GH_RULESETS:-[]}" | jq -r "$4" ;;
+    # étiquette urgent présente si $GH_LABEL_URGENT
+    "api repos/moi/projet/labels/urgent"*) [ -n "${GH_LABEL_URGENT:-}" ] || exit 1 ;;
 esac
 GH
     chmod +x "$BATS_TEST_TMPDIR/bin/gh"
@@ -460,6 +464,71 @@ print(json.dumps(out))' <<<"$(sed -n '/^{/,$p' <<<"$1")"
     GH_BRANCHES="main develop" run "$PROTEGER" --dry-run
     [ "$status" -ne 0 ]
     git config --unset repowarden.deliveryApproval
+}
+
+@test "proteger : etiquette urgent creee si absente (flux develop), jamais en double" {
+    fake_gh_repo
+    git config repowarden.integrationBranch develop
+    git config repowarden.protectedBranches "main develop"
+    GH_BRANCHES="main develop" run "$PROTEGER"
+    [ "$status" -eq 0 ]
+    grep -q "^label create urgent" "$GH_LOG"
+    : >"$GH_LOG"
+    GH_LABEL_URGENT=1 GH_BRANCHES="main develop" run "$PROTEGER"
+    ! grep -q "^label create" "$GH_LOG"
+    # --dry-run : annoncee, pas creee
+    : >"$GH_LOG"
+    GH_BRANCHES="main develop" run "$PROTEGER" --dry-run
+    ! grep -q "^label create" "$GH_LOG"
+    [[ "$output" == *"urgent"* ]]
+}
+
+@test "proteger --verifier : regles en ligne comparees a celles attendues" {
+    require python3
+    fake_gh_repo
+    git config repowarden.integrationBranch develop
+    git config repowarden.protectedBranches "main develop"
+    GH_BRANCHES="main develop" run "$PROTEGER" --dry-run
+    # regles en ligne = regles attendues (ids ajoutes)
+    export GH_RULESETS="$(python3 -c 'import json,sys; r=json.loads(sys.argv[1]); [x.__setitem__("id",i+1) for i,x in enumerate(r) if "name" in x]; print(json.dumps([x for x in r if "name" in x]))' "$(rulesets_json "$output")")"
+    GH_BRANCHES="main develop" run "$PROTEGER" --verifier
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"à jour"* ]]
+    # en ligne : 1 approbation et pas de regle de deploiement (cas #267) -> ecart
+    export GH_RULESETS="$(python3 -c 'import json,sys; r=json.loads(sys.argv[1]); m=r[0]; m["rules"][2]["parameters"]["required_approving_review_count"]=1; m["rules"]=m["rules"][:4]; print(json.dumps(r))' "$GH_RULESETS")"
+    GH_BRANCHES="main develop" run "$PROTEGER" --verifier
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"approbations=1"* && "$output" == *"approbations=0"* ]]
+    [[ "$output" == *"repowarden proteger"* ]]
+    # ruleset absent -> ecart
+    GH_RULESETS='[]' GH_BRANCHES="main develop" run "$PROTEGER" --verifier
+    [ "$status" -ne 0 ]
+}
+
+@test "proteger : livraison approuvee par deploiement sans workflow qui le cree -> avertissement" {
+    require python3
+    fake_gh_repo
+    git config repowarden.integrationBranch develop
+    git config repowarden.protectedBranches "main develop"
+    # aucun workflow de release avec delivery-environment : main serait bloquee
+    GH_BRANCHES="main develop" run "$PROTEGER" --dry-run
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"déploiement que rien ne crée"* ]]
+    # workflow complet : rien a signaler
+    mkdir -p .github/workflows
+    printf 'on:\n  workflow_dispatch:\nconcurrency:\n  group: g\n  cancel-in-progress: ${{ github.event_name != %s }}\njobs:\n  r:\n    uses: o/r/.github/workflows/release-auto.yml@v4\n    with:\n      delivery-environment: production\n' "'push'" >.github/workflows/release.yml
+    GH_BRANCHES="main develop" run "$PROTEGER" --dry-run
+    [[ "$output" != *"déploiement que rien ne crée"* ]]
+    [[ "$output" != *"remplace celle en attente"* ]]
+    # ancienne concurrence avec workflow_dispatch : une demande oubliee bloquerait les suivantes
+    sed -i.bak 's/cancel-in-progress: .*/cancel-in-progress: false/' .github/workflows/release.yml
+    GH_BRANCHES="main develop" run "$PROTEGER" --dry-run
+    [[ "$output" == *"remplace celle en attente"* ]]
+    # revue de PR au lieu du deploiement : pas de regle de deploiement, pas d'avertissement
+    rm -rf .github
+    git config repowarden.deliveryApproval review
+    GH_BRANCHES="main develop" run "$PROTEGER" --dry-run
+    [[ "$output" != *"déploiement que rien ne crée"* ]]
 }
 
 @test "proteger : approbation des changements non attribues posee explicitement (false par defaut, reglable)" {
