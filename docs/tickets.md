@@ -15,6 +15,8 @@ Chaque changement part d'un **ticket** (issue GitHub) : **la branche découle du
 
 Ticket fermé comme **abandonné** (*not planned*) : sa PR est fermée et sa branche supprimée.
 
+Ticket **terminé** (passé en `done` à la release, ou fermé à la main) dont la branche existe encore, parce que le travail est passé par une autre branche : elle est supprimée si elle n'a aucun commit absent de `develop` et qu'aucune PR ouverte n'en part. Sinon elle est gardée et le ticket le signale : rien n'est jamais perdu.
+
 Tout est automatique, sauf la validation : c'est la seule décision humaine, et GitHub ne laisse poser l'étiquette `validé` qu'aux personnes ayant les droits sur le dépôt. Un ticket **ouvert par un mainteneur** (droits d'écriture : propriétaire, membre, collaborateur) est **validé d'office** : l'ouvrir est déjà sa décision. Seuls les tickets de la communauté attendent l'étiquette. Pour une validation toujours séparée : entrée `auto-validate: never` du workflow `tickets.yml`. Le type de la branche vient de l'étiquette `type: …` du ticket (`feat` par défaut), son nom du titre (minuscules, sans accents).
 
 ## Sur le poste

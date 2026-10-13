@@ -401,6 +401,31 @@ EOF
     ! grep -q "pr-fermee" "$F/events"
 }
 
+@test "tickets : ticket termine -> branche sans commit propre supprimee, sinon gardee et signalee" {
+    N=12 ticket "validé" "statut: préprod"
+    printf 'refs/heads/feat/12-panier\n' >"$F/refs"
+    FAKE_AHEAD=0 TAG=v3.6.0 run "$TICKETS" release
+    [ "$status" -eq 0 ]
+    grep -qx "branche-supprimee feat/12-panier" "$F/events"
+    # commits absents de develop : gardee, signalee sur le ticket
+    : >"$F/events"
+    N=12 ticket "validé" "statut: préprod"
+    FAKE_AHEAD=2 TAG=v3.6.1 run "$TICKETS" release
+    ! grep -q "branche-supprimee" "$F/events"
+    grep -q "feat/12-panier" "$F/issues/12.comments"
+    # PR ouverte depuis la branche : gardee
+    : >"$F/events"
+    N=12 ticket "validé" "statut: préprod"
+    FAKE_AHEAD=0 FAKE_PR_HEAD=9 TAG=v3.6.2 run "$TICKETS" release
+    ! grep -q "branche-supprimee" "$F/events"
+    # ticket sans branche : rien
+    : >"$F/events"; : >"$F/refs"
+    N=12 ticket "validé" "statut: préprod"
+    FAKE_AHEAD=0 TAG=v3.6.3 run "$TICKETS" release
+    [ "$status" -eq 0 ]
+    ! grep -q "branche-supprimee" "$F/events"
+}
+
 @test "tickets : PR brouillon du bot suivie ; ticket ferme par GitHub au merge dans develop -> rouvert en preprod" {
     # PR ouverte par le suivi des tickets (github-actions[bot]) : suivie, pas exemptee
     N=12 ticket "validé" "statut: en relecture"
