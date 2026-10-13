@@ -100,8 +100,8 @@ on:
     branches: [main, develop]
 
 concurrency:
-  group: release-${{ github.ref_name }}   # une file par branche
-  cancel-in-progress: false
+  group: release-${{ github.ref_name }}-${{ github.event.schedule || github.event_name }}   # une file par branche et par déclencheur
+  cancel-in-progress: ${{ github.event_name != 'push' }}   # demande manuelle ou planifiée : remplace celle en attente
 
 jobs:
   release:
