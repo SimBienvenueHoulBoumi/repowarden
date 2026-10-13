@@ -22,7 +22,9 @@ on:
 # Une release à la fois par branche et par déclencheur : une demande de
 # livraison en attente d'approbation ne bloque pas les merges suivants.
 # Une nouvelle demande (manuelle, planifiée) remplace celle en attente, qui
-# sinon bloquerait en silence les suivantes ; un push n'est jamais annulé
+# sinon bloquerait en silence les suivantes ; un push n'annule jamais un run
+# en cours (GitHub ne garde qu'un run en attente par groupe : le suivant refait
+# le même travail sur un état plus récent)
 concurrency:
   group: release-${{ github.ref_name }}-${{ github.event.schedule || github.event_name }}
   cancel-in-progress: ${{ github.event_name != 'push' }}

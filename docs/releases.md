@@ -98,10 +98,16 @@ Pour un projet à deux branches longues ([flux `integrationBranch`](configuratio
 on:
   push:
     branches: [main, develop]
+  schedule:
+    - cron: "0 19 * * *"   # préversion du soir, si develop a changé
+    - cron: "0 7 * * 5"    # fenêtre de livraison : demande d'approbation le vendredi matin
+  workflow_dispatch:       # à la main (et urgence) : préversion et demande de livraison
 
+# Une file par branche et par déclencheur ; une demande manuelle ou planifiée
+# remplace celle en attente ; un push n'annule jamais un run en cours
 concurrency:
-  group: release-${{ github.ref_name }}-${{ github.event.schedule || github.event_name }}   # une file par branche et par déclencheur
-  cancel-in-progress: ${{ github.event_name != 'push' }}   # demande manuelle ou planifiée : remplace celle en attente
+  group: release-${{ github.ref_name }}-${{ github.event.schedule || github.event_name }}
+  cancel-in-progress: ${{ github.event_name != 'push' }}
 
 jobs:
   release:
@@ -109,6 +115,11 @@ jobs:
     permissions: { contents: write, pull-requests: write, actions: write, checks: read, statuses: write }
     with:
       mode: tag
+      delivery-environment: production       # « Approve and deploy » valide la livraison
+      delivery-schedule: "0 7 * * 5"         # même cron que la fenêtre ci-dessus
+      app-client-id: ${{ vars.REPOWARDEN_APP_CLIENT_ID }}   # la GitHub App merge la livraison approuvée
+    secrets:
+      app-key: ${{ secrets.REPOWARDEN_APP_KEY }}
 
   publier:
     needs: release
@@ -122,6 +133,9 @@ jobs:
       - run: gh release upload "${{ needs.release.outputs.tag_name }}" target/*.jar
         env: { GH_TOKEN: "${{ github.token }}" }
 ```
+
+!!! warning "Mettre à jour un release.yml existant"
+    `repowarden proteger` exige sur `main` un déploiement `production` (réglage par défaut `deliveryApproval = deployment`) : sans `delivery-environment`, rien ne le crée et `main` reste bloquée. Copier aussi la concurrence : avec `cancel-in-progress: false`, une demande de livraison oubliée bloque en silence les suivantes. `repowarden proteger` signale ces deux cas.
 
 1. À chaque merge sur `develop` : la **PR de livraison** `develop` → `main` (version à venir, notes) est tenue à jour, **sans release**. Une **préversion** de test (`vX.Y.Z-next.N`, release GitHub « pre-release ») est publiée **au plus une fois par jour**, le soir, si `develop` a changé (entrée `preversion-on-push` pour l'ancien comportement) ;
 2. **une fenêtre de livraison**, par défaut le vendredi matin (entrée `delivery-schedule`, cron du déclenchement planifié) : une **seule** demande d'approbation, qui contient tout ce qui s'est accumulé : un **instantané** de `develop` (branche `livraison/vX.Y.Z`, figée au commit de la demande) et sa PR vers `main`. La valider : **un clic « Approve and deploy »** sur l'environnement `production` (entrée `delivery-environment`), depuis la notification ou la page du run ; la GitHub App merge alors la PR de livraison (**merge commit** : chaque commit reste visible), ce qui publie sur `main` le tag `vX.Y.Z` et la release ; la version est calculée à partir de **tous** les commits livrés (merges exclus). Une seule validation en attente à la fois : la plus récente ;

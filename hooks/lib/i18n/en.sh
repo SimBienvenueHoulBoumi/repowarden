@@ -279,6 +279,8 @@ _msg_en() {
         ci.proteger.unattributed_invalid) _M="unattributedApproval: true or false." ;;
         ci.proteger.no_branch) _M="None of the branches \"%s\" exists on %s." ;;
         ci.proteger.no_cleanup) _M="Automatic branch deletion disabled (it would delete develop): add a workflow calling nettoyage-branches.yml, otherwise merged branches remain (see In an organisation)." ;;
+        ci.proteger.no_delivery_env) _M="main will require a successful \"%s\" deployment, but no workflow creates that deployment: a deployment nothing creates would block main forever. Call release-auto.yml with delivery-environment (see docs/releases.md, develop flow), or set deliveryApproval = review in .repowarden.conf." ;;
+        ci.proteger.stale_concurrency) _M="%s: a pending delivery request (manual or scheduled) would silently block the next ones. Set cancel-in-progress: \${{ github.event_name != 'push' }} (a new request replaces the pending one) and one group per trigger: release-\${{ github.ref_name }}-\${{ github.event.schedule || github.event_name }}." ;;
         ci.proteger.urgent) _M="  \"urgent\" label created (its merge triggers the delivery request)" ;;
         ci.proteger.verify_missing) _M="%s: ruleset missing online" ;;
         ci.proteger.verify_diff) _M="%s: online rules differ\n    online:   %s\n    expected: %s" ;;
@@ -412,6 +414,7 @@ _msg_en() {
         tk.validated_waiting) _M="Ticket validated, waiting to be taken: its branch will be created when it is assigned, or by taking it yourself with \`repowarden ticket %s\`." ;;
         tk.pr_inverted) _M="PR closed automatically: a PR from \`%s\` to \`%s\` is pointless. A persistent branch only goes out for a delivery (develop → main) or a back-merge (main → develop). To update a work branch: on that branch, \`git merge origin/%s\`, then \`git push\`." ;;
         tk.pr_backmerge_empty) _M="PR closed automatically: \`%s\` brings no content to \`%s\`. The back-merge is done automatically after a release, only when there is something to bring back." ;;
+        tk.pr_delivery_manual) _M="PR closed automatically: the \`%s\` → \`%s\` delivery is opened by the release workflow; a PR opened by hand would never get a deployment approval. Run *Actions → release → Run workflow* on \`%s\` (or \`gh workflow run release.yml --ref %s\`), then **Approve and deploy** on the run." ;;
         tk.branch_registered) _M="Ticket branch: \`%s\`." ;;
         tk.branch_second) _M="Second branch for this ticket: \`%s\` (already: %s). One ticket, one branch: group the work, or open a separate ticket." ;;
         tk.adopted) _M="Existing tickets: %s sorted, %s branch(es) registered." ;;

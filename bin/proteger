@@ -214,6 +214,19 @@ if [ -n "$integration" ]; then
     if ! grep -qs "nettoyage-branches.yml" "$GIT_TOPLEVEL"/.github/workflows/*.y*ml; then
         attention_t ci.proteger.no_cleanup
     fi
+    # Règle de déploiement sans workflow qui crée ce déploiement : main
+    # bloquée pour toujours (la livraison n'aurait jamais d'approbation)
+    if [ "$DELIVERY" = deployment ] &&
+        ! grep -qs "delivery-environment:" "$GIT_TOPLEVEL"/.github/workflows/*.y*ml; then
+        attention_t ci.proteger.no_delivery_env "$ENVIRONMENT"
+    fi
+    # Demande de livraison (manuelle, planifiée) qui ne remplace pas celle en
+    # attente : une demande oubliée bloquerait en silence les suivantes
+    for wf in "$GIT_TOPLEVEL"/.github/workflows/*.y*ml; do
+        grep -qs "release-auto.yml" "$wf" && grep -qsE "workflow_dispatch|schedule:" "$wf" &&
+            grep -qs "cancel-in-progress: false" "$wf" &&
+            attention_t ci.proteger.stale_concurrency "${wf#"$GIT_TOPLEVEL"/}"
+    done
     t ci.proteger.methods_flow "$integration"
     methods="$REPLY"
 else

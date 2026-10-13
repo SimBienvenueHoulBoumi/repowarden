@@ -98,10 +98,16 @@ For a project with two long-lived branches ([`integrationBranch` flow](configura
 on:
   push:
     branches: [main, develop]
+  schedule:
+    - cron: "0 19 * * *"   # evening pre-release, if develop changed
+    - cron: "0 7 * * 5"    # delivery window: approval request on Friday morning
+  workflow_dispatch:       # by hand (and emergencies): pre-release and delivery request
 
+# One queue per branch and trigger; a manual or scheduled request replaces
+# the pending one; a push never cancels a running run
 concurrency:
-  group: release-${{ github.ref_name }}-${{ github.event.schedule || github.event_name }}   # one queue per branch and trigger
-  cancel-in-progress: ${{ github.event_name != 'push' }}   # manual or scheduled request: replaces the pending one
+  group: release-${{ github.ref_name }}-${{ github.event.schedule || github.event_name }}
+  cancel-in-progress: ${{ github.event_name != 'push' }}
 
 jobs:
   release:
@@ -109,6 +115,11 @@ jobs:
     permissions: { contents: write, pull-requests: write, actions: write, checks: read, statuses: write }
     with:
       mode: tag
+      delivery-environment: production       # "Approve and deploy" validates the delivery
+      delivery-schedule: "0 7 * * 5"         # same cron as the window above
+      app-client-id: ${{ vars.REPOWARDEN_APP_CLIENT_ID }}   # the GitHub App merges the approved delivery
+    secrets:
+      app-key: ${{ secrets.REPOWARDEN_APP_KEY }}
 
   publish:
     needs: release
@@ -122,6 +133,9 @@ jobs:
       - run: gh release upload "${{ needs.release.outputs.tag_name }}" target/*.jar
         env: { GH_TOKEN: "${{ github.token }}" }
 ```
+
+!!! warning "Updating an existing release.yml"
+    `repowarden proteger` requires a `production` deployment on `main` (default setting `deliveryApproval = deployment`): without `delivery-environment`, nothing creates it and `main` stays blocked. Copy the concurrency block too: with `cancel-in-progress: false`, a forgotten delivery request silently blocks the next ones. `repowarden proteger` reports both cases.
 
 1. On every merge into `develop`: the **delivery PR** `develop` → `main` (upcoming version, notes) is kept up to date, **without a release**. A test **pre-release** (`vX.Y.Z-next.N`, GitHub "pre-release") is published **at most once a day**, in the evening, if `develop` changed (`preversion-on-push` input for the former behaviour);
 2. **a delivery window**, by default on Friday morning (`delivery-schedule` input, cron of the scheduled trigger): a **single** approval request, containing everything accumulated: a **snapshot** of `develop` (`livraison/vX.Y.Z` branch, frozen at the request's commit) and its PR into `main`. Validating it: **one "Approve and deploy" click** on the `production` environment (`delivery-environment` input), from the notification or the run page; the GitHub App then merges the delivery PR (**merge commit**: every commit stays visible), which publishes the `vX.Y.Z` tag and the release on `main`; the version is computed from **all** the delivered commits (merges excluded). Only one validation pending at a time: the latest;

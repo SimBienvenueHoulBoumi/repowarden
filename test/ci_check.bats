@@ -505,6 +505,32 @@ print(json.dumps(out))' <<<"$(sed -n '/^{/,$p' <<<"$1")"
     [ "$status" -ne 0 ]
 }
 
+@test "proteger : livraison approuvee par deploiement sans workflow qui le cree -> avertissement" {
+    require python3
+    fake_gh_repo
+    git config repowarden.integrationBranch develop
+    git config repowarden.protectedBranches "main develop"
+    # aucun workflow de release avec delivery-environment : main serait bloquee
+    GH_BRANCHES="main develop" run "$PROTEGER" --dry-run
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"déploiement que rien ne crée"* ]]
+    # workflow complet : rien a signaler
+    mkdir -p .github/workflows
+    printf 'on:\n  workflow_dispatch:\nconcurrency:\n  group: g\n  cancel-in-progress: ${{ github.event_name != %s }}\njobs:\n  r:\n    uses: o/r/.github/workflows/release-auto.yml@v4\n    with:\n      delivery-environment: production\n' "'push'" >.github/workflows/release.yml
+    GH_BRANCHES="main develop" run "$PROTEGER" --dry-run
+    [[ "$output" != *"déploiement que rien ne crée"* ]]
+    [[ "$output" != *"remplace celle en attente"* ]]
+    # ancienne concurrence avec workflow_dispatch : une demande oubliee bloquerait les suivantes
+    sed -i.bak 's/cancel-in-progress: .*/cancel-in-progress: false/' .github/workflows/release.yml
+    GH_BRANCHES="main develop" run "$PROTEGER" --dry-run
+    [[ "$output" == *"remplace celle en attente"* ]]
+    # revue de PR au lieu du deploiement : pas de regle de deploiement, pas d'avertissement
+    rm -rf .github
+    git config repowarden.deliveryApproval review
+    GH_BRANCHES="main develop" run "$PROTEGER" --dry-run
+    [[ "$output" != *"déploiement que rien ne crée"* ]]
+}
+
 @test "proteger : approbation des changements non attribues posee explicitement (false par defaut, reglable)" {
     require python3
     fake_gh_repo
