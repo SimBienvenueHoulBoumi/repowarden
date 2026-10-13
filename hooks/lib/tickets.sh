@@ -24,19 +24,71 @@ branch_ticket_r() {
     if [[ "$1" =~ ^[a-z]+/([0-9]+)(-|$) ]]; then REPLY="${BASH_REMATCH[1]}"; fi
 }
 
+# $1 → sans accents (un à un : les classes [àâ] sont fausses en locale C) ;
+# les autres caractères sont conservés, le nettoyage reste à l'appelant
+sans_accents() {
+    printf '%s' "$1" | sed -e 's/à/a/g' -e 's/â/a/g' -e 's/ä/a/g' -e 's/é/e/g' -e 's/è/e/g' -e 's/ê/e/g' -e 's/ë/e/g' -e 's/î/i/g' -e 's/ï/i/g' -e 's/ô/o/g' -e 's/ö/o/g' -e 's/ù/u/g' -e 's/û/u/g' -e 's/ü/u/g' -e 's/ç/c/g' -e 's/œ/oe/g' -e 's/æ/ae/g' -e 's/À/a/g' -e 's/Â/a/g' -e 's/Ä/a/g' -e 's/É/e/g' -e 's/È/e/g' -e 's/Ê/e/g' -e 's/Ë/e/g' -e 's/Î/i/g' -e 's/Ï/i/g' -e 's/Ô/o/g' -e 's/Ö/o/g' -e 's/Ù/u/g' -e 's/Û/u/g' -e 's/Ü/u/g' -e 's/Ç/c/g' -e 's/Œ/oe/g' -e 's/Æ/ae/g'
+}
+
+# Mots vides qu'un nom de branche (ou une portée) ne garde pas en fin de coupe :
+# « …-garde-la-trace-de » → « …-garde-la-trace »
+MOTS_VIDES="a au aux de des du en et l la le les of on ou par pour sur the to un une"
+
+# $1 (minuscules, tirets) → sans ses mots vides finaux
+sans_mots_vides() {
+    local slug="$1" mot
+    while [[ "$slug" == *-* ]]; do
+        mot="${slug##*-}"
+        [[ " $MOTS_VIDES " == *" $mot "* ]] || break
+        slug="${slug%-*}"
+    done
+    printf '%s' "$slug"
+}
+
 # REPLY = nom de branche d'un ticket : $1 numéro, $2 titre, $3 type (feat
 # par défaut) → feat/12-ajoute-le-panier (minuscules, sans accents, 40
-# caractères de titre au plus, coupé sur un tiret)
+# caractères au plus, coupé sur un tiret puis sur un mot entier)
 ticket_branch_r() {
     local n="$1" titre="$2" type="${3:-feat}" slug
-    # Accents retirés un à un (pas de classe [àâ] : fausse en locale C)
-    slug="$(printf '%s' "$titre" | sed -e 's/à/a/g' -e 's/â/a/g' -e 's/ä/a/g' -e 's/é/e/g' -e 's/è/e/g' -e 's/ê/e/g' -e 's/ë/e/g' -e 's/î/i/g' -e 's/ï/i/g' -e 's/ô/o/g' -e 's/ö/o/g' -e 's/ù/u/g' -e 's/û/u/g' -e 's/ü/u/g' -e 's/ç/c/g' -e 's/œ/oe/g' -e 's/æ/ae/g' -e 's/À/a/g' -e 's/Â/a/g' -e 's/Ä/a/g' -e 's/É/e/g' -e 's/È/e/g' -e 's/Ê/e/g' -e 's/Ë/e/g' -e 's/Î/i/g' -e 's/Ï/i/g' -e 's/Ô/o/g' -e 's/Ö/o/g' -e 's/Ù/u/g' -e 's/Û/u/g' -e 's/Ü/u/g' -e 's/Ç/c/g' -e 's/Œ/oe/g' -e 's/Æ/ae/g' |
-        LC_ALL=C tr '[:upper:]' '[:lower:]' | LC_ALL=C sed -e 's/[^a-z0-9]\{1,\}/-/g' -e 's/^-//' -e 's/-$//')"
+    slug="$(sans_accents "$titre" | LC_ALL=C tr '[:upper:]' '[:lower:]' |
+        LC_ALL=C sed -e 's/[^a-z0-9]\{1,\}/-/g' -e 's/^-//' -e 's/-$//')"
     if [ "${#slug}" -gt 40 ]; then
         slug="${slug:0:40}"
         [[ "$slug" == *-* ]] && slug="${slug%-*}"
     fi
+    slug="$(sans_mots_vides "$slug")"
     REPLY="$type/$n${slug:+-$slug}"
+}
+
+# REPLY = titre de PR d'un ticket : $1 type (« feat » par défaut), $2 titre du
+# ticket → « feat(portée): sujet ». Portée = préfixe du titre avant le premier
+# « : » (« Tickets : … » → « tickets »), 20 caractères au plus, omise si vide ;
+# sujet = le reste, première lettre abaissée. 72 caractères au plus, coupé sur
+# un mot entier. Vide si le titre ne donne rien (l'appelant décide du repli).
+ticket_pr_title_r() {
+    local type="${1:-feat}" titre="$2" portee sujet tete res
+    sujet="$titre"
+    portee=""
+    if [[ "$titre" =~ ^([^:]{1,30})[[:space:]]*:[[:space:]]+(.+)$ ]]; then
+        portee="$(sans_accents "${BASH_REMATCH[1]}" | LC_ALL=C tr '[:upper:]' '[:lower:]' |
+            LC_ALL=C sed -e 's/[^a-z0-9._-]\{1,\}/-/g' -e 's/^-//' -e 's/-$//')"
+        [ "${#portee}" -le 20 ] || portee=""
+        sujet="${BASH_REMATCH[2]}"
+    fi
+    sujet="$(printf '%s' "${sujet:0:1}" | LC_ALL=C tr '[:upper:]' '[:lower:]')${sujet:1}"
+    tete="$type${portee:+($portee)}: "
+    REPLY=""
+    [ -n "$sujet" ] || return 0
+    res="$tete$sujet"
+    # 72 caractères au plus, coupé sur un mot entier (authored_length → REPLY)
+    authored_length "$res"
+    while [ "$REPLY" -gt 72 ] && [ -n "$sujet" ]; do
+        if [[ "$sujet" == *" "* ]]; then sujet="${sujet% *}"; else sujet="${sujet%?}"; fi
+        res="$tete$sujet"
+        authored_length "$res"
+    done
+    [ -n "$sujet" ] || res=""
+    REPLY="$res"
 }
 
 # REPLY = type de branche d'après les étiquettes d'un ticket (une par ligne) :

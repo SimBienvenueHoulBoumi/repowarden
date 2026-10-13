@@ -412,6 +412,7 @@ _msg_fr() {
         tk.abandoned) _M="Ticket #%s abandonné : PR fermée, branche supprimée." ;;
         tk.branch_deleted) _M="Branche %s supprimée (ticket #%s abandonné)" ;;
         tk.draft_opened) _M="PR #%s ouverte en brouillon pour le ticket #%s" ;;
+        tk.draft_updated) _M="PR #%s (ticket #%s) : titre et description repris du ticket" ;;
         tk.created_body) _M="Ticket créé automatiquement pour la PR #%s, qui n'en citait aucun. À valider par un mainteneur (étiquette « validé »)." ;;
         tk.created) _M="Ticket #%s créé pour la PR #%s et relié à sa description : à valider par un mainteneur." ;;
         tk.init_labels) _M="Étiquettes (statuts et validation)" ;;

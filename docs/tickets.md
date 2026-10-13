@@ -8,7 +8,7 @@ Chaque changement part d'un **ticket** (issue GitHub) : **la branche découle du
 |---|---|---|
 | `statut: à valider` | ticket créé (à la main, ou `repowarden ticket nouveau`) | — |
 | `statut: backlog` | un mainteneur pose l'étiquette **`validé`**, ou ouvre lui-même le ticket (validé d'office) | ticket prêt à être pris ; commentaire avec la commande pour le prendre |
-| `statut: en cours` | quelqu'un s'assigne le ticket (ou `repowarden ticket N`), ou pousse un premier commit sur sa branche | à l'assignation : **branche `<type>/<n°>-<titre>` créée** depuis `develop` et **liée au ticket** (panneau *Development*), un ticket validé pour plus tard n'a donc pas de branche qui vieillit ; au premier push : **PR en brouillon** ouverte vers `develop`, `Ticket : #n`, assignée |
+| `statut: en cours` | quelqu'un s'assigne le ticket (ou `repowarden ticket N`), ou pousse un premier commit sur sa branche | à l'assignation : **branche `<type>/<n°>-<titre>` créée** depuis `develop` et **liée au ticket** (panneau *Development*), un ticket validé pour plus tard n'a donc pas de branche qui vieillit ; au premier push : **PR en brouillon** ouverte vers `develop`, au **titre et à la description repris du ticket** (portée du préfixe du titre, critères en cases à cocher, liste des commits, `Ticket : #n`), assignée ; **actualisée à chaque push** tant qu'elle est en brouillon |
 | `statut: en relecture` | PR « Ready for review » | la CI tourne ; une revue « Request changes » ramène le ticket en cours |
 | `statut: préprod` | PR mergée dans `develop` | branche supprimée ; commentaire à chaque préversion `vX.Y.Z-next.N` |
 | `statut: done` | release sur `main` | ticket **fermé**, avec la version |

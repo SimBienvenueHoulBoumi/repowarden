@@ -20,9 +20,11 @@ case "$1 $2" in
         case "$*" in
             *"-q .body"*) cat "$F/pr_body.$3" 2>/dev/null || cat "$F/pr_body" 2>/dev/null || true ;;
             *"-q .title"*) echo "feat: panier" ;;
+            *"-q .isDraft"*) echo "${FAKE_DRAFT:-true}" ;;
             *commits*) cat "$F/pr_commits" 2>/dev/null || true ;;
         esac ;;
     "pr edit")
+        echo "pr-editee $3" >>"$F/events"
         while [ $# -gt 0 ]; do [ "$1" = --body ] && printf '%s' "$2" >"$F/pr_body"; shift; done ;;
     "pr list")
         case "$*" in
@@ -32,6 +34,11 @@ case "$1 $2" in
         esac ;;
     "pr create")
         echo "pr-creee $*" >>"$F/events"
+        while [ $# -gt 0 ]; do
+            [ "$1" = --title ] && printf '%s' "$2" >"$F/pr_title"
+            [ "$1" = --body ] && printf '%s' "$2" >"$F/pr_body"
+            shift
+        done
         echo "https://github.com/o/r/pull/9" ;;
     "pr close") echo "pr-fermee $3" >>"$F/events" ;;
     "pr merge")
@@ -47,7 +54,8 @@ case "$1 $2" in
     "api repos/o/r/git/matching-refs/heads/") cat "$F/refs" 2>/dev/null || true ;;
     "api repos/o/r") echo R_1 ;;
     "api repos/o/r/git/ref/heads/develop") echo sha0 ;;
-    "api repos/o/r/compare/"*) echo "${FAKE_AHEAD:-1}" ;;
+    "api repos/o/r/compare/"*)
+        case "$*" in *commits*) cat "$F/commits" 2>/dev/null || true ;; *) echo "${FAKE_AHEAD:-1}" ;; esac ;;
     "issue create")
         n=42
         while [ $# -gt 0 ]; do [ "$1" = --label ] && echo "$2" >>"$F/issues/$n.labels"; shift; done
@@ -60,6 +68,7 @@ case "$1 $2" in
             *authorAssociation*) [ -e "$F/issues/$3.sansconception" ] || echo "## Conception retenue (avant code)" ;;
             *comments*) cat "$F/issues/$3.comments" 2>/dev/null || true ;;
             *assignees*) cat "$F/issues/$3.assignees" 2>/dev/null || true ;;
+            *"-q .body"*) cat "$F/issues/$3.body" 2>/dev/null || true ;;
             *) etiquettes "$3" ;;
         esac ;;
     "issue edit")
@@ -225,18 +234,58 @@ ticket() { printf '%s\n' "$@" >"$F/issues/$N.labels"; }
 }
 
 @test "tickets : premier push sur la branche du ticket -> PR brouillon, en cours" {
-    N=12 ticket "validé" "statut: backlog"
+    N=12 ticket "validé" "statut: backlog" "type: feat"
+    echo "Tickets : ajoute le panier" >"$F/issues/12.title"
+    cat >"$F/issues/12.body" <<'EOF'
+## Besoin
+Ajouter un panier.
+
+## Terminé quand…
+- le panier s'ajoute au total
+- un code promo s'applique
+EOF
+    printf -- '- abc1234 feat: ajoute le panier\n' >"$F/commits"
     PUSH_BRANCH=feat/12-panier SHA=def PUSHER=dev run "$TICKETS" push
     [ "$status" -eq 0 ]
-    grep -q "pr-creee pr create --draft --base develop --head feat/12-panier --title feat: ajoute le panier --body Ticket : #12 --assignee dev" "$F/events"
+    grep -q "pr-creee pr create --draft --base develop --head feat/12-panier --title feat(tickets): ajoute le panier" "$F/events"
+    [ "$(cat "$F/pr_title")" = "feat(tickets): ajoute le panier" ]
+    grep -q -- "- \[ \] le panier s'ajoute au total" "$F/pr_body"
+    grep -q -- "- \[ \] un code promo s'applique" "$F/pr_body"
+    grep -q -- "## Commits" "$F/pr_body"
+    grep -q -- "abc1234 feat: ajoute le panier" "$F/pr_body"
+    grep -q -- "Ticket : #12" "$F/pr_body"
     [ "$(labels 12 | grep statut)" = "statut: en cours" ]
     grep -qx "statut-pr success" "$F/events"
-    # PR deja ouverte, branche sans ticket, ou rien de nouveau : aucune PR
+    # PR brouillon deja ouverte : titre et description mis a jour au push suivant
     : >"$F/events"
     FAKE_PR_HEAD=9 PUSH_BRANCH=feat/12-panier SHA=def run "$TICKETS" push
+    grep -qx "pr-editee 9" "$F/events"
+    # PR sortie du brouillon, branche sans ticket, ou rien de nouveau : aucune ecriture
+    : >"$F/events"
+    FAKE_PR_HEAD=9 FAKE_DRAFT=false PUSH_BRANCH=feat/12-panier SHA=def run "$TICKETS" push
     PUSH_BRANCH=feat/panier SHA=def run "$TICKETS" push
     FAKE_AHEAD=0 PUSH_BRANCH=feat/12-panier SHA=def run "$TICKETS" push
-    ! grep -q "pr-creee" "$F/events"
+    ! grep -qE "pr-creee|pr-editee" "$F/events"
+}
+
+@test "tickets : nom de branche sans mot vide final, titre de PR type(portee)" {
+    source "$TICKETS"
+    ticket_branch_r 12 "Corrige le total de"
+    [ "$REPLY" = "feat/12-corrige-le-total" ]
+    ticket_branch_r 12 "Tickets : chaque ticket garde la trace de sa branche"
+    [[ "$REPLY" != *-de && "$REPLY" != *- ]]
+    # portee = prefixe du titre avant le premier « : », sujet = le reste
+    ticket_pr_title_r feat "Tickets : ajoute le panier"
+    [ "$REPLY" = "feat(tickets): ajoute le panier" ]
+    ticket_pr_title_r fix "Corrige le total à payer"
+    [ "$REPLY" = "fix: corrige le total à payer" ]
+    # 72 caracteres au plus, coupe sur un mot entier (jamais de mot tronque)
+    ticket_pr_title_r feat "Tickets : un titre vraiment très long qui doit être coupé sur un mot entier"
+    t="$REPLY"
+    authored_length "$t"
+    [ "$REPLY" -le 72 ]
+    [[ "$t" != *" " ]]
+    [[ " un titre vraiment très long qui doit être coupé sur un mot entier " == *" ${t##* } "* ]]
 }
 
 @test "tickets : assigne -> en cours ; corrections demandees -> en cours" {
