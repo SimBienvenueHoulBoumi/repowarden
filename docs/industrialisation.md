@@ -105,6 +105,10 @@ repowarden proteger --checks "repowarden,build"   # vérifications séparées pa
 
 Le script pose le ruleset « repowarden » (PR obligatoire, vérifications exigées à jour, ni suppression ni push forcé), les modes de merge (squash ; avec un flux `develop` : merge commit sur `main`, **squash seul** sur `develop` (un commit par PR de travail : les commits intermédiaires n'y entrent jamais), qui devient la branche par défaut ; dans ce flux, les PR n'ont pas à être à jour de leur cible : le merge commit d'une livraison n'existe que sur `main` et bloquerait sinon la livraison suivante), réserve les tags `v*` aux workflows (ruleset « repowarden (tags) »), prend le titre de PR comme message de commit et autorise GitHub Actions à créer des PR (releases automatiques).
 
+Avec un flux `develop`, il crée aussi l'étiquette `urgent` si elle manque : son merge lance tout de suite la demande de livraison.
+
+**Règles à jour ?** Après une mise à jour de repowarden ou de `.repowarden.conf`, `repowarden proteger --verifier` compare les règles en ligne à celles que `proteger` poserait, sans rien modifier : chaque écart est listé (« en ligne » / « attendu ») et la commande échoue. Passer les mêmes `--checks` qu'à l'application : la liste des vérifications exigées n'est pas dans `.repowarden.conf`, et sans `--checks` elle n'est pas comparée. Attention, `repowarden proteger` sans `--checks` ramène les vérifications exigées à la seule `repowarden`.
+
 À la main : *Settings → Rules → Rulesets* (ou *Branches → Branch protection rules*) sur `main` :
 
 - Require a pull request before merging

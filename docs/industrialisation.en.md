@@ -105,6 +105,10 @@ repowarden proteger --checks "repowarden,build"   # comma-separated checks; gh l
 
 The script sets up the "repowarden" ruleset (PR required, required checks up to date, no deletion and no force push), the merge methods (squash; with a `develop` flow: merge commit on `main`, **squash only** on `develop` (one commit per work PR: intermediate commits never get in), which becomes the default branch; in this flow, PRs need not be up to date with their target: a delivery's merge commit only exists on `main` and would otherwise block the next delivery), reserves `v*` tags for workflows ("repowarden (tags)" ruleset), uses the PR title as the commit message and allows GitHub Actions to create PRs (automatic releases).
 
+With a `develop` flow, it also creates the `urgent` label if missing: merging a PR with it triggers the delivery request right away.
+
+**Rules up to date?** After updating repowarden or `.repowarden.conf`, `repowarden proteger --verifier` compares the online rules with those `proteger` would set, without changing anything: each difference is listed ("online" / "expected") and the command fails. Pass the same `--checks` as when applying: the list of required checks is not in `.repowarden.conf`, and without `--checks` it is not compared. Note that `repowarden proteger` without `--checks` reduces the required checks to `repowarden` alone.
+
 Manually: *Settings → Rules → Rulesets* (or *Branches → Branch protection rules*) on `main`:
 
 - Require a pull request before merging

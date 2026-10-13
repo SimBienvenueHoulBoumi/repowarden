@@ -281,6 +281,11 @@ _msg_en() {
         ci.proteger.no_cleanup) _M="Automatic branch deletion disabled (it would delete develop): add a workflow calling nettoyage-branches.yml, otherwise merged branches remain (see In an organisation)." ;;
         ci.proteger.no_delivery_env) _M="main will require a successful \"%s\" deployment, but no workflow creates that deployment: a deployment nothing creates would block main forever. Call release-auto.yml with delivery-environment (see docs/releases.md, develop flow), or set deliveryApproval = review in .repowarden.conf." ;;
         ci.proteger.stale_concurrency) _M="%s: a pending delivery request (manual or scheduled) would silently block the next ones. Set cancel-in-progress: \${{ github.event_name != 'push' }} (a new request replaces the pending one) and one group per trigger: release-\${{ github.ref_name }}-\${{ github.event.schedule || github.event_name }}." ;;
+        ci.proteger.urgent) _M="  \"urgent\" label created (its merge triggers the delivery request)" ;;
+        ci.proteger.verify_missing) _M="%s: ruleset missing online" ;;
+        ci.proteger.verify_diff) _M="%s: online rules differ\n    online:   %s\n    expected: %s" ;;
+        ci.proteger.verify_fix) _M="Outdated rules: run repowarden proteger again to update them." ;;
+        ci.proteger.verify_ok) _M="Online rules up to date." ;;
         ci.proteger.delivery) _M="  delivery into main: %s approval(s) required (moving to a new version); auto-merge of work PRs into develop: %s" ;;
         ci.proteger.methods_flow) _M="main: merge commit; %s: squash or merge commit" ;;
         ci.proteger.tags_org) _M="reserved for workflows" ;;
@@ -368,6 +373,7 @@ _msg_en() {
         st.repo_version_old) _M="The project requires repowarden %s; installed: %s" ;;
         st.repo_version_ok) _M="Version required by the project (%s): met" ;;
         st.repo_forge) _M="Platform: %s" ;;
+        st.repo_rules) _M="GitHub rules up to date? repowarden proteger --verifier (read-only)" ;;
         st.tools) _M="Tools present: %s · missing: %s (depending on the projects' languages)" ;;
         st.next) _M="Next step:" ;;
         st.ready) _M="All set: git cc to commit, repowarden code-mort on a branch." ;;
