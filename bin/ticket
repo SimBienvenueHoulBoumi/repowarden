@@ -5,6 +5,9 @@
 #   repowarden ticket nouveau "<titre>" [--type fix] [--description "…"]
 #                                            crée le ticket (« à valider » si le suivi
 #                                            est géré par repowarden, sinon avec sa branche)
+#   repowarden ticket comment <n> "<texte>"  ajoute un commentaire sur le ticket
+#   repowarden ticket label <n> <label> [--remove]
+#                                            gère les labels du ticket
 #   repowarden ticket                        ticket de la branche courante
 # Demande un gh connecté (https://cli.github.com).
 set -euo pipefail
@@ -108,6 +111,8 @@ cmd_nouveau() {
 case "${1:-}" in
     -h | --help | help) aide ;;
     nouveau | new) shift; cmd_nouveau "$@" ;;
+    comment) shift; exec bash "$ROOT/bin/ticket-comment" "$@" ;;
+    label) shift; exec bash "$ROOT/bin/ticket-label" "$@" ;;
     "")
         branche="$(git symbolic-ref --short HEAD 2>/dev/null || echo "")"
         branch_ticket_r "$branche"

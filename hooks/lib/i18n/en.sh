@@ -412,6 +412,7 @@ _msg_en() {
         tk.abandoned) _M="Ticket #%s abandoned: PR closed, branch deleted." ;;
         tk.branch_deleted) _M="Branch %s deleted (ticket #%s abandoned)" ;;
         tk.draft_opened) _M="Draft PR #%s opened for ticket #%s" ;;
+        tk.draft_updated) _M="PR #%s (ticket #%s): title and description taken from the ticket" ;;
         tk.created_body) _M="Ticket created automatically for PR #%s, which cited none. To be validated by a maintainer (\"validé\" label)." ;;
         tk.created) _M="Ticket #%s created for PR #%s and linked in its description: to be validated by a maintainer." ;;
         tk.init_labels) _M="Labels (statuses and validation)" ;;
@@ -424,6 +425,31 @@ _msg_en() {
         tk.init_next) _M="Next: commit these files; require the \"ticket\" check (repowarden proteger --checks \"…,ticket\"); in release.yml, wire the tickets job (see the Tickets docs)." ;;
         tk.prerelease) _M="Available in pre-release **%s**: to be tested before production." ;;
         tk.released) _M="Released in **%s**." ;;
+        # Ticket comment
+        tk.comment.adding) _M="Adding comment to ticket #%s..." ;;
+        tk.comment.added) _M="Comment added to ticket #%s." ;;
+        # Ticket label
+        tk.label.adding) _M="Adding label \"%s\" to ticket #%s..." ;;
+        tk.label.added) _M="Label \"%s\" added to ticket #%s." ;;
+        tk.label.removing) _M="Removing label \"%s\" from ticket #%s..." ;;
+        tk.label.removed) _M="Label \"%s\" removed from ticket #%s." ;;
+        # PR label
+        pr.label.adding) _M="Adding label \"%s\" to PR #%s..." ;;
+        pr.label.added) _M="Label \"%s\" added to PR #%s." ;;
+        pr.label.removing) _M="Removing label \"%s\" from PR #%s..." ;;
+        pr.label.removed) _M="Label \"%s\" removed from PR #%s." ;;
+        # Run rerun
+        run.rerun.failed) _M="Rerunning last failed run..." ;;
+        run.rerun.workflow) _M="Rerunning last run of workflow \"%s\"..." ;;
+        run.rerun.running) _M="Rerunning run #%s..." ;;
+        run.rerun.done) _M="Run #%s rerun." ;;
+        run.rerun.none_failed) _M="No failed run found." ;;
+        run.rerun.none_workflow) _M="No run found for workflow \"%s\"." ;;
+        # Run list
+        run.listing.all) _M="Listing recent runs..." ;;
+        run.listing.workflow) _M="Listing runs for workflow \"%s\"..." ;;
+        # PR checks
+        pr.checks.checking) _M="Checking checks for PR #%s..." ;;
         *) _M="" ;;
     esac
 }

@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Ajouter un commentaire sur un ticket GitHub
+#   repowarden ticket comment <n> "<texte>"
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+# shellcheck source=../hooks/lib/common.sh
+source "$ROOT/hooks/lib/common.sh"
+# shellcheck source=../hooks/lib/i18n.sh
+source "$ROOT/hooks/lib/i18n.sh"
+
+aide() {
+    cat <<EOF
+Usage: repowarden ticket comment <n> "<texte>"
+
+Ajoute un commentaire sur le ticket #<n>.
+
+Exemples:
+  repowarden ticket comment 123 "Conception retenue : ..."
+  repowarden ticket comment 456 "PR prête pour review"
+EOF
+}
+
+[ $# -ge 2 ] || { aide >&2; exit 1; }
+command -v gh >/dev/null || { err_t bot.no_gh; exit 1; }
+
+n="${1}"
+texte="${2}"
+
+step_t tk.comment.adding "$n"
+gh issue comment "$n" --body "$texte"
+ok_t tk.comment.added "$n"
