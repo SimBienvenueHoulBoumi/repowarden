@@ -66,6 +66,10 @@ on:
         description: "Merge automatique (squash) des PR de travail prêtes vers la branche d'intégration, ticket validé ; seulement avec la GitHub App"
         type: boolean
         default: true
+      delivery-workflow:
+        description: "Livraison ouverte par le workflow de release (release-auto) : une PR branche d'intégration → branche principale ouverte par une personne est fermée avec la marche à suivre"
+        type: boolean
+        default: false
       app-client-id:
         description: "GitHub App des workflows (repowarden app init : vars.REPOWARDEN_APP_CLIENT_ID) ; vide : jeton des Actions"
         type: string
@@ -151,6 +155,7 @@ jobs:
           SHA: ${{ github.sha }}
           REVIEW_STATE: ${{ github.event.review.state }}
           AUTO_CREATE: ${{ inputs.auto-create }}
+          DELIVERY_WORKFLOW: ${{ inputs.delivery-workflow }}
         run: |
           if [ -n "$TAG" ]; then
             bash .repowarden-ci/ci/tickets.sh release

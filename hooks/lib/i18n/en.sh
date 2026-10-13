@@ -406,6 +406,7 @@ _msg_en() {
         tk.validated_waiting) _M="Ticket validated, waiting to be taken: its branch will be created when it is assigned, or by taking it yourself with \`repowarden ticket %s\`." ;;
         tk.pr_inverted) _M="PR closed automatically: a PR from \`%s\` to \`%s\` is pointless. A persistent branch only goes out for a delivery (develop → main) or a back-merge (main → develop). To update a work branch: on that branch, \`git merge origin/%s\`, then \`git push\`." ;;
         tk.pr_backmerge_empty) _M="PR closed automatically: \`%s\` brings no content to \`%s\`. The back-merge is done automatically after a release, only when there is something to bring back." ;;
+        tk.pr_delivery_manual) _M="PR closed automatically: the \`%s\` → \`%s\` delivery is opened by the release workflow; a PR opened by hand would never get a deployment approval. Run *Actions → release → Run workflow* on \`%s\` (or \`gh workflow run release.yml --ref %s\`), then **Approve and deploy** on the run." ;;
         tk.branch_registered) _M="Ticket branch: \`%s\`." ;;
         tk.branch_second) _M="Second branch for this ticket: \`%s\` (already: %s). One ticket, one branch: group the work, or open a separate ticket." ;;
         tk.adopted) _M="Existing tickets: %s sorted, %s branch(es) registered." ;;

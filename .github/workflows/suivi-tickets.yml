@@ -24,6 +24,8 @@ jobs:
     with:
       repowarden-repository: ${{ github.repository }}
       repowarden-ref: ${{ github.sha }}
+      # Livraison ouverte par release.yml : une PR develop → main à la main est fermée
+      delivery-workflow: true
       app-client-id: ${{ vars.REPOWARDEN_APP_CLIENT_ID }}
     secrets:
       app-key: ${{ secrets.REPOWARDEN_APP_KEY }}

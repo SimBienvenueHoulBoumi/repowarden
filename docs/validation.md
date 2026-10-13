@@ -69,15 +69,15 @@ L'environnement n'accepte de déploiement que depuis les branches protégées et
 
 Tout le reste est automatique. Voici chaque geste humain du cycle, avec le bouton GitHub et la commande équivalente.
 
-| Geste | Quand | Où |
-|---|---|---|
-| Valider un ticket | ticket ouvert par quelqu'un d'autre qu'un mainteneur | ticket → *Labels* → `validé` (posé d'office si un mainteneur ouvre le ticket) |
-| Écrire la conception | avant le code | commentaire d'un mainteneur sur le ticket contenant « Conception retenue » |
-| Sortir la PR du brouillon | travail terminé | bas de la PR → **Ready for review** ; elle se merge seule (squash) quand la CI est verte |
-| Approuver une relecture | si `requiredReviews ≥ 1` | PR → *Files changed* → **Review changes** → *Approve* → **Submit review** |
-| Livrer en production | flux `develop`, chaque livraison | **Approve and deploy**, voir ci-dessous |
-| Livrer un correctif urgent | sans attendre la fenêtre | étiquette `urgent` (à créer si absente) sur la PR `fix/…` avant son merge |
-| Merger la PR de release | mode `pr` avec `merge-auto: false` | PR « release x.y.z » → **Merge pull request** |
+| Geste | Quand | Où | Commande |
+|---|---|---|---|
+| Valider un ticket | ticket ouvert par quelqu'un d'autre qu'un mainteneur | ticket → *Labels* → `validé` (posé d'office si un mainteneur ouvre le ticket) | `gh issue edit N --add-label validé` |
+| Écrire la conception | avant le code | commentaire d'un mainteneur sur le ticket contenant « Conception retenue » | `gh issue comment N --body-file conception.md` |
+| Sortir la PR du brouillon | travail terminé | bas de la PR → **Ready for review** ; elle se merge seule (squash) quand la CI est verte | `gh pr ready N` |
+| Approuver une relecture | si `requiredReviews ≥ 1` | PR → *Files changed* → **Review changes** → *Approve* → **Submit review** | `gh pr review N --approve` |
+| Livrer en production | flux `develop`, chaque livraison | **Approve and deploy**, voir ci-dessous | voir ci-dessous |
+| Livrer un correctif urgent | sans attendre la fenêtre | étiquette `urgent` (à créer si absente) sur la PR `fix/…` avant son merge | `gh pr edit N --add-label urgent` |
+| Merger la PR de release | mode `pr` avec `merge-auto: false` | PR « release x.y.z » → **Merge pull request** | `gh pr merge N --merge` |
 
 ### Approve and deploy, pas à pas
 
@@ -91,6 +91,7 @@ Tout le reste est automatique. Voici chaque geste humain du cycle, avec le bouto
 ### Pièges
 
 - **PR de livraison ouverte à la main** (`develop` → `main`) : elle reste bloquée sur « *Missing successful active production deployment* », car aucune demande d'approbation n'est créée pour elle. Lancer le workflow `release` (étape 1) : il ouvre sa propre PR, figée sur `livraison/vX.Y.Z`, et ferme l'autre.
+- **« Approve » sur la PR de livraison** (*Review changes*) : c'est une relecture de code, elle ne débloque rien. Seul **Approve and deploy**, sur la page du run, crée le déploiement exigé.
 - **Une approbation vaut pour un commit** : un merge dans `develop` après l'approbation part à la livraison suivante, avec sa propre approbation.
 - **« Awaiting requested review »** sur une PR de livraison : simple demande de relecture, elle ne bloque pas le merge si aucune approbation n'est exigée.
 - **Demande en attente oubliée** : une nouvelle demande (manuelle ou planifiée) la remplace ; inutile de l'approuver, elle porte un état périmé.
@@ -99,7 +100,8 @@ Tout le reste est automatique. Voici chaque geste humain du cycle, avec le bouto
 
 GitHub interdit d'approuver sa propre PR, et `repowarden proteger` n'accorde **aucune exception**, pas même à l'administrateur : avec `requiredReviews = 1` et un seul développeur, aucun merge ne serait possible. Pour un projet solo, le réglage conseillé :
 - `requiredReviews = 0` : la CI fait foi sur la forme ;
-- `environment = production` avec soi-même comme approbateur : chaque publication demande un clic délibéré.
+- `environment = production` avec soi-même comme approbateur : chaque publication demande un clic délibéré ;
+- pas de `.github/CODEOWNERS` à une seule personne : sans `codeOwnerReview`, il ne fait que demander sa relecture sur chaque PR, sans rien exiger.
 
 ## Qui est prévenu
 
