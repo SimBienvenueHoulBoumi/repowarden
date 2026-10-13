@@ -74,6 +74,8 @@ An existing `tickets.yml` is never overwritten: for the branch created on valida
 
 No key or token: everything goes through the Actions token. The workflow uses `pull_request_target` without ever fetching the PR's code: PRs from forks are handled safely.
 
+Delivery opened by the release workflow (`release-auto`): with `delivery-workflow: true`, a `develop` → `main` PR opened by hand is closed, with the steps to follow; it would never get a deployment approval. Default `false`: delivering through a manual PR remains possible.
+
 ## Board
 
 Statuses are labels: a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects) in board view, grouped by label (or one column filtered per status), gives the backlog → done board. It is set up once, in GitHub's interface; the workflow does not touch it (personal-account Projects are not accessible to the Actions token).

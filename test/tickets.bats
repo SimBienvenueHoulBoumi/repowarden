@@ -383,6 +383,24 @@ EOF
     ! grep -q "pr-fermee" "$F/events"
 }
 
+@test "tickets : livraison par le workflow -> PR develop vers main ouverte a la main fermee avec la marche a suivre" {
+    # sans delivery-workflow : une livraison manuelle reste possible
+    ACTION=opened HEAD=develop BASE=main AUTHOR=dev run "$TICKETS" pr
+    ! grep -q "pr-fermee" "$F/events"
+    # delivery-workflow : ouverte par une personne -> fermee, avec la marche a suivre
+    : >"$F/events"
+    DELIVERY_WORKFLOW=true ACTION=opened HEAD=develop BASE=main AUTHOR=dev run "$TICKETS" pr
+    [ "$status" -eq 0 ]
+    grep -qx "pr-fermee 7" "$F/events"
+    [[ "$output" == *"Approve and deploy"* ]]
+    # ouverte par le workflow (bot) ou instantane livraison/* : jamais fermee
+    : >"$F/events"
+    DELIVERY_WORKFLOW=true ACTION=opened HEAD=develop BASE=main AUTHOR='github-actions[bot]' run "$TICKETS" pr
+    ! grep -q "pr-fermee" "$F/events"
+    DELIVERY_WORKFLOW=true ACTION=opened HEAD=livraison/v4.7.0 BASE=main AUTHOR='github-actions[bot]' run "$TICKETS" pr
+    ! grep -q "pr-fermee" "$F/events"
+}
+
 @test "tickets : PR brouillon du bot suivie ; ticket ferme par GitHub au merge dans develop -> rouvert en preprod" {
     # PR ouverte par le suivi des tickets (github-actions[bot]) : suivie, pas exemptee
     N=12 ticket "validé" "statut: en relecture"
