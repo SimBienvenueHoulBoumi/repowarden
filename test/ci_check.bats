@@ -368,6 +368,8 @@ case "$*" in
     "repo view"*) echo moi/projet ;;
     "api user --jq .login") echo moi ;;
     "api repos/moi/projet --jq .owner.type") echo "${GH_OWNER_TYPE:-User}" ;;
+    # personnes ayant l'écriture = $GH_WRITERS (vide : inconnu)
+    "api repos/moi/projet/collaborators"*) echo "${GH_WRITERS:-}" ;;
     "api users/"*) case "$2" in users/moi) echo 101 ;; users/alice) echo 102 ;; *) exit 1 ;; esac ;;
     "api orgs/acme/teams/release --jq .id") echo 900 ;;
     "api orgs/"*) exit 1 ;;
@@ -491,6 +493,28 @@ print(json.dumps(out))' <<<"$(sed -n '/^{/,$p' <<<"$1")"
     [[ "$output" == *"contournement explicite"* ]]
     GH_BRANCHES="main" run "$PROTEGER" --dry-run --relecteurs beaucoup
     [ "$status" -ne 0 ]
+}
+
+@test "proteger : dev solo -> aucune approbation par une autre personne exigee" {
+    require python3
+    fake_gh_repo
+    GH_WRITERS=1 GH_BRANCHES="main" run "$PROTEGER" --dry-run --relecteurs 1
+    [ "$status" -eq 0 ]
+    python3 -c 'import json,sys; p=json.loads(sys.argv[1])[0]["rules"][2]["parameters"]; \
+        assert p["required_approving_review_count"]==1 and p["require_last_push_approval"] is False' "$(rulesets_json "$output")"
+    [[ "$output" == *"dépôt solo"* ]]
+    # livraison en revue de PR : pas de minimum forcé à 1 en solo
+    git config repowarden.integrationBranch develop
+    git config repowarden.protectedBranches "main develop"
+    git config repowarden.deliveryApproval review
+    GH_WRITERS=1 GH_BRANCHES="main develop" run "$PROTEGER" --dry-run
+    python3 -c 'import json,sys; m=json.loads(sys.argv[1])[0]; \
+        assert m["rules"][2]["parameters"]["required_approving_review_count"]==0' "$(rulesets_json "$output")"
+    # plusieurs personnes : inchangé
+    GH_WRITERS=2 GH_BRANCHES="main develop" run "$PROTEGER" --dry-run --relecteurs 1
+    python3 -c 'import json,sys; p=json.loads(sys.argv[1])[0]["rules"][2]["parameters"]; \
+        assert p["required_approving_review_count"]==1 and p["require_last_push_approval"] is True' "$(rulesets_json "$output")"
+    [[ "$output" != *"dépôt solo"* ]]
 }
 
 @test "proteger : reglages lus dans .repowarden.conf" {

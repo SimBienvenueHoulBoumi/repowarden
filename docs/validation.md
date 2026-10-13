@@ -19,7 +19,7 @@ Le risque n'est pas la machine. C'est une validation humaine trop légère. Cett
 
 | Décision | Mécanisme GitHub | repowarden |
 |---|---|---|
-| Relire le code avant qu'il n'entre | approbations obligatoires ; approbation annulée par un nouveau commit ; le dernier à pousser ne peut pas approuver son propre push | `repowarden proteger --relecteurs N` |
+| Relire le code avant qu'il n'entre | approbations obligatoires ; approbation annulée par un nouveau commit ; le dernier à pousser ne peut pas approuver son propre push (sauf dépôt solo : une seule personne avec l'écriture, aucune règle n'exige une autre personne) | `repowarden proteger --relecteurs N` |
 | Faire relire les zones sensibles par leurs responsables | fichier `CODEOWNERS` + revue du propriétaire obligatoire | `repowarden proteger --codeowners` |
 | Décider de publier | environnement de déploiement : le job attend l'approbation d'une personne désignée | `repowarden proteger --environnement production` |
 | Décider de livrer (flux `develop`) | un clic **« Approve and deploy »** sur l'environnement `production` (notification, application mobile, page du run) ; la GitHub App merge alors la PR de livraison `develop` → `main`. `main` exige ce déploiement réussi : rien n'y entre sans cette approbation | mode `tag`, `deliveryApproval = deployment` (défaut ; `review` : revue de PR à la place) |

@@ -58,9 +58,14 @@ done
 [[ "$REVIEWS" =~ ^[0-9]$ ]] || { err_t ci.proteger.reviews_invalid; exit 1; }
 [[ "$CODEOWNERS" =~ ^(true|false)$ ]] || { err_t ci.proteger.codeowners_invalid; exit 1; }
 [[ "$UNATTRIBUTED" =~ ^(true|false)$ ]] || { err_t ci.proteger.unattributed_invalid; exit 1; }
+# Dev solo (une seule personne avec l'écriture) : aucune règle n'exige une
+# autre personne, qui n'existe pas. Nombre inconnu (appel en échec) : pas solo.
+solo=false
+[ "$(gh api "repos/$REPO/collaborators?per_page=100" \
+    --jq '[.[] | select(.permissions.push)] | length' 2>/dev/null)" = 1 ] && solo=true
 # Avec relecture : le dernier à pousser ne peut pas approuver son propre push
 last_push=false
-[ "$REVIEWS" = 0 ] || last_push=true
+[ "$REVIEWS" = 0 ] || [ "$solo" = true ] || last_push=true
 
 cfg_r protectedBranches "main master"
 protected="$REPLY"
@@ -161,8 +166,10 @@ if [ -n "$integration" ]; then
     # Livraison vers main = passage à une nouvelle version : approbation
     # humaine obligatoire (la PR de livraison est ouverte par le workflow,
     # le mainteneur peut donc l'approuver), sans exiger un autre approbateur
-    # que l'auteur du dernier push sauf si des relectures sont configurées
+    # que l'auteur du dernier push sauf si des relectures sont configurées.
+    # Dev solo : pas de minimum (l'auteur de la PR ne peut pas l'approuver)
     livraison=$((REVIEWS > 0 ? REVIEWS : 1))
+    [ "$solo" = false ] || livraison="$REVIEWS"
     # deliveryApproval = deployment (défaut) : la validation humaine est
     # l'approbation de l'environnement de livraison (« Approve and deploy »),
     # exigée par une règle de main (déploiement réussi) ; la revue de PR n'est
@@ -238,6 +245,7 @@ fi
 echo_t ci.proteger.5 "$tags_msg"
 [ -z "$integration" ] || echo_t ci.proteger.6 "$integration"
 echo_t ci.proteger.7 "$REVIEWS" "$CODEOWNERS" "$UNATTRIBUTED"
+[ "$solo" = false ] || echo_t ci.proteger.solo
 if [ "$REVIEWS" != 0 ] || [ "$CODEOWNERS" = true ]; then
     echo_t ci.proteger.8
 fi
