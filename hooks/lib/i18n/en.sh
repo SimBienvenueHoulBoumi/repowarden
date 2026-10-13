@@ -264,6 +264,7 @@ _msg_en() {
         ci.proteger.5) _M="  v* tags: %s" ;;
         ci.proteger.6) _M="  default branch: %s" ;;
         ci.proteger.7) _M="  required approvals: %s; CODEOWNERS review: %s; approval of unattributed changes: %s" ;;
+        ci.proteger.solo) _M="  solo repository (a single person with write access): no approval by another person required" ;;
         ci.proteger.8) _M="  (admins keep an explicit bypass, recorded in the PR history)" ;;
         ci.proteger.9) _M="  \"%s\" environment: approval by %s; protected branches and v* tags" ;;
         ci.proteger.10) _M="Ruleset \"%s\" updated." ;;
