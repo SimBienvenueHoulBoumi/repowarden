@@ -65,6 +65,36 @@ Then, in the workflows, each publishing job declares the environment:
 
 The environment only accepts deployments from protected branches and `v*` tags: a working branch cannot publish.
 
+## Where to click
+
+Everything else is automatic. Here is each human step of the cycle, with the GitHub button and the equivalent command.
+
+| Step | When | Where |
+|---|---|---|
+| Validate a ticket | ticket opened by someone other than a maintainer | ticket → *Labels* → `validé` (set automatically when a maintainer opens the ticket) |
+| Write the design | before the code | maintainer comment on the ticket containing "Conception retenue" |
+| Take the PR out of draft | work done | bottom of the PR → **Ready for review**; it merges itself (squash) once CI is green |
+| Approve a review | if `requiredReviews ≥ 1` | PR → *Files changed* → **Review changes** → *Approve* → **Submit review** |
+| Deliver to production | `develop` flow, every delivery | **Approve and deploy**, see below |
+| Deliver an urgent fix | without waiting for the window | `urgent` label (create it if missing) on the `fix/…` PR before it is merged |
+| Merge the release PR | `pr` mode with `merge-auto: false` | "release x.y.z" PR → **Merge pull request** |
+
+### Approve and deploy, step by step
+
+1. **Does the request exist?** It is created by the `release` workflow: every Friday at 7:00 (`delivery-schedule`), when an `urgent` PR is merged, or by hand:
+   *Actions → release → **Run workflow** → branch `develop`*, or `gh workflow run release.yml --ref develop`.
+2. **Find the button** (about a minute later, when the `release / livraison` job is *Waiting*):
+   - run page (*Actions* → latest **release** run): yellow banner "*production needs approval*" → **Review deployments** → tick `production` → **Approve and deploy**;
+   - or the GitHub notification (bell, "Deployment review requested" email, mobile app).
+3. The GitHub App then merges the delivery PR as soon as checks are green; tag and release follow.
+
+### Pitfalls
+
+- **Delivery PR opened by hand** (`develop` → `main`): it stays blocked on "*Missing successful active production deployment*", because no approval request is created for it. Run the `release` workflow (step 1): it opens its own PR, frozen on `livraison/vX.Y.Z`, and closes the other one.
+- **An approval is for one commit**: anything merged into `develop` after the approval goes out with the next delivery, with its own approval.
+- **"Awaiting requested review"** on a delivery PR: only a review request, it does not block the merge when no approval is required.
+- **Forgotten pending request**: a new request (manual or scheduled) replaces it; no need to approve it, it carries an outdated state.
+
 ## Solo project
 
 GitHub does not allow approving your own PR, and `repowarden proteger` grants **no exception**, not even to the administrator: with `requiredReviews = 1` and a single developer, no merge would be possible. For a solo project, the recommended settings:

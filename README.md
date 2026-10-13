@@ -23,9 +23,24 @@
 - **Tests** : au push et en CI, seulement les projets touchés, sur le commit poussé.
 - **Code mort** : seul le nouveau code mort est signalé, prouvé (bloquant) ou candidat (à vérifier) ; `repowarden code-mort` en local.
 - **Tickets** : chaque PR est reliée à un ticket validé (créé automatiquement s'il manque), suivi de « à valider » à « done » à la release ; `repowarden tickets init`.
-- **Versions et releases** : les commits étant conventionnels, la version suivante (semver) et le changelog se déduisent de l'historique ; un workflow réutilisable en fait des releases automatiques (PR de release validée par la CI puis mergée, tag, release), sans jeton ni intervention.
+- **Versions et releases** : les commits étant conventionnels, la version suivante (semver) et le changelog se déduisent de l'historique ; un workflow réutilisable en fait des releases automatiques (PR de release validée par la CI puis mergée, tag, release), sans jeton ; dans le flux `develop` → `main`, un clic d'approbation par livraison.
 
 **Plus de 25 technologies** : Java (Maven, Gradle), JavaScript / TypeScript, Python, Go, Rust, PHP, Ruby, .NET, Dart / Flutter, Swift, Elixir, C / C++, Shell, Terraform, Packer, Ansible, Helm, Kubernetes, Docker, GitHub Actions — [détail](https://simbienvenuehoulboumi.github.io/repowarden/technologies/). Linux, macOS, Windows.
+
+## Ce que tu fais à la main
+
+Le reste est automatique. Pas à pas et pièges : [où cliquer](https://simbienvenuehoulboumi.github.io/repowarden/validation/#ou-cliquer).
+
+| Geste | Où |
+|---|---|
+| Valider un ticket | étiquette `validé` (d'office si un mainteneur l'ouvre) |
+| Écrire la conception, avant le code | commentaire contenant « Conception retenue » sur le ticket |
+| Terminer une PR | **Ready for review** : elle se merge seule quand la CI est verte |
+| Livrer en production (flux `develop`) | *Actions → release → Run workflow* (ou la demande du vendredi), puis **Review deployments → Approve and deploy** sur le run |
+| Livrer un correctif urgent | étiquette `urgent` (à créer si absente) sur la PR `fix/…` |
+| Relire une PR, si exigé | *Files changed → Review changes → Approve* |
+
+Une PR `develop` → `main` ouverte à la main ne reçoit jamais d'approbation : lancer le workflow `release`, qui ouvre la sienne.
 
 ## Démarrage
 
