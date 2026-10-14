@@ -1,6 +1,6 @@
 # Changelog
 
-> Historique jusqu'à la v3.5.0. Les versions suivantes sont décrites dans les [releases GitHub](https://github.com/SimBienvenueHoulBoumi/repogarde/releases) : la version n'est plus écrite dans les fichiers (mode tag).
+> Historique jusqu'à la v3.5.0. Les versions suivantes sont décrites dans les [releases GitHub](https://github.com/simdevWarden/repowarden/releases) : la version n'est plus écrite dans les fichiers (mode tag).
 
 ## [3.5.0](https://github.com/SimBienvenueHoulBoumi/repogarde/compare/v3.4.0...v3.5.0) (2026-10-08)
 

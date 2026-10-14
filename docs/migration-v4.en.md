@@ -11,7 +11,8 @@
 | `git config repogarde.*` | `git config repowarden.*` | old keys read; `repowarden install` renames them |
 | `REPOGARDE_*` variables | `REPOWARDEN_*` variables | old ones read; the new ones win |
 | project hooks in `.repogarde/<hook>` | `.repowarden/<hook>` | old folder run when the new one is absent |
-| `uses: SimBienvenueHoulBoumi/repogarde@v3` | `uses: simdevWarden/repowarden@v4` | `@v3` keeps working (GitHub redirects the renamed repository) |
+| `uses: SimBienvenueHoulBoumi/repogarde@v3` (action) | `uses: simdevWarden/repowarden@v4` | the action keeps working (GitHub redirects the renamed repository) |
+| `uses: SimBienvenueHoulBoumi/repogarde/.github/workflows/<file>.yml@v3` (reusable workflow) | `uses: simdevWarden/repowarden/.github/workflows/<file>.yml@v4` | **broken**: GitHub does not redirect reusable workflows; the run fails without starting any job, and releases, tickets and cleanup stop silently. Fix this first |
 | required check `repogarde` | required check `repowarden` | run `repowarden proteger` again |
 | lefthook (`lefthook.yml`, `lefthook-remote.yml`) | removed | lefthook hook ignored, with the steps to follow |
 | site `…github.io/repogarde/` | `…github.io/repowarden/` |  |
@@ -30,6 +31,10 @@ repowarden                            # check: machine status and next step
 
 1. Rename `.repogarde.conf` to `.repowarden.conf`, and its `[repogarde]` section to `[repowarden]`; set `version = 4` in it.
 2. Rename the `.repogarde/` folder to `.repowarden/`, if it exists.
-3. In workflows: `simdevWarden/repowarden@v4`, and the `REPOGARDE_*` variables to `REPOWARDEN_*`.
+3. In workflows, **reusable workflows first** (`release-auto.yml`, `tickets.yml`, `nettoyage-branches.yml`, `npm-publish.yml`): replace **the whole path**, not just the version. Changing `@v3` to `@v4` without changing the repository fixes nothing:
+   - `SimBienvenueHoulBoumi/repogarde/.github/workflows/release-auto.yml@v3` → `simdevWarden/repowarden/.github/workflows/release-auto.yml@v4`
+   - likewise for every `uses:` that does not start with `simdevWarden/repowarden/`.
+
+   Symptom of a forgotten line: a failed run **without any job**. Then the action: `simdevWarden/repowarden@v4`, and the `REPOGARDE_*` variables to `REPOWARDEN_*`.
 4. Project using lefthook: move its commands to `.repowarden/<hook>`, then `lefthook uninstall` and delete `lefthook.yml`.
 5. Update branch protection, since the required check is now called `repowarden`: `repowarden proteger`.
