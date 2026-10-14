@@ -40,7 +40,7 @@ _msg_en() {
         cc.breaking_note_prompt) _M="What changes: " ;;
         cc.breaking_note_invalid) _M="Describe the change (at least 10 characters); otherwise answer no to the previous question." ;;
         cc.step4) _M="Description" ;;
-        cc.desc_hint) _M="Imperative mood, no initial capital or final period; %s characters max." ;;
+        cc.desc_hint) _M="Imperative mood, no final period, lowercase start except acronyms or proper nouns; %s characters max." ;;
         cc.desc_required) _M="The description is required." ;;
         cc.header_too_long) _M="Header too long: %s characters (72 max). Shorten the description." ;;
         cc.step5) _M="Details (optional)" ;;
@@ -111,6 +111,11 @@ _msg_en() {
         hook.pre_commit.6) _M="gitleaks not installed, secret detection skipped (install: %s)." ;;
         hook.pre_commit.7) _M="Pre-commit OK" ;;
         hook.commit_msg.1) _M="First line too long (%s > 72 characters)." ;;
+        hook.commit_msg.type_unknown) _M="Unknown type \"%s\". Did you mean: %s" ;;
+        hook.commit_msg.type_none) _M="Unknown type \"%s\". Possible types:" ;;
+        hook.commit_msg.desc_empty) _M="Missing description after \"%s\": describe the change in the imperative mood." ;;
+        hook.commit_msg.kept) _M="  Your message is not lost: git commit -e -F .git/COMMIT_EDITMSG" ;;
+        hook.commit_msg.dot) _M="Final period removed from the description (same rule as git cc)." ;;
         hook.pre_push.1) _M="Push refused: branch name does not follow the convention." ;;
         hook.pre_push.2) _M="Direct push to '%s' refused: it only changes through pull requests." ;;
         hook.pre_push.3) _M="  Create a branch: git switch -c feat/my-feature, then open a PR." ;;
