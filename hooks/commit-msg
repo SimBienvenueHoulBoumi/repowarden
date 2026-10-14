@@ -39,23 +39,6 @@ if [[ "$SUBJECT" =~ ^(Merge|Revert|fixup!|squash!) ]]; then
     exit 0
 fi
 
-# Type le plus proche d'un type inconnu : alias courants, puis préfixe commun
-# (doc → docs, feature → feat, Feat → feat) ; vide si aucun
-type_proche_r() {
-    local t="$1" c
-    case "$t" in
-        feature | features) REPLY="feat"; return ;;
-        doc | documentation) REPLY="docs"; return ;;
-        fixe | fixed | fixes | bugfix | hotfix) REPLY="fix"; return ;;
-        tests) REPLY="test"; return ;;
-        refacto | refactoring) REPLY="refactor"; return ;;
-    esac
-    REPLY=""
-    for c in ${CC_TYPES//|/ }; do
-        if [[ "$c" == "$t"* || "$t" == "$c"* ]]; then REPLY="$c"; return; fi
-    done
-}
-
 # En-tête tenté mais refusé : type inconnu (ou en majuscules), description vide
 if ! [[ "$SUBJECT" =~ $CC_PATTERN ]] &&
     [[ "$SUBJECT" =~ ^([A-Za-z]+)(\([^\)]*\))?(!?):[[:space:]]*(.*)$ ]]; then
