@@ -301,6 +301,11 @@ _msg_fr() {
         ci.proteger.tags_none) _M="non protégés (--sans-tags)" ;;
         ci.proteger.unknown_team) _M="Équipe inconnue ou inaccessible : %s (format @organisation/equipe)" ;;
         ci.proteger.unknown_user) _M="Utilisateur inconnu : %s" ;;
+        ci.proteger.legacy_taken) _M="Ruleset « %s » : ancien ruleset « %s » repris (vérification repogarde retirée)." ;;
+        ci.proteger.legacy_left) _M="Ancien ruleset « %s » (id %s) : exige encore la vérification repogarde, retirée en v4, et bloque ses branches. Le supprimer : Settings → Rules → Rulesets, ou gh api -X DELETE repos/%s/rulesets/%s." ;;
+        ci.proteger.verify_legacy) _M="%s (id %s) : ancien ruleset, exige encore la vérification repogarde (retirée en v4)" ;;
+        ci.proteger.api_error) _M="Ruleset « %s » refusé par GitHub : %s" ;;
+        ci.proteger.incomplete) _M="Protection incomplète : voir les erreurs ci-dessus." ;;
         ci.version.usage) _M="Usage : ci/version.sh next|notes [ref]" ;;
         ci.version.breaking) _M="Changements incompatibles" ;;
         ci.version.features) _M="Fonctionnalités" ;;
