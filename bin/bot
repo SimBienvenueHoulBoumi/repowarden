@@ -1,0 +1,231 @@
+#!/usr/bin/env bash
+# Bot d'organisation : tient à jour les projets où l'App du bot est installée.
+#   repowarden bot [--repo o/r]… [--dry-run] [--rapport FICHIER]
+#                                passage : protection (proteger) et migration
+#                                (migrer --pr) de chaque projet adopté
+#   repowarden bot rapport FICHIER
+#                                rapport publié dans l'issue « Rapport du bot
+#                                repowarden » du dépôt courant (créée ou mise à jour)
+#   repowarden bot init          workflow du dépôt de pilotage (.github/workflows/bot.yml)
+# Un projet est adopté s'il a un .repowarden.conf ; sa clé bot y décide :
+# auto (défaut : protection appliquée, PR de migration), pr (PR seulement),
+# off (ignoré). GH_TOKEN : jeton d'installation de l'App (repowarden app init --bot).
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+# shellcheck source=../hooks/lib/common.sh
+source "$ROOT/hooks/lib/common.sh"
+
+aide() { sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; }
+
+# Scripts appelés (remplaçables dans les tests) et origine des clones
+BIN="${REPOWARDEN_BIN:-$ROOT/bin}"
+GIT_URL="${REPOWARDEN_BOT_GIT:-https://github.com}"
+TITRE_RAPPORT="Rapport du bot repowarden"
+
+commande="${1:-}"
+case "$commande" in
+    init | rapport) shift ;;
+    -h | --help) aide; exit 0 ;;
+    *) commande=passage ;;
+esac
+
+command -v gh >/dev/null || { err_t bot.no_gh; exit 1; }
+
+# --- repowarden bot init : workflow du dépôt de pilotage -------------------
+if [ "$commande" = init ]; then
+    [ -n "$GIT_TOPLEVEL" ] || { err_t install.not_repo; exit 1; }
+    f="$GIT_TOPLEVEL/.github/workflows/bot.yml"
+    if [ -e "$f" ]; then
+        attention_t bot.init_exists ".github/workflows/bot.yml"
+        exit 0
+    fi
+    mkdir -p "${f%/*}"
+    cat >"$f" <<'YAML'
+# Bot repowarden : chaque nuit, tient à jour les projets où son App est
+# installée (protection, PR de migration) ; rapport dans l'issue « Rapport du
+# bot repowarden ». Identifiants : repowarden app init --bot.
+name: bot
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Voir ce qui serait fait, sans rien modifier
+        type: boolean
+        default: false
+
+# Un passage à la fois
+concurrency:
+  group: bot
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  bot:
+    uses: simdevWarden/repowarden/.github/workflows/bot.yml@v4
+    permissions: { contents: read, issues: write }
+    with:
+      app-client-id: ${{ vars.REPOWARDEN_BOT_CLIENT_ID }}
+      dry-run: ${{ inputs.dry-run || false }}
+    secrets:
+      app-key: ${{ secrets.REPOWARDEN_BOT_KEY }}
+YAML
+    ok_t bot.init_done ".github/workflows/bot.yml"
+    dim_t bot.init_next
+    exit 0
+fi
+
+# --- repowarden bot rapport FICHIER : issue unique du dépôt de pilotage -----
+if [ "$commande" = rapport ]; then
+    fichier="${1:?repowarden bot rapport FICHIER}"
+    [ -f "$fichier" ] || { err_t bot.no_report "$fichier"; exit 1; }
+    numero="$(gh issue list --state open --search "\"$TITRE_RAPPORT\" in:title" --json number,title \
+        --jq ".[] | select(.title == \"$TITRE_RAPPORT\") | .number" | sed -n 1p)"
+    if [ -n "$numero" ]; then
+        gh issue edit "$numero" --body-file "$fichier" >/dev/null
+        ok_t bot.report_updated "$numero"
+    else
+        gh issue create --title "$TITRE_RAPPORT" --body-file "$fichier" >/dev/null
+        ok_t bot.report_created
+    fi
+    exit 0
+fi
+
+# --- Passage ----------------------------------------------------------------
+REPOS="" DRY_RUN="" RAPPORT=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --repo) shift; REPOS="$REPOS ${1:?--repo attend propriétaire/nom}" ;;
+        --dry-run) DRY_RUN=1 ;;
+        --rapport) shift; RAPPORT="${1:?--rapport attend un fichier}" ;;
+        *) err_t install.unknown_arg "$1"; exit 1 ;;
+    esac
+    shift
+done
+if [ -z "$REPOS" ]; then
+    REPOS="$(gh api installation/repositories --paginate \
+        --jq '.repositories[] | select(.archived | not) | .full_name')"
+fi
+
+TRAVAIL="$(mktemp -d)"
+trap 'rm -rf "$TRAVAIL"' EXIT
+# Identité des commits du bot (workflow : <slug>[bot]), crédits de gh
+NOM_BOT="${REPOWARDEN_BOT_NAME:-repowarden-bot}"
+COURRIEL_BOT="${REPOWARDEN_BOT_EMAIL:-repowarden-bot@users.noreply.github.com}"
+
+# Dernière ligne d'erreur d'une sortie (✖ …), pour le rapport
+derniere_erreur_r() {
+    REPLY="$(grep '✖' <<<"$1" | tail -n 1 | sed 's/^[^✖]*✖ *//')"
+    [ -n "$REPLY" ] || REPLY="$(tail -n 1 <<<"$1")"
+    REPLY="${REPLY//|/\\|}"
+}
+
+# Vérifications exigées : requiredChecks du projet, sinon celles du ruleset
+# repowarden en ligne (jamais retirées), sinon repowarden
+verifications_r() { # $1 dépôt, $2 configuration
+    REPLY="$(git config -f "$2" repowarden.requiredChecks 2>/dev/null || true)"
+    [ -z "$REPLY" ] || return 0
+    local id
+    id="$(gh api "repos/$1/rulesets" --jq '.[] | select(.name == "repowarden") | .id' 2>/dev/null || true)"
+    [ -z "$id" ] || REPLY="$(gh api "repos/$1/rulesets/$id" \
+        --jq '[.rules[] | select(.type == "required_status_checks") | .parameters.required_status_checks[].context] | join(",")' \
+        2>/dev/null || true)"
+    REPLY="${REPLY:-repowarden}"
+}
+
+t bot.col_repo; c1="$REPLY"
+t bot.col_mode; c2="$REPLY"
+t bot.col_protection; c3="$REPLY"
+t bot.col_migration; c4="$REPLY"
+# Sorties de migrer reconnues : rien à migrer, PR déjà ouverte
+t mig.nothing; MIG_RIEN="$REPLY"
+t mig.pr_open ""; MIG_OUVERTE="${REPLY%%(*}"
+lignes="| $c1 | $c2 | $c3 | $c4 |"$'\n'"|---|---|---|---|"
+erreurs=0
+ligne() { lignes="$lignes"$'\n'"| \`$1\` | $2 | $3 | $4 |"; }
+
+for depot in $REPOS; do
+    step_t bot.repo "$depot"
+    conf="$TRAVAIL/${depot//\//_}.conf"
+    if ! gh api -H "Accept: application/vnd.github.raw" "repos/$depot/contents/.repowarden.conf" >"$conf" 2>/dev/null &&
+        ! gh api -H "Accept: application/vnd.github.raw" "repos/$depot/contents/.repogarde.conf" >"$conf" 2>/dev/null; then
+        t bot.not_adopted; info "$REPLY"
+        ligne "$depot" "—" "$REPLY" "—"
+        continue
+    fi
+    sed -i.bak 's/^\[repogarde\]/[repowarden]/' "$conf"
+    mode="$(git config -f "$conf" repowarden.bot 2>/dev/null || echo auto)"
+    case "$mode" in
+        off)
+            t bot.ignored; info "$REPLY"
+            ligne "$depot" off "$REPLY" "—"
+            continue ;;
+        auto | pr) ;;
+        *)
+            t bot.mode_invalid "$mode"; err "$REPLY"
+            ligne "$depot" "\`$mode\`" "✖ $REPLY" "—"
+            erreurs=$((erreurs + 1))
+            continue ;;
+    esac
+
+    clone="$TRAVAIL/${depot//\//_}"
+    if ! git clone -q --depth 1 -c credential.helper= -c 'credential.helper=!gh auth git-credential' \
+        "$GIT_URL/$depot.git" "$clone" 2>"$TRAVAIL/clone.err"; then
+        derniere_erreur_r "$(cat "$TRAVAIL/clone.err")"
+        err_t bot.clone_failed "$REPLY"
+        ligne "$depot" "$mode" "✖ $REPLY" "—"
+        erreurs=$((erreurs + 1))
+        continue
+    fi
+    git -C "$clone" config user.name "$NOM_BOT"
+    git -C "$clone" config user.email "$COURRIEL_BOT"
+
+    # Protection : vérifiée, appliquée seulement en auto (hors --dry-run)
+    verifications_r "$depot" "$conf"
+    checks="$REPLY"
+    if sortie="$(cd "$clone" && bash "$BIN/proteger" --repo "$depot" --checks "$checks" --verifier 2>&1)"; then
+        t bot.prot_ok
+    elif [ "$mode" = pr ] || [ -n "$DRY_RUN" ]; then
+        t bot.prot_stale
+    elif sortie="$(cd "$clone" && bash "$BIN/proteger" --repo "$depot" --checks "$checks" 2>&1)"; then
+        t bot.prot_applied
+    else
+        derniere_erreur_r "$sortie"
+        t bot.error "$REPLY"
+        erreurs=$((erreurs + 1))
+    fi
+    protection="$REPLY"
+    info "$protection"
+
+    # Migration : par PR seulement (dans le clone jetable en --dry-run)
+    options=(--pr)
+    [ -z "$DRY_RUN" ] || options=()
+    if sortie="$(cd "$clone" && bash "$BIN/migrer" ${options[@]+"${options[@]}"} 2>&1)"; then
+        case "$sortie" in
+            *"$MIG_RIEN"*) t bot.mig_none ;;
+            *"$MIG_OUVERTE"*) t bot.mig_open ;;
+            *) if [ -n "$DRY_RUN" ]; then t bot.mig_todo; else t bot.mig_pr; fi ;;
+        esac
+    else
+        derniere_erreur_r "$sortie"
+        t bot.error "$REPLY"
+        erreurs=$((erreurs + 1))
+    fi
+    migration="$REPLY"
+    info "$migration"
+    ligne "$depot" "$mode" "$protection" "$migration"
+done
+
+t bot.report_head "$(date -u '+%Y-%m-%d %H:%M UTC')"
+entete="$REPLY"
+[ -z "$DRY_RUN" ] || { t bot.report_dry; entete="$entete $REPLY"; }
+rapport="## $TITRE_RAPPORT"$'\n\n'"$entete"$'\n\n'"$lignes"
+echo
+echo "$rapport"
+[ -z "$RAPPORT" ] || echo "$rapport" >"$RAPPORT"
+[ -z "${GITHUB_STEP_SUMMARY:-}" ] || echo "$rapport" >>"$GITHUB_STEP_SUMMARY"
+[ "$erreurs" = 0 ] || { err_t bot.failed "$erreurs"; exit 1; }

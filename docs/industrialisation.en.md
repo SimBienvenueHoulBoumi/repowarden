@@ -127,6 +127,35 @@ repowarden app init --administration # + administration right (configuration app
 
 The command opens GitHub's creation page, prefilled: minimal permissions (contents, PRs, issues, statuses), no webhook. It stores the identifier (variable `REPOWARDEN_APP_CLIENT_ID`) and the private key (secret `REPOWARDEN_APP_KEY`) without displaying them, then opens the installation page. Workflows then get a one-hour token on each run; without the App, they fall back to the Actions token. The App follows the same rules as everyone: no exception in the rulesets.
 
+### Organization bot
+
+The bot keeps **every project** of an organization up to date, from a **control repository**. Every night, it goes through each repository where its App is installed:
+
+- **protection**: `repowarden proteger --verifier`, then `repowarden proteger` if the rules are outdated. The required checks are those of `requiredChecks`, otherwise those already online: the bot never removes any;
+- **migration**: `repowarden migrer --pr`. Project code only changes **through PRs**, reviewed and checked by the CI like any other;
+- **report**: a table (repository, mode, protection, migration) in the run summary and in **a single issue** "Rapport du bot repowarden" of the control repository, updated on each run.
+
+**Which projects?** The App installation says what the bot **can** touch. Install it on "All repositories": a new repository is then covered as soon as it is created. The project says what it **wants**, in its `.repowarden.conf` (versioned, changed through a reviewed PR):
+
+| `bot` | Effect |
+|---|---|
+| `auto` (default) | protection applied, migration PRs |
+| `pr` | migration PRs only; outdated protection reported |
+| `off` | repository ignored |
+
+A repository **without** `.repowarden.conf` is never touched: it shows as "not adopted" in the report. To adopt it: `repowarden install` or `repowarden tickets init` in the project.
+
+**Setup**, once, in the control repository (for example `<organization>/repowarden-pilote`):
+
+```bash
+repowarden bot init          # writes .github/workflows/bot.yml (every night + manual run)
+repowarden app init --bot    # bot App: workflows and administration; install on "All repositories"
+```
+
+Then *Actions → bot → Run workflow*, with the `dry-run` box to see what would be done without changing anything.
+
+**Safeguards**: the App key only exists in the control repository, and the workflow only runs from its default branch. The App has no exception in the rulesets. An error on one project (GitHub details in the report) does not stop the others.
+
 ### GitLab
 
 - *Settings → Repository → Protected branches*: `main` → *Allowed to push: No one*, *Allowed to merge: Developers*
