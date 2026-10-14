@@ -109,7 +109,22 @@ jobs:
             echo "//registry.npmjs.org/:_authToken=\${NODE_AUTH_TOKEN}" >"$RUNNER_TEMP/.npmrc"
             export NPM_CONFIG_USERCONFIG="$RUNNER_TEMP/.npmrc"
           fi
-          reessayer npm publish --provenance --access public --tag "$DIST_TAG"
+          sortie="$(reessayer npm publish --provenance --access public --tag "$DIST_TAG" 2>&1)" || {
+            code=$?
+            echo "$sortie"
+            # Diagnostic OIDC permission denied / ENEEDAUTH
+            if grep -qiE 'E403|OIDC permission denied|ENEEDAUTH|trusted publisher' <<<"$sortie"; then
+              echo "::error::Publication refusée par npm (OIDC / trusted publisher)."
+              echo "  Vérifiez la relation de confiance (npm trust list $name --json) :"
+              echo "  - Propriétaire/Dépôt : ${{ github.repository }}"
+              echo "  - Workflow : ${{ github.workflow_ref }}"
+              echo "  - Environnement : ${{ inputs.environment || 'aucun' }}"
+              echo "  - Droit 'npm publish' : doit être activé (--allow-publish)"
+              echo ""
+              echo "  Pour corriger : repowarden npm-publication --repo ${{ github.repository }} --workflow ${{ github.workflow_ref }} ${{ inputs.environment && format('--environnement {0}', inputs.environment) || '' }}"
+            fi
+            exit $code
+          }
           {
             echo "### 📦 $name@$version"
             echo "https://www.npmjs.com/package/$name/v/$version"

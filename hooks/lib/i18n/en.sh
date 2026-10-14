@@ -360,7 +360,16 @@ _msg_en() {
         npm.first_published) _M="%s@%s published by the pipeline." ;;
         npm.step_trust) _M="3/3 Tokenless publishing (trusted publishing)" ;;
         npm.trust_exists) _M="Trusted publishing already configured." ;;
+        npm.trust_mismatch) _M="Existing trust relationship does not match expected parameters:" ;;
+        npm.trust_confirm) _M="Confirm fix (new relationship created before revoking old)? [y/N] " ;;
+        npm.trust_cancelled) _M="Fix cancelled." ;;
+        npm.trust_would_create) _M="[dry-run] Trust relationship would be created: %s, workflow %s, env %s" ;;
+        npm.trust_would_fix) _M="[dry-run] Trust relationship would be fixed (new created, old revoked)" ;;
+        npm.trust_revoked) _M="Old trust relationship revoked: %s" ;;
         npm.trust_set) _M="Trusted publishing: %s, workflow %s." ;;
+        npm.token_present) _M="NPM_TOKEN secret still present while trusted publishing works." ;;
+        npm.token_remove_confirm) _M="Remove NPM_TOKEN secret? [y/N] " ;;
+        npm.token_would_remove) _M="[dry-run] NPM_TOKEN secret would be removed" ;;
         npm.token_removed) _M="NPM_TOKEN secret removed from the repository." ;;
         npm.token_revoked) _M="Temporary token revoked on npm." ;;
         npm.done) _M="Done: every release publishes %s to npm, without a token." ;;
