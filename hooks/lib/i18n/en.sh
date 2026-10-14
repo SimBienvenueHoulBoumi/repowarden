@@ -322,6 +322,11 @@ _msg_en() {
         mig.pr_after) _M="After merging: run repowarden proteger (the required check is now called repowarden) and recreate any REPOGARDE_* secrets under their new name." ;;
         mig.pr_created) _M="Migration PR opened (%s)." ;;
         st.repo_migrate) _M="Old repogarde names in this project: repowarden migrer" ;;
+        ci.proteger.legacy_taken) _M="Ruleset \"%s\": old ruleset \"%s\" taken over (repogarde check removed)." ;;
+        ci.proteger.legacy_left) _M="Old ruleset \"%s\" (id %s): still requires the repogarde check, removed in v4, and blocks its branches. Delete it: Settings → Rules → Rulesets, or gh api -X DELETE repos/%s/rulesets/%s." ;;
+        ci.proteger.verify_legacy) _M="%s (id %s): old ruleset, still requires the repogarde check (removed in v4)" ;;
+        ci.proteger.api_error) _M="Ruleset \"%s\" rejected by GitHub: %s" ;;
+        ci.proteger.incomplete) _M="Incomplete protection: see the errors above." ;;
         ci.version.usage) _M="Usage: ci/version.sh next|notes [ref]" ;;
         ci.version.breaking) _M="Breaking changes" ;;
         ci.version.features) _M="Features" ;;

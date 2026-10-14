@@ -368,6 +368,16 @@ case "$*" in
     "repo view"*) echo moi/projet ;;
     "api user --jq .login") echo moi ;;
     "api repos/moi/projet --jq .owner.type") echo "${GH_OWNER_TYPE:-User}" ;;
+    "api repos/moi/projet --jq .default_branch") echo "${GH_DEFAULT_BRANCH:-main}" ;;
+    # création / mise à jour : ruleset reçu journalisé ; refusé (422) si son
+    # nom est $GH_REFUSE, avec la réponse de GitHub sur la sortie standard
+    "api -X POST repos/moi/projet/rulesets"* | "api -X PUT repos/moi/projet/rulesets/"*)
+        r="$(cat)"; echo "$r" >>"$GH_LOG"
+        if [ -n "${GH_REFUSE:-}" ] && [[ "$r" == *"\"name\": \"$GH_REFUSE\""* ]]; then
+            echo '{"message":"Validation Failed","errors":["Invalid rule 'creation': bypass actor not allowed"],"status":"422"}'
+            echo "gh: Validation Failed (HTTP 422)" >&2
+            exit 1
+        fi ;;
     # personnes ayant l'écriture = $GH_WRITERS (vide : inconnu)
     "api repos/moi/projet/collaborators"*) echo "${GH_WRITERS:-}" ;;
     "api users/"*) case "$2" in users/moi) echo 101 ;; users/alice) echo 102 ;; *) exit 1 ;; esac ;;
@@ -503,6 +513,53 @@ print(json.dumps(out))' <<<"$(sed -n '/^{/,$p' <<<"$1")"
     # ruleset absent -> ecart
     GH_RULESETS='[]' GH_BRANCHES="main develop" run "$PROTEGER" --verifier
     [ "$status" -ne 0 ]
+}
+
+# Ancien ruleset (vérification repogarde exigée), au nom libre : $1 id, $2 nom, $3 branches (JSON)
+ancien_ruleset() {
+    printf '{"id": %s, "name": "%s", "target": "branch", "source_type": "Repository", "conditions": {"ref_name": {"include": %s, "exclude": []}}, "rules": [{"type": "required_status_checks", "parameters": {"required_status_checks": [{"context": "repogarde"}]}}]}' "$1" "$2" "$3"
+}
+
+@test "proteger : ancien ruleset exigeant repogarde repris quel que soit son nom" {
+    require jq
+    fake_gh_repo
+    # ancien ruleset sur la branche par defaut, et un ruleset sans rapport (build)
+    export GH_RULESETS="[$(ancien_ruleset 7 "Protection de main" '["~DEFAULT_BRANCH"]'),
+        {\"id\": 9, \"name\": \"Autre\", \"target\": \"branch\", \"source_type\": \"Repository\",
+         \"conditions\": {\"ref_name\": {\"include\": [\"refs/heads/main\"]}},
+         \"rules\": [{\"type\": \"required_status_checks\", \"parameters\": {\"required_status_checks\": [{\"context\": \"build\"}]}}]}]"
+    GH_BRANCHES="main" run "$PROTEGER"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ancien ruleset « Protection de main » repris"* ]]
+    # mis a jour en place (renomme), aucun second ruleset de branche, l'autre intact
+    grep -q "^api -X PUT repos/moi/projet/rulesets/7 " "$GH_LOG"
+    ! grep -q "rulesets/9" <(grep -- "-X" "$GH_LOG")
+    [ "$(grep -c '^api -X POST repos/moi/projet/rulesets ' "$GH_LOG")" -eq 1 ] # tags seulement
+}
+
+@test "proteger : ancien ruleset en trop jamais supprime, marche a suivre, echec" {
+    require jq
+    fake_gh_repo
+    export GH_RULESETS="[$(ancien_ruleset 7 "Protection de main" '["refs/heads/main"]'), $(ancien_ruleset 8 "Vieux" '["~ALL"]')]"
+    GH_BRANCHES="main" run "$PROTEGER"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"ancien ruleset « Protection de main » repris"* ]]
+    [[ "$output" == *"Ancien ruleset « Vieux » (id 8)"* ]]
+    [[ "$output" == *"gh api -X DELETE repos/moi/projet/rulesets/8"* ]]
+    ! grep -q "DELETE" <(grep "^api" "$GH_LOG")
+    # --verifier : l'ancien ruleset compte comme un ecart
+    GH_BRANCHES="main" run "$PROTEGER" --verifier
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"Protection de main (id 7) : ancien ruleset"* ]]
+}
+
+@test "proteger : refus de GitHub affiche avec son detail, les autres rulesets appliques" {
+    fake_gh_repo
+    GH_REFUSE="repowarden" GH_BRANCHES="main" run "$PROTEGER"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"Ruleset « repowarden » refusé par GitHub : Validation Failed : Invalid rule"* ]]
+    [[ "$output" == *"Protection incomplète"* ]]
+    grep -q '"name": "repowarden (tags)"' "$GH_LOG"
 }
 
 @test "proteger : livraison approuvee par deploiement sans workflow qui le cree -> avertissement" {

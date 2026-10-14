@@ -39,4 +39,4 @@ repowarden                            # vérifie : état du poste et étape suiv
 
    Symptôme d'une ligne oubliée : un run en échec **sans aucun job**. Ensuite, l'action : `simdevWarden/repowarden@v4`, et les variables `REPOGARDE_*` en `REPOWARDEN_*`.
 4. Projet sous lefthook : déplacer ses commandes dans `.repowarden/<hook>`, puis `lefthook uninstall` et supprimer `lefthook.yml`.
-5. Mettre à jour la protection des branches, la vérification exigée s'appelant désormais `repowarden` : `repowarden proteger`.
+5. Mettre à jour la protection des branches, la vérification exigée s'appelant désormais `repowarden` : `repowarden proteger`. Un ancien ruleset qui exige `repogarde` est repris, quel que soit son nom ; `repowarden proteger --verifier` signale ceux qui restent.
