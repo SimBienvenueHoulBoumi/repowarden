@@ -184,13 +184,26 @@ jobs:
       sha: ${{ steps.release.outputs.sha || steps.publish.outputs.sha }}
       waiting_pr: ${{ steps.merge.outputs.waiting_pr }}
     env:
-      HAS_APP: ${{ secrets.app-id != '' }}
+      HAS_APP: ${{ inputs.app-client-id != '' && secrets.app-key != '' }}
+      HAS_OLD_BOT: ${{ secrets.app-id != '' && secrets.app-key != '' }}
     steps:
       # Ancien bot de release (GitHub App) : entrées obsolètes, ignorées
       - name: Entrées obsolètes
-        if: env.HAS_APP == 'true'
+        if: env.HAS_OLD_BOT == 'true'
         run: |
           echo "::warning::Secrets app-id / app-key ignorés : le bot de release n'existe plus (aucune clé nécessaire). Les retirer de release.yml ; ils seront refusés en v4."
+      # Jeton de la GitHub App : ce qu'il fait (créer/mettre à jour des PR)
+      # déclenche les autres workflows, contrairement au jeton des Actions.
+      - name: Jeton de l'App
+        id: app
+        if: inputs.app-client-id != ''
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ inputs.app-client-id }}
+          private-key: ${{ secrets.app-key }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-statuses: write
       # Aucun code du projet n'est exécuté : seuls les scripts de repowarden, à
       # la version repowarden-ref (validation et merge des PR : ci/merger-pr.sh)
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -298,13 +311,14 @@ jobs:
 
       # Mode cycle : la release (changelog, fichiers de version) revient dans
       # la branche d'intégration par une PR validée par la CI puis mergée
-      # (merge commit), comme la PR de release : aucune clé ni jeton à fournir
+      # (merge commit), comme la PR de release.
       - name: Retour vers la branche d'intégration
         if: >-
           inputs.mode == 'cycle' &&
           (steps.release.outputs.release_created == 'true' || steps.publish.outputs.release_created == 'true')
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
+          APP_TOKEN: ${{ steps.app.outputs.token != '' }}
           GH_REPO: ${{ github.repository }}
           WORKFLOWS: ${{ steps.config.outputs.workflows }}
           INTEGRATION: ${{ inputs.integration-branch }}
@@ -313,6 +327,9 @@ jobs:
           MERGE_AUTO: "true"
           TAG: ${{ steps.release.outputs.tag_name || steps.publish.outputs.tag_name }}
         run: |
+          if [ "$APP_TOKEN" != true ]; then
+            echo "::warning::Pas de GitHub App configurée (entrée app-client-id) : la PR de retour est créée/mise à jour avec le jeton des Actions. Ce jeton ne déclenche pas les autres workflows. Pour activer l'App : repowarden app init."
+          fi
           if [ "$(gh api "repos/$GH_REPO/compare/$INTEGRATION...$MAIN" --jq '.files | length')" = 0 ]; then
             echo "$INTEGRATION contient déjà tout le contenu de $MAIN : rien à fusionner."
             exit 0
@@ -383,11 +400,12 @@ jobs:
       prerelease_version: ${{ steps.preversion.outputs.version }}
       delivery_pr: ${{ steps.livraison.outputs.pr }}
     env:
-      HAS_APP: ${{ secrets.app-id != '' && secrets.app-key != '' }}
+      HAS_APP: ${{ inputs.app-client-id != '' && secrets.app-key != '' }}
+      HAS_OLD_BOT: ${{ secrets.app-id != '' && secrets.app-key != '' }}
     steps:
       # Ancien bot de release (GitHub App) : entrées obsolètes, ignorées
       - name: Entrées obsolètes
-        if: env.HAS_APP == 'true'
+        if: env.HAS_OLD_BOT == 'true'
         run: |
           echo "::warning::Secrets app-id / app-key ignorés : le bot de release n'existe plus (aucune clé nécessaire). Les retirer de release.yml ; ils seront refusés en v4."
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -401,11 +419,25 @@ jobs:
           path: .repowarden-ci
           persist-credentials: false
 
+      # Jeton de la GitHub App : ce qu'il fait (créer/mettre à jour des PR)
+      # déclenche les autres workflows, contrairement au jeton des Actions.
+      - name: Jeton de l'App
+        id: app
+        if: inputs.app-client-id != ''
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ inputs.app-client-id }}
+          private-key: ${{ secrets.app-key }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-statuses: write
+
       - name: PR de livraison
         id: livraison
         if: github.ref_name == inputs.integration-branch
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
+          APP_TOKEN: ${{ steps.app.outputs.token != '' }}
           INTEGRATION: ${{ inputs.integration-branch }}
           MAIN: ${{ inputs.main-branch }}
           INITIAL_VERSION: ${{ inputs.initial-version }}
@@ -417,6 +449,9 @@ jobs:
             ${{ github.event_name == 'workflow_dispatch' || inputs.delivery-on-push ||
             (github.event_name == 'schedule' && github.event.schedule == inputs.delivery-schedule) }}
         run: |
+          if [ "$APP_TOKEN" != true ]; then
+            echo "::warning::Pas de GitHub App configurée (entrée app-client-id) : la PR de livraison est créée/mise à jour avec le jeton des Actions. Ce jeton ne déclenche pas les autres workflows (ex. suivi des tickets). Pour activer l'App : repowarden app init."
+          fi
           git fetch -q origin "$MAIN"
           pr="$(gh pr list --head "$INTEGRATION" --base "$MAIN" --state open --json number -q '.[0].number // empty')"
           if [ -z "$(git log --oneline "origin/$MAIN..HEAD")" ]; then
@@ -486,11 +521,15 @@ jobs:
           inputs.mode == 'tag' && inputs.delivery-environment != '' && !inputs.delivery-on-push &&
           github.event_name == 'push' && github.ref_name == inputs.integration-branch
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
+          APP_TOKEN: ${{ steps.app.outputs.token != '' }}
           GH_REPO: ${{ github.repository }}
           INTEGRATION: ${{ inputs.integration-branch }}
           CALLER: ${{ github.workflow_ref }}
         run: |
+          if [ "$APP_TOKEN" != true ]; then
+            echo "::warning::Pas de GitHub App configurée (entrée app-client-id) : le déclenchement d'urgence utilise le jeton des Actions. Pour activer l'App : repowarden app init."
+          fi
           if [ "$(gh api "repos/$GH_REPO/commits/$GITHUB_SHA/pulls" -q '[.[].labels[].name] | index("urgent") != null')" = true ]; then
             fichier="${CALLER%%@*}"
             gh workflow run "${fichier##*/}" --ref "$INTEGRATION"
