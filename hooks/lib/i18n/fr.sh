@@ -360,7 +360,16 @@ _msg_fr() {
         npm.first_published) _M="%s@%s publié par la pipeline." ;;
         npm.step_trust) _M="3/3 Publication sans jeton (publication de confiance)" ;;
         npm.trust_exists) _M="Publication de confiance déjà configurée." ;;
+        npm.trust_mismatch) _M="Relation de confiance existante mais ne correspond pas aux paramètres attendus :" ;;
+        npm.trust_confirm) _M="Confirmer la correction (nouvelle relation créée avant révocation de l'ancienne) ? [o/N] " ;;
+        npm.trust_cancelled) _M="Correction annulée." ;;
+        npm.trust_would_create) _M="[dry-run] Relation de confiance serait créée : %s, workflow %s, env %s" ;;
+        npm.trust_would_fix) _M="[dry-run] Relation de confiance serait corrigée (nouvelle créée, ancienne révoquée)" ;;
+        npm.trust_revoked) _M="Ancienne relation de confiance révoquée : %s" ;;
         npm.trust_set) _M="Publication de confiance : %s, workflow %s." ;;
+        npm.token_present) _M="Secret NPM_TOKEN encore présent alors que la publication de confiance fonctionne." ;;
+        npm.token_remove_confirm) _M="Supprimer le secret NPM_TOKEN ? [o/N] " ;;
+        npm.token_would_remove) _M="[dry-run] Secret NPM_TOKEN serait supprimé" ;;
         npm.token_removed) _M="Secret NPM_TOKEN supprimé du dépôt." ;;
         npm.token_revoked) _M="Jeton temporaire révoqué sur npm." ;;
         npm.done) _M="Terminé : chaque release publie %s sur npm, sans jeton." ;;
