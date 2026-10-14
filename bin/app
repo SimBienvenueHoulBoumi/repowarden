@@ -4,6 +4,10 @@
 # sans CI, merge automatique sans préversion…) ; un jeton de l'App, si.
 #
 #   repowarden app init [--repo propriétaire/nom] [--nom NOM] [--administration]
+#   repowarden app init --bot      App du bot d'organisation (repowarden bot),
+#                                  dans le dépôt de pilotage : workflows et
+#                                  administration en plus ; identifiants
+#                                  REPOWARDEN_BOT_CLIENT_ID, REPOWARDEN_BOT_KEY
 #
 # 1. création (flux « manifest » de GitHub) : une page locale envoie la
 #    description de l'App à GitHub, tu cliques sur « Create » ; permissions
@@ -19,16 +23,17 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 # shellcheck source=../hooks/lib/common.sh
 source "$ROOT/hooks/lib/common.sh"
 
-aide() { sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; }
+aide() { sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; }
 
 commande="${1:-}"
 [ $# -eq 0 ] || shift
-REPO="" NOM="" ADMIN=""
+REPO="" NOM="" ADMIN="" BOT=""
 while [ $# -gt 0 ]; do
     case "$1" in
         --repo) shift; REPO="${1:?--repo attend propriétaire/nom}" ;;
         --nom) shift; NOM="${1:?--nom attend un nom}" ;;
         --administration) ADMIN=1 ;;
+        --bot) BOT=1 ADMIN=1 ;;
         -h | --help) aide; exit 0 ;;
         *) err_t install.unknown_arg "$1"; exit 1 ;;
     esac
@@ -44,6 +49,12 @@ command -v gh >/dev/null || { err_t bot.no_gh; exit 1; }
 command -v node >/dev/null || { err_t app.no_node; exit 1; }
 [ -n "$REPO" ] || REPO="$(gh repo view --json nameWithOwner -q .nameWithOwner)"
 owner="${REPO%%/*}"
+# App du bot : identifiants à part (dépôt de pilotage), droits sur les workflows
+PREFIXE=REPOWARDEN_APP
+if [ -n "$BOT" ]; then
+    PREFIXE=REPOWARDEN_BOT
+    NOM="${NOM:-repowarden-bot-$owner}"
+fi
 NOM="${NOM:-repowarden-$owner}"
 brand "app · $REPO"
 
@@ -58,10 +69,10 @@ ouvrir() {
 
 # 1. Création, si l'App n'est pas déjà configurée pour ce dépôt
 step_t app.step_create
-client_id="$(gh variable get REPOWARDEN_APP_CLIENT_ID --repo "$REPO" 2>/dev/null || true)"
-if [ -n "$client_id" ] && grep -q '^REPOWARDEN_APP_KEY' <<<"$(gh secret list --repo "$REPO")"; then
+client_id="$(gh variable get "${PREFIXE}_CLIENT_ID" --repo "$REPO" 2>/dev/null || true)"
+if [ -n "$client_id" ] && grep -q "^${PREFIXE}_KEY" <<<"$(gh secret list --repo "$REPO")"; then
     ok_t app.exists "$client_id"
-    slug="$(gh variable get REPOWARDEN_APP_SLUG --repo "$REPO" 2>/dev/null || true)"
+    slug="$(gh variable get "${PREFIXE}_SLUG" --repo "$REPO" 2>/dev/null || true)"
 else
     if [ "$(gh api "users/$owner" -q .type)" = Organization ]; then
         cible="https://github.com/organizations/$owner/settings/apps/new"
@@ -72,7 +83,7 @@ else
     trap 'rm -f "$sortie"' EXIT
     # Page locale : envoie la description à GitHub (formulaire POST), puis
     # reçoit le code de retour ; le code est écrit sur la sortie standard
-    NOM="$NOM" REPO="$REPO" ADMIN="$ADMIN" CIBLE="$cible" node -e '
+    NOM="$NOM" REPO="$REPO" ADMIN="$ADMIN" BOT="$BOT" CIBLE="$cible" node -e '
         const http = require("http"), crypto = require("crypto");
         const etat = crypto.randomBytes(16).toString("hex");
         const srv = http.createServer((req, res) => {
@@ -88,6 +99,8 @@ else
             const port = srv.address().port;
             const perms = { contents: "write", pull_requests: "write", issues: "write", statuses: "write", metadata: "read" };
             if (process.env.ADMIN) perms.administration = "write";
+            // Bot : PR de migration qui modifient les workflows des projets
+            if (process.env.BOT) perms.workflows = "write";
             const manifeste = JSON.stringify({
                 name: process.env.NOM, url: "https://github.com/" + process.env.REPO,
                 // Webhook inactif : GitHub exige tout de même son adresse
@@ -117,11 +130,11 @@ else
     slug="$(node -p 'JSON.parse(require("fs").readFileSync(0, "utf8")).slug' <<<"$reponse")"
     # Clé gardée en mémoire le temps de vérifier l'installation, jamais affichée
     cle="$(node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(0, "utf8")).pem)' <<<"$reponse")"
-    printf '%s' "$cle" | gh secret set REPOWARDEN_APP_KEY --repo "$REPO"
+    printf '%s' "$cle" | gh secret set "${PREFIXE}_KEY" --repo "$REPO"
     reponse=""
-    gh variable set REPOWARDEN_APP_CLIENT_ID --repo "$REPO" --body "$client_id"
-    gh variable set REPOWARDEN_APP_SLUG --repo "$REPO" --body "$slug"
-    ok_t app.created "$slug"
+    gh variable set "${PREFIXE}_CLIENT_ID" --repo "$REPO" --body "$client_id"
+    gh variable set "${PREFIXE}_SLUG" --repo "$REPO" --body "$slug"
+    ok_t app.created "$slug" "${PREFIXE}_CLIENT_ID" "${PREFIXE}_KEY"
 fi
 
 # 2. Installation sur le dépôt (vérifiée depuis tes installations)
@@ -147,6 +160,7 @@ if [ -z "$cle" ]; then
     exit 0
 fi
 if [ -n "$slug" ] && ! installee; then
+    [ -z "$BOT" ] || info_t app.bot_all_repos
     info_t app.open "https://github.com/apps/$slug/installations/new"
     ouvrir "https://github.com/apps/$slug/installations/new"
     for _ in $(seq 1 120); do installee && break; sleep 5; done

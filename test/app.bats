@@ -91,6 +91,20 @@ NAV
     grep -q '&quot;administration&quot;:&quot;write&quot;' "$F/page"
 }
 
+@test "app init --bot : App du bot (workflows, administration), identifiants a part, toutes les installations" {
+    run "$APP" init --bot
+    [ "$status" -eq 0 ]
+    grep -q '&quot;name&quot;:&quot;repowarden-bot-moi&quot;' "$F/page"
+    grep -q '&quot;administration&quot;:&quot;write&quot;' "$F/page"
+    grep -q '&quot;workflows&quot;:&quot;write&quot;' "$F/page"
+    [ "$(cat "$F/var.REPOWARDEN_BOT_CLIENT_ID")" = Iv1.abc ]
+    grep -q "BEGIN RSA PRIVATE KEY" "$F/secret.REPOWARDEN_BOT_KEY"
+    # l'App des workflows du dépôt n'est pas touchée
+    [ ! -e "$F/var.REPOWARDEN_APP_CLIENT_ID" ] && [ ! -e "$F/secret.REPOWARDEN_APP_KEY" ]
+    [[ "$output" == *"All repositories"* ]]
+    [[ "$output" == *"REPOWARDEN_BOT_CLIENT_ID"* ]]
+}
+
 @test "app init : retour de GitHub avec un mauvais etat -> refuse, rien de range" {
     cat >"$F/bin/navigateur" <<'NAV'
 #!/usr/bin/env bash
