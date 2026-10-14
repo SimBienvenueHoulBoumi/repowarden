@@ -16,6 +16,7 @@
 #   repowarden run list [--workflow <nom>]        liste les runs récents
 #   repowarden tickets init                        suivi des tickets (GitHub)
 #   repowarden proteger [options]                  protection des branches (GitHub)
+#   repowarden migrer [--pr] [--hooks]             passage de repogarde à repowarden
 #   repowarden npm-publication                     publication npm automatique
 #   repowarden app init                            GitHub App des workflows (une fois)
 #   repowarden bot [init|rapport]                  bot d'organisation (dépôt de pilotage)
@@ -36,7 +37,7 @@ source "$ROOT/hooks/lib/ui.sh"
 # shellcheck source=../hooks/lib/i18n.sh
 source "$ROOT/hooks/lib/i18n.sh"
 
-aide() { sed -n '2,22p' "$ROOT/bin/repowarden" | sed 's/^# \{0,1\}//'; }
+aide() { sed -n '2,23p' "$ROOT/bin/repowarden" | sed 's/^# \{0,1\}//'; }
 
 commande="${1:-}"
 [ $# -eq 0 ] || shift
@@ -62,6 +63,7 @@ case "$commande" in
     run-list) exec bash "$ROOT/bin/run-list" "$@" ;;
     pr-checks) exec bash "$ROOT/bin/pr-checks" "$@" ;;
     proteger | protect) exec bash "$ROOT/bin/proteger" "$@" ;;
+    migrer | migrate) exec bash "$ROOT/bin/migrer" "$@" ;;
     npm-publication | npm-publish) exec bash "$ROOT/bin/npm-publication" "$@" ;;
     app) exec bash "$ROOT/bin/app" "$@" ;;
     bot) exec bash "$ROOT/bin/bot" "$@" ;;

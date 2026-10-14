@@ -107,7 +107,9 @@ Le script pose le ruleset « repowarden » (PR obligatoire, vérifications exig�
 
 Avec un flux `develop`, il crée aussi l'étiquette `urgent` si elle manque : son merge lance tout de suite la demande de livraison.
 
-**Règles à jour ?** Après une mise à jour de repowarden ou de `.repowarden.conf`, `repowarden proteger --verifier` compare les règles en ligne à celles que `proteger` poserait, sans rien modifier : chaque écart est listé (« en ligne » / « attendu ») et la commande échoue. Passer les mêmes `--checks` qu'à l'application : la liste des vérifications exigées n'est pas dans `.repowarden.conf`, et sans `--checks` elle n'est pas comparée. Attention, `repowarden proteger` sans `--checks` ramène les vérifications exigées à la seule `repowarden`.
+**Ancien ruleset** (posé à la main ou par repogarde, sous un autre nom, qui exige encore la vérification `repogarde`) : le script le **reprend** (mis à jour en place, donc renommé) plutôt que de créer un second ruleset à côté ; les branches ne sont jamais un instant sans protection. S'il en reste plusieurs sur les mêmes branches, les autres sont listés avec la commande pour les supprimer, jamais supprimés par le script, et la commande échoue. Un refus de GitHub affiche son détail (ruleset concerné, message, erreurs) ; les autres rulesets sont quand même appliqués.
+
+**Règles à jour ?** Après une mise à jour de repowarden ou de `.repowarden.conf`, `repowarden proteger --verifier` compare les règles en ligne à celles que `proteger` poserait, sans rien modifier : chaque écart est listé (« en ligne » / « attendu »), ainsi que tout ancien ruleset qui exige encore `repogarde`, et la commande échoue. Passer les mêmes `--checks` qu'à l'application : la liste des vérifications exigées n'est pas dans `.repowarden.conf`, et sans `--checks` elle n'est pas comparée. Attention, `repowarden proteger` sans `--checks` ramène les vérifications exigées à la seule `repowarden`.
 
 À la main : *Settings → Rules → Rulesets* (ou *Branches → Branch protection rules*) sur `main` :
 
