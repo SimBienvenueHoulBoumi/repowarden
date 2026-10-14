@@ -39,6 +39,47 @@ if [[ "$SUBJECT" =~ ^(Merge|Revert|fixup!|squash!) ]]; then
     exit 0
 fi
 
+# Type le plus proche d'un type inconnu : alias courants, puis préfixe commun
+# (doc → docs, feature → feat, Feat → feat) ; vide si aucun
+type_proche_r() {
+    local t="$1" c
+    case "$t" in
+        feature | features) REPLY="feat"; return ;;
+        doc | documentation) REPLY="docs"; return ;;
+        fixe | fixed | fixes | bugfix | hotfix) REPLY="fix"; return ;;
+        tests) REPLY="test"; return ;;
+        refacto | refactoring) REPLY="refactor"; return ;;
+    esac
+    REPLY=""
+    for c in ${CC_TYPES//|/ }; do
+        if [[ "$c" == "$t"* || "$t" == "$c"* ]]; then REPLY="$c"; return; fi
+    done
+}
+
+# En-tête tenté mais refusé : type inconnu (ou en majuscules), description vide
+if ! [[ "$SUBJECT" =~ $CC_PATTERN ]] &&
+    [[ "$SUBJECT" =~ ^([A-Za-z]+)(\([^\)]*\))?(!?):[[:space:]]*(.*)$ ]]; then
+    typ="${BASH_REMATCH[1]}" portee="${BASH_REMATCH[2]}" bang="${BASH_REMATCH[3]}" desc="${BASH_REMATCH[4]}"
+    typ_min="$(printf '%s' "$typ" | tr '[:upper:]' '[:lower:]')"
+    propose="$typ_min"
+    [[ "$typ_min" =~ ^($CC_TYPES)$ ]] || { type_proche_r "$typ_min"; propose="$REPLY"; }
+    if [ -z "$desc" ]; then
+        err_t hook.commit_msg.desc_empty "${propose:-$typ}$portee$bang:"
+        echo_t hook.commit_msg.kept >&2
+        exit 1
+    fi
+    if [ "$propose" != "$typ" ]; then
+        if [ -n "$propose" ]; then
+            err_t hook.commit_msg.type_unknown "$typ" "$propose$portee$bang: $desc"
+        else
+            err_t hook.commit_msg.type_none "$typ"
+            types_help
+        fi
+        echo_t hook.commit_msg.kept >&2
+        exit 1
+    fi
+fi
+
 if ! [[ "$SUBJECT" =~ $CC_PATTERN ]]; then
     if [ "${REPOWARDEN_LANG:-}" = en ]; then
         cat >&2 <<EOF
@@ -78,6 +119,15 @@ EOF
 EOF
     fi
     exit 1
+fi
+
+# Point final retiré, comme dans git cc (pas des points de suspension) ; seule
+# la première ligne est réécrite, le corps reste intact
+if [[ "$SUBJECT" == *. && "$SUBJECT" != *.. ]]; then
+    SUBJECT="${SUBJECT%.}"
+    contenu="$(awk -v s="$SUBJECT" '!fait && !/^#/ { print s; fait = 1; next } { print }' "$MSG_FILE")"
+    printf '%s\n' "$contenu" >"$MSG_FILE"
+    info_t hook.commit_msg.dot >&2
 fi
 
 authored_length "$SUBJECT"

@@ -40,7 +40,7 @@ _msg_fr() {
         cc.breaking_note_prompt) _M="Ce qui change : " ;;
         cc.breaking_note_invalid) _M="Décris le changement (10 caractères au moins) ; sinon, réponds non à la question précédente." ;;
         cc.step4) _M="Description" ;;
-        cc.desc_hint) _M="À l'impératif, sans majuscule initiale ni point final ; %s caractères au plus." ;;
+        cc.desc_hint) _M="À l'impératif, sans point final, minuscule initiale sauf sigle ou nom propre ; %s caractères au plus." ;;
         cc.desc_required) _M="La description est obligatoire." ;;
         cc.header_too_long) _M="En-tête trop long : %s caractères (72 max). Raccourcis la description." ;;
         cc.step5) _M="Détails (optionnels)" ;;
@@ -109,6 +109,11 @@ _msg_fr() {
         hook.pre_commit.6) _M="gitleaks absent, détection de secrets ignorée (installation : %s)." ;;
         hook.pre_commit.7) _M="Pre-commit OK" ;;
         hook.commit_msg.1) _M="Première ligne trop longue (%s > 72 caractères)." ;;
+        hook.commit_msg.type_unknown) _M="Type « %s » inconnu. Voulais-tu : %s" ;;
+        hook.commit_msg.type_none) _M="Type « %s » inconnu. Types possibles :" ;;
+        hook.commit_msg.desc_empty) _M="Description manquante après « %s » : décris le changement à l'impératif." ;;
+        hook.commit_msg.kept) _M="  Ton message n'est pas perdu : git commit -e -F .git/COMMIT_EDITMSG" ;;
+        hook.commit_msg.dot) _M="Point final retiré de la description (même règle que git cc)." ;;
         hook.pre_push.1) _M="Push refusé : nom de branche non conforme." ;;
         hook.pre_push.2) _M="Push direct refusé sur '%s' : elle n'évolue que par Pull Request." ;;
         hook.pre_push.3) _M="  Crée une branche : git switch -c feat/ma-feature, puis ouvre une PR." ;;
