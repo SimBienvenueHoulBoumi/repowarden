@@ -14,8 +14,12 @@ setup() {
 @test "npm : version lue dans le tag (clone), package.json ecrit seulement a la publication" {
     run "$PKG/bin/repowarden" --version
     [ "$status" -eq 0 ]
-    tag="$(git -C "$PKG" describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || true)"
-    if [ -n "$tag" ]; then [ "$output" = "${tag#v}" ]; else [ "$output" = 0.0.0-dev ]; fi
+    # Version portée par un tag du dépôt (choix exact : tests « version : » d'install.bats)
+    if [ -n "$(git -C "$PKG" tag --list 'v[0-9]*')" ]; then
+        [ -n "$(git -C "$PKG" tag --list "v$output")" ]
+    else
+        [ "$output" = 0.0.0-dev ]
+    fi
     grep -q '"version": "0.0.0-dev"' "$PKG/package.json"
 }
 

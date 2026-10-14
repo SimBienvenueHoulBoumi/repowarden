@@ -101,6 +101,51 @@ setup() {
     done
 }
 
+# Faux dépôt de repowarden (racine d'une installation par clone), sans hooks
+faux_repowarden() {
+    RW="$BATS_TEST_TMPDIR/rw"
+    git init -q -b main "$RW"
+    rwgit() { git -C "$RW" -c core.hooksPath=/dev/null -c user.name=t -c user.email=t@t "$@"; }
+    rwgit commit -q --allow-empty -m "chore: init"
+}
+
+@test "version : racine de repowarden lue, meme avec le GIT_DIR d'un worktree du projet" {
+    faux_repowarden
+    rwgit tag v9.1.0
+    initial_commit
+    git tag v0.1.1
+    source "$HOOKS/lib/ui.sh"
+    # git exporte GIT_DIR aux hooks d'un worktree : il l'emportait sur -C
+    export GIT_DIR="$REPO/.git" GIT_WORK_TREE="$REPO"
+    repowarden_version_r "$RW"
+    unset GIT_DIR GIT_WORK_TREE
+    [ "$REPLY" = 9.1.0 ]
+}
+
+@test "version : release taguee sur le merge de main vue depuis develop, clone ancien non surestime" {
+    faux_repowarden
+    rwgit tag v1.0.0
+    ancien="$(rwgit rev-parse HEAD)"
+    rwgit switch -q -c develop
+    # préversion égarée, plus haute mais plus ancienne : jamais retenue
+    rwgit commit -q --allow-empty -m "chore: x"
+    rwgit tag v9.0.0-next.1
+    rwgit commit -q --allow-empty -m "feat: a"
+    rwgit tag v1.1.0-next.1
+    rwgit switch -q -c livraison/v1.1.0
+    rwgit switch -q main
+    rwgit merge -q --no-ff -m "chore(release): v1.1.0" livraison/v1.1.0
+    rwgit tag v1.1.0
+    rwgit switch -q develop
+    rwgit commit -q --allow-empty -m "feat: b"
+    source "$HOOKS/lib/ui.sh"
+    repowarden_version_r "$RW"
+    [ "$REPLY" = 1.1.0 ]
+    rwgit switch -q --detach "$ancien"
+    repowarden_version_r "$RW"
+    [ "$REPLY" = 1.0.0 ]
+}
+
 @test "hooks : hook installe par lefthook ignore, meme avec une configuration lefthook" {
     initial_commit
     git switch -q -c feat/lefthook
