@@ -1,0 +1,179 @@
+#!/usr/bin/env bats
+# Passage de repogarde à repowarden (bin/migrer) : projet tel que
+# repowarden-demo avant sa migration, gh simulé pour --pr
+
+load helpers
+
+MIGRER="$BATS_TEST_DIRNAME/../bin/migrer"
+
+setup() {
+    setup_repo
+    initial_commit
+    export REPOWARDEN_MAJEURE=4
+    printf '# Réglages repogarde du projet\n[repogarde]\n    # Version minimale de repogarde\n    version = 3.5.0\n    lang = fr\n' >.repogarde.conf
+    mkdir -p .github/workflows .repogarde
+    printf '#!/bin/sh\necho hook\n' >.repogarde/pre-commit
+    cat >.github/workflows/repogarde.yml <<'YML'
+name: repogarde
+on: [pull_request]
+permissions: {}
+jobs:
+  repogarde:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: SimBienvenueHoulBoumi/repogarde@v3
+        with:
+          strict: true
+        env:
+          TOKEN: ${{ secrets.REPOGARDE_APP_KEY }}
+YML
+    cat >.github/workflows/tickets.yml <<'YML'
+on: [pull_request_target]
+permissions: {}
+jobs:
+  tickets:
+    uses: SimBienvenueHoulBoumi/repogarde/.github/workflows/tickets.yml@feat/tickets
+    permissions: { issues: write, pull-requests: write, statuses: write }
+    with:
+      repogarde-ref: feat/tickets
+      integration-branch: main
+YML
+    cat >.github/workflows/release.yml <<'YML'
+on: [push]
+jobs:
+  release:
+    uses: SimBienvenueHoulBoumi/repogarde/.github/workflows/release-auto.yml@v3
+    # with:
+    #   workflows: repogarde.yml
+YML
+    printf 'Voir [repogarde](https://github.com/SimBienvenueHoulBoumi/repogarde)\n' >README.md
+    git add -A
+    git -c core.hooksPath=/dev/null commit -q -m "chore: projet sous repogarde" # préparation, hors hooks
+}
+
+@test "migrer : configuration, workflows et anciens noms remplaces (cas repowarden-demo)" {
+    run "$MIGRER"
+    [ "$status" -eq 0 ]
+    # configuration renommée (suivie par git), section et version à jour
+    [ ! -e .repogarde.conf ] && [ -f .repowarden.conf ]
+    grep -q '^\[repowarden\]$' .repowarden.conf
+    grep -q '^    version = 4$' .repowarden.conf
+    ! grep -q repogarde .repowarden.conf
+    [ -x .repowarden/pre-commit ] && [ ! -e .repogarde ]
+    # action et workflows réutilisables : nouveau dépôt, version majeure
+    w=.github/workflows
+    [ ! -e $w/repogarde.yml ] && [ -f $w/repowarden.yml ]
+    grep -q '^name: repowarden$' $w/repowarden.yml
+    grep -q '^  repowarden:$' $w/repowarden.yml
+    grep -q 'uses: simdevWarden/repowarden@v4$' $w/repowarden.yml
+    grep -q 'uses: actions/checkout@v7$' $w/repowarden.yml
+    grep -q 'secrets.REPOWARDEN_APP_KEY' $w/repowarden.yml
+    grep -q 'uses: simdevWarden/repowarden/.github/workflows/tickets.yml@v4$' $w/tickets.yml
+    grep -q 'uses: simdevWarden/repowarden/.github/workflows/release-auto.yml@v4$' $w/release.yml
+    grep -q '#   workflows: repowarden.yml' $w/release.yml
+    # entrée retirée ; contents: write ajouté au job, pas au workflow
+    ! grep -q 'ref:' $w/tickets.yml
+    grep -q 'permissions: { contents: write, issues: write' $w/tickets.yml
+    grep -q '^permissions: {}$' $w/tickets.yml
+    ! grep -rqi repogarde .github
+    # à faire à la main : secret à recréer, README à relire (non modifié)
+    [[ "$output" == *"REPOWARDEN_APP_KEY"* ]]
+    [[ "$output" == *"README.md"* ]]
+    grep -q repogarde README.md
+    [[ "$output" == *"repowarden proteger"* ]]
+    # relance : rien à faire
+    git add -A && git -c core.hooksPath=/dev/null commit -q -m "chore: migration"
+    run "$MIGRER"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Rien à migrer"* ]]
+    [ -z "$(git status --porcelain)" ]
+}
+
+@test "migrer : hooks lefthook residuels signales, deplaces seulement avec --hooks" {
+    printf '#!/bin/sh\ncall_lefthook run pre-commit\n' >.git/hooks/pre-commit
+    printf '#!/bin/sh\necho perso\n' >.git/hooks/post-merge
+    run "$MIGRER"
+    [[ "$output" == *"Hooks lefthook résiduels dans .git/hooks ( pre-commit)"* ]]
+    [ -f .git/hooks/pre-commit ]
+    run "$MIGRER" --hooks
+    [ "$status" -eq 0 ]
+    [ ! -e .git/hooks/pre-commit ] && [ -f .git/hooks-lefthook/pre-commit ]
+    # hook propre au projet, sans lefthook : jamais touché
+    [ -f .git/hooks/post-merge ]
+}
+
+@test "migrer : les deux noms presents -> rien ecrase, signale" {
+    printf '[repowarden]\n    lang = en\n' >.repowarden.conf
+    run "$MIGRER"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *".repogarde.conf et .repowarden.conf existent tous les deux"* ]]
+    grep -q 'lang = en' .repowarden.conf
+    [ -f .repogarde.conf ]
+}
+
+@test "migrer : version majeure du tag flottant de la version installee, valeur invalide refusee" {
+    unset REPOWARDEN_MAJEURE
+    # le dépôt repowarden courant donne une version : vN publié existe
+    run "$MIGRER"
+    [ "$status" -eq 0 ]
+    grep -qE 'uses: simdevWarden/repowarden@v[1-9][0-9]*$' .github/workflows/repowarden.yml
+    REPOWARDEN_MAJEURE=x run "$MIGRER"
+    [ "$status" -ne 0 ]
+}
+
+@test "migrer --pr : branche, commit conventionnel, push et PR ; rien si une PR est ouverte" {
+    mkdir -p "$BATS_TEST_TMPDIR/bin"
+    cat >"$BATS_TEST_TMPDIR/bin/gh" <<'GH'
+#!/usr/bin/env bash
+echo "$*" >>"$GH_LOG"
+case "$1 $2" in
+    "pr list") [ -n "${GH_PR_OPEN:-}" ] && echo 12 ;;
+esac
+exit 0
+GH
+    chmod +x "$BATS_TEST_TMPDIR/bin/gh"
+    export PATH="$BATS_TEST_TMPDIR/bin:$PATH" GH_LOG="$BATS_TEST_TMPDIR/gh.log"
+    git -c core.hooksPath=/dev/null push -q -u origin main
+    # arbre modifié : refusé
+    echo x >>README.md
+    run "$MIGRER" --pr
+    [ "$status" -ne 0 ]
+    git checkout -q README.md
+    run "$MIGRER" --pr
+    [ "$status" -eq 0 ]
+    [ "$(git branch --show-current)" = chore/migration-repowarden-v4 ]
+    [ "$(subject)" = "chore(migration): passage de repogarde à repowarden v4" ]
+    git ls-remote --exit-code origin refs/heads/chore/migration-repowarden-v4 >/dev/null
+    grep -q "^pr create --head chore/migration-repowarden-v4 --title chore(migration): passage" "$GH_LOG"
+    [[ "$output" == *"PR de migration ouverte"* ]]
+    # PR déjà ouverte : rien
+    git switch -q main
+    : >"$GH_LOG"
+    GH_PR_OPEN=1 run "$MIGRER" --pr
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"déjà ouverte"* ]]
+    ! grep -q "^pr create" "$GH_LOG"
+    [ "$(git branch --show-current)" = main ]
+}
+
+@test "migrer --pr : projet deja migre -> aucune branche laissee" {
+    git rm -q -r .repogarde.conf .repogarde .github README.md
+    git -c core.hooksPath=/dev/null commit -q -m "chore: sans repogarde"
+    mkdir -p "$BATS_TEST_TMPDIR/bin"
+    printf '#!/usr/bin/env bash\nexit 0\n' >"$BATS_TEST_TMPDIR/bin/gh"
+    chmod +x "$BATS_TEST_TMPDIR/bin/gh"
+    PATH="$BATS_TEST_TMPDIR/bin:$PATH" run "$MIGRER" --pr
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Rien à migrer"* ]]
+    [ "$(git branch --show-current)" = main ]
+    ! git show-ref -q --verify refs/heads/chore/migration-repowarden-v4
+}
+
+@test "statut : anciens noms dans le projet -> repowarden migrer propose" {
+    run "$BATS_TEST_DIRNAME/../bin/statut"
+    [[ "$output" == *"Anciens noms repogarde dans ce projet : repowarden migrer"* ]]
+    "$MIGRER" >/dev/null
+    run "$BATS_TEST_DIRNAME/../bin/statut"
+    [[ "$output" != *"repowarden migrer"* ]]
+}
