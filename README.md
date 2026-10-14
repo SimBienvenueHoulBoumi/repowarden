@@ -27,20 +27,38 @@
 
 **Plus de 25 technologies** : Java (Maven, Gradle), JavaScript / TypeScript, Python, Go, Rust, PHP, Ruby, .NET, Dart / Flutter, Swift, Elixir, C / C++, Shell, Terraform, Packer, Ansible, Helm, Kubernetes, Docker, GitHub Actions — [détail](https://simdevwarden.github.io/repowarden/technologies/). Linux, macOS, Windows.
 
-## Ce que tu fais à la main
+## Le cycle d'une modification
 
-Le reste est automatique. Pas à pas et pièges : [où cliquer](https://simdevwarden.github.io/repowarden/validation/#ou-cliquer).
+De l'idée à la production, chaque changement suit le même chemin. Tu n'agis qu'aux étapes **en gras** ; le reste est automatique, et chaque étape est vérifiée par la CI.
 
-| Geste | Où |
-|---|---|
-| Valider un ticket | étiquette `validé` (d'office si un mainteneur l'ouvre) |
-| Écrire la conception, avant le code | commentaire contenant « Conception retenue » sur le ticket |
-| Terminer une PR | **Ready for review** : elle se merge seule quand la CI est verte |
-| Livrer en production (flux `develop`) | *Actions → release → Run workflow* (ou la demande du vendredi), puis **Review deployments → Approve and deploy** sur le run |
-| Livrer un correctif urgent | étiquette `urgent` sur la PR `fix/…` (créée par `repowarden proteger`) |
-| Relire une PR, si exigé | *Files changed → Review changes → Approve* |
+```mermaid
+flowchart LR
+    A[Ticket] -->|validé| B[Conception]
+    B --> C[Branche du ticket]
+    C -->|commits + push| D[PR brouillon]
+    D -->|Ready for review| E{CI verte ?}
+    E -->|oui| F[develop]
+    E -->|non| C
+    F -->|vendredi, ou à la main| G[Demande de livraison]
+    G -->|Approve and deploy| H[main : release]
+```
 
-Une PR `develop` → `main` ouverte à la main ne reçoit jamais d'approbation : lancer le workflow `release`, qui ouvre la sienne.
+| # | Étape | Qui | Ce qui se passe | Statut du ticket |
+|---|---|---|---|---|
+| 1 | Ouvrir un ticket (issue) | toi | rien ne se code sans ticket | à valider |
+| 2 | **Valider le ticket** | toi | étiquette `validé` (posée d'office si un mainteneur ouvre le ticket) | backlog |
+| 3 | **Écrire la conception** | toi | commentaire « Conception retenue » sur le ticket : ce qui change, fichiers touchés, hors périmètre. Sans elle, la vérification `ticket` de la PR échoue | backlog |
+| 4 | **Prendre le ticket** | toi | `repowarden ticket 12` : assigné, branche `fix/12-sujet` créée depuis `develop` | en cours |
+| 5 | Coder et committer | toi | `git cc` ; les hooks vérifient message, branche, secrets, formatage, puis les tests au push | en cours |
+| 6 | Premier push | auto | PR **brouillon** vers `develop` ouverte, titre et description tirés du ticket | en cours |
+| 7 | **Sortir du brouillon** | toi | bouton *Ready for review* (`gh pr ready`) | en relecture |
+| 8 | Vérifier et intégrer | auto | CI complète ; verte → **merge automatique** (squash) dans `develop`. Rouge → corriger et pousser, retour en 5 | préprod |
+| 9 | Préversion | auto | chaque soir si `develop` a changé : `vX.Y.Z-next.N` (paquet `repowarden@next`), pour tester avant la prod | préprod |
+| 10 | Demande de livraison | auto | le vendredi matin, ou à la main (*Actions → release → Run workflow*, ou étiquette `urgent` sur une PR `fix/…`) : instantané `livraison/vX.Y.Z` et sa PR vers `main` | préprod |
+| 11 | **Approuver la livraison** | toi | sur la page du run : **Review deployments → Approve and deploy** (pas « Approve » sur la PR, qui est une simple relecture) | préprod |
+| 12 | Publier | auto | la GitHub App merge vers `main` : tag `vX.Y.Z`, release, paquet npm, documentation | done, ticket fermé |
+
+Seul `develop` entre dans `main`, et jamais sans l'approbation de l'étape 11. Une PR `develop` → `main` ouverte à la main est fermée automatiquement, avec la marche à suivre. Pas à pas, commandes et pièges : [où cliquer](https://simdevwarden.github.io/repowarden/validation/#ou-cliquer).
 
 ## Démarrage
 
