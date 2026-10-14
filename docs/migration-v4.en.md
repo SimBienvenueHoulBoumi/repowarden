@@ -37,4 +37,4 @@ repowarden                            # check: machine status and next step
 
    Symptom of a forgotten line: a failed run **without any job**. Then the action: `simdevWarden/repowarden@v4`, and the `REPOGARDE_*` variables to `REPOWARDEN_*`.
 4. Project using lefthook: move its commands to `.repowarden/<hook>`, then `lefthook uninstall` and delete `lefthook.yml`.
-5. Update branch protection, since the required check is now called `repowarden`: `repowarden proteger`.
+5. Update branch protection, since the required check is now called `repowarden`: `repowarden proteger`. An old ruleset requiring `repogarde` is taken over, whatever its name; `repowarden proteger --verifier` reports any that remain.
