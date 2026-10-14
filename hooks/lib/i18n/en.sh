@@ -25,8 +25,10 @@ _msg_en() {
         cc.option_value) _M="Option %s expects a value." ;;
         cc.batch_message_required) _M="Without questions, the description is required: git cc -m \"<description>\" [--type T] [--scope S] [--body …] [--refs …] [--breaking …]." ;;
         cc.type_invalid) _M="\"%s\": pick a number (1 to %s) or a name from the list." ;;
+        cc.type_invalid_suggest) _M="\"%s\": unknown type. Did you mean \"%s\"? Number (1 to %s) or a name from the list." ;;
         cc.step2) _M="Scope (optional)" ;;
         cc.scope_hint) _M="Part of the project affected, e.g. api, auth, chart; Enter for none." ;;
+        cc.scope_hint_default) _M="Part of the project, e.g. api, auth, chart; Enter keeps \"%s\", \"-\" for none." ;;
         cc.scope_prompt_default) _M="Scope (\"-\" for none) [%s]: " ;;
         cc.scope_prompt) _M="Scope: " ;;
         cc.scope_fixed) _M="Scope: lowercase letters, digits, . _ - only. Suggested: %s (Enter to accept)." ;;
@@ -48,7 +50,8 @@ _msg_en() {
         cc.refs_prompt_ticket) _M="References (\"-\" for none) [%s]: " ;;
         cc.refs_prompt) _M="References (e.g. %s; Enter for none): " ;;
         tk.cli.no_ticket) _M="Branch %s has no ticket: this work will not be linked to any ticket (not blocking)." ;;
-        tk.cli.propose) _M="Start it from a ticket: repowarden ticket nouveau \"<title>\" (or answer yes in git cc)." ;;
+        tk.cli.propose) _M="Start it from a ticket: repowarden ticket nouveau \"<title>\"." ;;
+        tk.cli.propose_cc) _M="Start it from a ticket: repowarden ticket nouveau \"<title>\" (or answer yes in git cc)." ;;
         tk.cli.silence) _M="Project without ticket tracking? git config repowarden.skip tickets to stop seeing this." ;;
         tk.cli.fetch) _M="Branch of ticket #%s…" ;;
         tk.cli.switched) _M="On branch %s (ticket #%s)." ;;
