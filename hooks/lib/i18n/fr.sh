@@ -25,8 +25,10 @@ _msg_fr() {
         cc.option_value) _M="L'option %s attend une valeur." ;;
         cc.batch_message_required) _M="Sans question, la description est obligatoire : git cc -m \"<description>\" [--type T] [--scope S] [--body …] [--refs …] [--breaking …]." ;;
         cc.type_invalid) _M="« %s » : choisis un numéro (1 à %s) ou un nom de la liste." ;;
+        cc.type_invalid_suggest) _M="« %s » : type inconnu. Voulais-tu « %s » ? Numéro (1 à %s) ou nom de la liste." ;;
         cc.step2) _M="Scope (optionnel)" ;;
         cc.scope_hint) _M="Partie du projet concernée, ex. api, auth, chart ; Entrée pour aucun." ;;
+        cc.scope_hint_default) _M="Partie du projet concernée, ex. api, auth, chart ; Entrée garde « %s », « - » pour aucun." ;;
         cc.scope_prompt_default) _M="Scope (« - » pour aucun) [%s] : " ;;
         cc.scope_prompt) _M="Scope : " ;;
         cc.scope_fixed) _M="Scope : minuscules, chiffres, . _ - uniquement. Proposé : %s (Entrée pour l'accepter)." ;;
@@ -40,7 +42,7 @@ _msg_fr() {
         cc.breaking_note_prompt) _M="Ce qui change : " ;;
         cc.breaking_note_invalid) _M="Décris le changement (10 caractères au moins) ; sinon, réponds non à la question précédente." ;;
         cc.step4) _M="Description" ;;
-        cc.desc_hint) _M="À l'impératif, sans majuscule initiale ni point final ; %s caractères au plus." ;;
+        cc.desc_hint) _M="À l'impératif, sans point final, minuscule initiale sauf sigle ou nom propre ; %s caractères au plus." ;;
         cc.desc_required) _M="La description est obligatoire." ;;
         cc.header_too_long) _M="En-tête trop long : %s caractères (72 max). Raccourcis la description." ;;
         cc.step5) _M="Détails (optionnels)" ;;
@@ -48,7 +50,8 @@ _msg_fr() {
         cc.refs_prompt_ticket) _M="Références (« - » pour aucune) [%s] : " ;;
         cc.refs_prompt) _M="Références (ex. %s ; Entrée pour aucune) : " ;;
         tk.cli.no_ticket) _M="Branche %s sans ticket : ce travail ne sera relié à aucun ticket (non bloquant)." ;;
-        tk.cli.propose) _M="Le partir d'un ticket : repowarden ticket nouveau \"<titre>\" (ou réponds oui à git cc)." ;;
+        tk.cli.propose) _M="Partir d'un ticket : repowarden ticket nouveau \"<titre>\"." ;;
+        tk.cli.propose_cc) _M="Partir d'un ticket : repowarden ticket nouveau \"<titre>\" (ou réponds oui à git cc)." ;;
         tk.cli.silence) _M="Projet sans suivi de tickets ? git config repowarden.skip tickets pour ne plus le voir." ;;
         tk.cli.fetch) _M="Branche du ticket #%s…" ;;
         tk.cli.switched) _M="Sur la branche %s (ticket #%s)." ;;
@@ -109,6 +112,11 @@ _msg_fr() {
         hook.pre_commit.6) _M="gitleaks absent, détection de secrets ignorée (installation : %s)." ;;
         hook.pre_commit.7) _M="Pre-commit OK" ;;
         hook.commit_msg.1) _M="Première ligne trop longue (%s > 72 caractères)." ;;
+        hook.commit_msg.type_unknown) _M="Type « %s » inconnu. Voulais-tu : %s" ;;
+        hook.commit_msg.type_none) _M="Type « %s » inconnu. Types possibles :" ;;
+        hook.commit_msg.desc_empty) _M="Description manquante après « %s » : décris le changement à l'impératif." ;;
+        hook.commit_msg.kept) _M="  Ton message n'est pas perdu : git commit -e -F .git/COMMIT_EDITMSG" ;;
+        hook.commit_msg.dot) _M="Point final retiré de la description (même règle que git cc)." ;;
         hook.pre_push.1) _M="Push refusé : nom de branche non conforme." ;;
         hook.pre_push.2) _M="Push direct refusé sur '%s' : elle n'évolue que par Pull Request." ;;
         hook.pre_push.3) _M="  Crée une branche : git switch -c feat/ma-feature, puis ouvre une PR." ;;

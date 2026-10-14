@@ -266,3 +266,42 @@ answer() { printf '%s\n' "$@" | "$CC" 2>&1; }
     [ "$status" -eq 0 ]
     git log -1 --format=%B | grep -qx 'Ticket : #12'
 }
+
+@test "assistant : type inconnu -> type le plus proche propose (interactif et --type)" {
+    run answer "doc" "" "" "" "ajoute le panier" "" "" ""
+    [[ "$output" == *"docs"* ]]
+    [ "$(subject)" = "feat(panier): ajoute le panier" ]
+    run "$CC" --dry-run -m "ajoute" --type doc
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"docs"* ]]
+}
+
+@test "assistant : scope propose -> l'aide dit ce que fait Entree" {
+    run answer "" "" "" "ajoute le panier" "" "" ""
+    [[ "$output" == *"Entrée garde « panier »"* ]]
+    [[ "$output" != *"chart ; Entrée pour aucun."* ]]
+}
+
+@test "assistant : exemple de references selon le flux (Ticket : #12 avec develop)" {
+    run answer "" "" "" "ajoute le panier" "" "" ""
+    [[ "$output" == *"Closes #12"* ]]
+    git reset -q --soft HEAD~1
+    git config repowarden.integrationBranch develop
+    run answer "" "" "" "ajoute le panier" "" "" ""
+    [[ "$output" == *"ex. Ticket : #12"* ]]
+    [[ "$output" != *"Closes #12"* ]]
+}
+
+@test "tickets : la question de git cc n'est promise que si git cc la pose" {
+    mkdir -p "$BATS_TEST_TMPDIR/bin"
+    printf '#!/bin/sh\nexit 0\n' >"$BATS_TEST_TMPDIR/bin/gh"
+    chmod +x "$BATS_TEST_TMPDIR/bin/gh"
+    export PATH="$BATS_TEST_TMPDIR/bin:$PATH"
+    git config repowarden.tickets true
+    run git switch -c feat/autre
+    [[ "$output" == *"Partir d'un ticket"* ]]
+    [[ "$output" != *"git cc"* ]]
+    git config repowarden.ticketAutoCreate true
+    run git switch -c feat/encore
+    [[ "$output" == *"réponds oui à git cc"* ]]
+}

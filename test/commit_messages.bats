@@ -89,3 +89,45 @@ Co-authored-by: Alice <alice@example.com>"
     [ "$status" -eq 0 ]
     [[ "$(git log -1 --format=%B)" == *anthropic* ]]
 }
+
+@test "commit-msg : type inconnu sur une branche typee -> refuse avec le type le plus proche, pas enveloppe" {
+    git switch -q -c feat/panier
+    run git commit -q --allow-empty -m "doc: essai"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"docs: essai"* ]]
+    [ "$(subject)" = "chore: init" ]
+    run git commit -q --allow-empty -m "Feat(panier): ajoute"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"feat(panier): ajoute"* ]]
+}
+
+@test "commit-msg : description vide refusee, pas enveloppee" {
+    git switch -q -c feat/panier
+    run git commit -q --allow-empty -m "fix:"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"Description manquante"* ]]
+    [ "$(subject)" = "chore: init" ]
+}
+
+@test "prepare-commit-msg : message libre prefixe, corps et references intacts" {
+    git switch -q -c feat/panier
+    printf 'ajoute le panier\n\nPourquoi : les clients le demandent.\n\nTicket : #12\n' >"$BATS_TEST_TMPDIR/msg"
+    git commit -q --allow-empty -F "$BATS_TEST_TMPDIR/msg"
+    [ "$(subject)" = "feat(panier): ajoute le panier" ]
+    [ "$(git log -1 --format=%b)" = "$(printf 'Pourquoi : les clients le demandent.\n\nTicket : #12')" ]
+}
+
+@test "commit-msg : point final retire (meme regle que git cc), majuscule initiale permise" {
+    git switch -q -c feat/panier
+    run git commit -q --allow-empty -m "docs: README à jour."
+    [ "$status" -eq 0 ]
+    [ "$(subject)" = "docs: README à jour" ]
+}
+
+@test "commit-msg : refus en anglais sans texte francais" {
+    git switch -q -c feat/panier
+    REPOWARDEN_LANG=en run git commit -q --allow-empty -m "doc: essai"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"docs: essai"* ]]
+    [[ "$output" != *"inconnu"* && "$output" != *"Astuce"* ]]
+}

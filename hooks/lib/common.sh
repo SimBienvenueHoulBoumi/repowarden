@@ -84,6 +84,23 @@ cfg() {
 CC_TYPES="feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert"
 CC_PATTERN="^($CC_TYPES)(\([a-z0-9._-]+\))?!?: .+"
 
+# Type le plus proche d'un type inconnu : alias courants, puis préfixe commun
+# (doc → docs, feature → feat, Feat → feat) ; vide si aucun
+type_proche_r() {
+    local t="$1" c
+    case "$t" in
+        feature | features) REPLY="feat"; return ;;
+        doc | documentation) REPLY="docs"; return ;;
+        fixe | fixed | fixes | bugfix | hotfix) REPLY="fix"; return ;;
+        tests) REPLY="test"; return ;;
+        refacto | refactoring) REPLY="refactor"; return ;;
+    esac
+    REPLY=""
+    for c in ${CC_TYPES//|/ }; do
+        if [[ "$c" == "$t"* || "$t" == "$c"* ]]; then REPLY="$c"; return; fi
+    done
+}
+
 # REPLY = longueur de la première ligne écrite par l'auteur : le suffixe
 # « (#123) » ajouté par GitHub lors d'un merge squash n'est pas compté.
 authored_length() {

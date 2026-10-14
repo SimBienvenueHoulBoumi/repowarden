@@ -25,8 +25,10 @@ _msg_en() {
         cc.option_value) _M="Option %s expects a value." ;;
         cc.batch_message_required) _M="Without questions, the description is required: git cc -m \"<description>\" [--type T] [--scope S] [--body …] [--refs …] [--breaking …]." ;;
         cc.type_invalid) _M="\"%s\": pick a number (1 to %s) or a name from the list." ;;
+        cc.type_invalid_suggest) _M="\"%s\": unknown type. Did you mean \"%s\"? Number (1 to %s) or a name from the list." ;;
         cc.step2) _M="Scope (optional)" ;;
         cc.scope_hint) _M="Part of the project affected, e.g. api, auth, chart; Enter for none." ;;
+        cc.scope_hint_default) _M="Part of the project, e.g. api, auth, chart; Enter keeps \"%s\", \"-\" for none." ;;
         cc.scope_prompt_default) _M="Scope (\"-\" for none) [%s]: " ;;
         cc.scope_prompt) _M="Scope: " ;;
         cc.scope_fixed) _M="Scope: lowercase letters, digits, . _ - only. Suggested: %s (Enter to accept)." ;;
@@ -40,7 +42,7 @@ _msg_en() {
         cc.breaking_note_prompt) _M="What changes: " ;;
         cc.breaking_note_invalid) _M="Describe the change (at least 10 characters); otherwise answer no to the previous question." ;;
         cc.step4) _M="Description" ;;
-        cc.desc_hint) _M="Imperative mood, no initial capital or final period; %s characters max." ;;
+        cc.desc_hint) _M="Imperative mood, no final period, lowercase start except acronyms or proper nouns; %s characters max." ;;
         cc.desc_required) _M="The description is required." ;;
         cc.header_too_long) _M="Header too long: %s characters (72 max). Shorten the description." ;;
         cc.step5) _M="Details (optional)" ;;
@@ -48,7 +50,8 @@ _msg_en() {
         cc.refs_prompt_ticket) _M="References (\"-\" for none) [%s]: " ;;
         cc.refs_prompt) _M="References (e.g. %s; Enter for none): " ;;
         tk.cli.no_ticket) _M="Branch %s has no ticket: this work will not be linked to any ticket (not blocking)." ;;
-        tk.cli.propose) _M="Start it from a ticket: repowarden ticket nouveau \"<title>\" (or answer yes in git cc)." ;;
+        tk.cli.propose) _M="Start it from a ticket: repowarden ticket nouveau \"<title>\"." ;;
+        tk.cli.propose_cc) _M="Start it from a ticket: repowarden ticket nouveau \"<title>\" (or answer yes in git cc)." ;;
         tk.cli.silence) _M="Project without ticket tracking? git config repowarden.skip tickets to stop seeing this." ;;
         tk.cli.fetch) _M="Branch of ticket #%s…" ;;
         tk.cli.switched) _M="On branch %s (ticket #%s)." ;;
@@ -111,6 +114,11 @@ _msg_en() {
         hook.pre_commit.6) _M="gitleaks not installed, secret detection skipped (install: %s)." ;;
         hook.pre_commit.7) _M="Pre-commit OK" ;;
         hook.commit_msg.1) _M="First line too long (%s > 72 characters)." ;;
+        hook.commit_msg.type_unknown) _M="Unknown type \"%s\". Did you mean: %s" ;;
+        hook.commit_msg.type_none) _M="Unknown type \"%s\". Possible types:" ;;
+        hook.commit_msg.desc_empty) _M="Missing description after \"%s\": describe the change in the imperative mood." ;;
+        hook.commit_msg.kept) _M="  Your message is not lost: git commit -e -F .git/COMMIT_EDITMSG" ;;
+        hook.commit_msg.dot) _M="Final period removed from the description (same rule as git cc)." ;;
         hook.pre_push.1) _M="Push refused: branch name does not follow the convention." ;;
         hook.pre_push.2) _M="Direct push to '%s' refused: it only changes through pull requests." ;;
         hook.pre_push.3) _M="  Create a branch: git switch -c feat/my-feature, then open a PR." ;;

@@ -31,7 +31,27 @@ repowarden_version_r() {
     local tag=""
     REPLY="$(sed -n 's/^  "version": *"\([^"]*\)".*/\1/p' "$1/package.json" 2>/dev/null | sed -n 1p)"
     if [ -e "$1/.git" ]; then
-        tag="$(git -C "$1" describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || true)"
+        # Sous-shell sans les variables que git exporte aux hooks (worktree) :
+        # elles l'emportent sur -C, ce seraient les tags du projet. Tag le plus
+        # proche de HEAD (git describe), remplacé par un tag de release dont le
+        # commit mergé est au moins aussi proche : la release est taguée sur le
+        # merge de la livraison dans main, invisible depuis develop pour
+        # describe ; à égalité, la version stable l'emporte sur la préversion
+        tag="$(
+            unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR
+            best="$(git -C "$1" describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || true)"
+            dist=""
+            [ -z "$best" ] || dist="$(git -C "$1" rev-list --count "$best..HEAD")"
+            while IFS= read -r t; do
+                git -C "$1" merge-base --is-ancestor "$t^2" HEAD 2>/dev/null || continue
+                d="$(git -C "$1" rev-list --count "$t^2..HEAD")"
+                if [ -z "$best" ] || [ "$d" -lt "$dist" ] ||
+                    { [ "$d" -eq "$dist" ] && [[ "$t" != *-* && "$best" == *-* ]]; }; then
+                    best="$t" dist="$d"
+                fi
+            done < <(git -C "$1" tag --no-merged HEAD --list 'v[0-9]*' 2>/dev/null)
+            echo "$best"
+        )"
         [ -z "$tag" ] || REPLY="${tag#v}"
     fi
 }

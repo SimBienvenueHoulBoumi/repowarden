@@ -6,7 +6,7 @@
 #                                      sans cela, la ligne suivante serait lue
 #                                      comme une nouvelle réponse)
 #   git cc -m "description" [--type T] [--scope S] [--breaking NOTE]
-#          [--body TEXTE] [--refs "Closes #12"]
+#          [--body TEXTE] [--refs "Ticket : #12"]
 #                                      sans question (scripts, agents) : mêmes
 #                                      contrôles, toute réponse refusée arrête
 #                                      tout ; type et scope déduits de la
@@ -173,14 +173,19 @@ while :; do
         type="$answer"
         break
     fi
-    t cc.type_invalid "$answer" "${#TYPES[@]}"
+    type_proche_r "$(printf '%s' "$answer" | tr '[:upper:]' '[:lower:]')"
+    if [ -n "$REPLY" ]; then
+        t cc.type_invalid_suggest "$answer" "$REPLY" "${#TYPES[@]}"
+    else
+        t cc.type_invalid "$answer" "${#TYPES[@]}"
+    fi
     refuse "$REPLY"
 done
 
 # 2. Scope (optionnel)
 t cc.step2
 etape 2 "$REPLY"
-t cc.scope_hint
+if [ -n "$default_scope" ]; then t cc.scope_hint_default "$default_scope"; else t cc.scope_hint; fi
 hint "$REPLY"
 while :; do
     if [ -n "$default_scope" ]; then
@@ -352,7 +357,8 @@ fi
 if [ -n "$ticket" ]; then
     t cc.refs_prompt_ticket "$ticket"
 else
-    t cc.refs_prompt "$FORGE_REFS"
+    cfg_r integrationBranch ""
+    if [ -n "$REPLY" ]; then t cc.refs_prompt "Ticket : #12"; else t cc.refs_prompt "$FORGE_REFS"; fi
 fi
 ANSWER="$OPT_REFS"
 ask "$REPLY"
