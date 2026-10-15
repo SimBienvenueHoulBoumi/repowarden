@@ -1,0 +1,370 @@
+#!/usr/bin/env bash
+# Bots du dépôt GitHub courant, configurés avec l'accord de l'utilisateur :
+#   repowarden bots              questions, aperçu, puis confirmation
+#   repowarden install --bots    (idem, après l'installation des hooks)
+#   repowarden install --sans-bots
+#                                ne plus jamais le proposer (repowarden.bots = off)
+# Rien n'est fait sans accord : une question globale (non par défaut), le
+# flux (main seul, ou develop → main), un accord par bot (CI, releases,
+# nettoyage, tickets, App, protection, npm), l'aperçu de ce qui sera créé ou
+# modifié, puis une confirmation finale. Un fichier existant n'est jamais
+# écrasé. Relançable pour compléter. Demande un terminal, gh connecté et les
+# droits d'administration du dépôt.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+# shellcheck source=../hooks/lib/common.sh
+source "$ROOT/hooks/lib/common.sh"
+
+aide() { sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; }
+
+# Commandes enchaînées (remplaçables dans les tests)
+BIN="${REPOWARDEN_BIN:-$ROOT/bin}"
+DEPUIS_INSTALL=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --depuis-install) DEPUIS_INSTALL=1 ;;
+        -h | --help) aide; exit 0 ;;
+        *) err_t install.unknown_arg "$1"; exit 1 ;;
+    esac
+    shift
+done
+
+# Rien n'est proposé : une ligne dit pourquoi, et comment le faire plus tard
+pas_maintenant() { # $1 clé de la raison
+    t "$1"
+    info_t bots.skip "$REPLY"
+    exit 0
+}
+
+# Refus permanent (install --sans-bots) : silence depuis l'installation
+if [ -n "$DEPUIS_INSTALL" ] && [ "$(git config --get repowarden.bots 2>/dev/null || true)" = off ]; then
+    exit 0
+fi
+[ -n "$GIT_TOPLEVEL" ] || pas_maintenant bots.why_repo
+cd "$GIT_TOPLEVEL"
+[ "$FORGE" = github ] || pas_maintenant bots.why_github
+command -v gh >/dev/null || pas_maintenant bots.why_gh
+gh auth status >/dev/null 2>&1 || pas_maintenant bots.why_gh_login
+REPO="$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)"
+[ -n "$REPO" ] || pas_maintenant bots.why_github
+[ "$(gh api "repos/$REPO" --jq .permissions.admin 2>/dev/null || true)" = true ] || pas_maintenant bots.why_admin
+# Terminal (ou réponses fournies, tests) : sinon, jamais de question
+[ -t 0 ] || [ -n "${REPOWARDEN_INTERACTIF:-}" ] || pas_maintenant bots.why_tty
+
+# Question fermée : $1 clé, $2 défaut (o ou n) ; vrai si oui
+demander() {
+    local reponse choix="o/N"
+    [ "$2" = n ] || choix="O/n"
+    t "$1"
+    printf '%s [%s] ' "$REPLY" "$choix" >&2
+    IFS= read -r reponse || reponse=""
+    case "$reponse" in
+        "") [ "$2" = o ] ;;
+        [oOyY]*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+brand "bots · $REPO"
+demander bots.ask_global n || { info_t bots.later; exit 0; }
+
+# --- Flux ------------------------------------------------------------------
+cfg_r integrationBranch ""
+INTEGRATION="$REPLY"
+DEFAUT="$(gh api "repos/$REPO" --jq .default_branch)"
+PRINCIPALE=main
+[ "$DEFAUT" = master ] && PRINCIPALE=master
+echo >&2
+t bots.flow_question
+printf '%s\n' "$REPLY" >&2
+t bots.flow_main "$PRINCIPALE"
+printf '  1) %s\n' "$REPLY" >&2
+t bots.flow_develop "$PRINCIPALE"
+printf '  2) %s\n' "$REPLY" >&2
+choix_flux=1
+[ -z "$INTEGRATION" ] || choix_flux=2
+read -r -p "[$choix_flux] : " reponse || reponse=""
+case "${reponse:-$choix_flux}" in
+    2*) FLUX=develop; INTEGRATION="${INTEGRATION:-develop}" ;;
+    *) FLUX=main; INTEGRATION="" ;;
+esac
+CREER_DEVELOP=""
+if [ "$FLUX" = develop ] &&
+    [ -z "$(gh api "repos/$REPO/branches/$INTEGRATION" --jq .name 2>/dev/null || true)" ]; then
+    if demander bots.ask_create_develop o; then
+        CREER_DEVELOP=1
+    else
+        FLUX=main INTEGRATION=""
+    fi
+fi
+
+# --- Un accord par bot -----------------------------------------------------
+echo >&2
+info_t bots.one_by_one
+APP_PRESENTE=""
+[ -z "$(gh variable get REPOWARDEN_APP_CLIENT_ID --repo "$REPO" 2>/dev/null || true)" ] || APP_PRESENTE=1
+NPM_POSSIBLE=""
+[ ! -f package.json ] || grep -qE '"private": *true' package.json || NPM_POSSIBLE=1
+BOTS=()
+for bot in ci release nettoyage tickets app proteger npm; do
+    case "$bot" in
+        nettoyage) [ "$FLUX" = develop ] || continue ;;
+        app) [ -z "$APP_PRESENTE" ] || { info_t bots.app_present; continue; } ;;
+        npm) [ -n "$NPM_POSSIBLE" ] || continue ;;
+    esac
+    dim_t "bots.desc_$bot"
+    demander "bots.ask_$bot" o && BOTS+=("$bot")
+done
+[ "${#BOTS[@]}" -gt 0 ] || [ -n "$CREER_DEVELOP" ] || { info_t bots.later; exit 0; }
+choisi() { [[ " ${BOTS[*]+"${BOTS[*]}"} " == *" $1 "* ]]; }
+AVEC_APP=""
+{ [ -n "$APP_PRESENTE" ] || choisi app; } && AVEC_APP=1
+
+# --- Modèles des workflows -------------------------------------------------
+modele_ci() {
+    cat <<'YAML'
+# Vérifications repowarden en CI (obligatoires pour merger : repowarden proteger)
+name: repowarden
+
+on:
+  pull_request:
+    # edited : revérifie quand le titre de la PR change (message du commit en squash)
+    types: [opened, synchronize, reopened, edited]
+  push:
+YAML
+    if [ "$FLUX" = develop ]; then
+        echo "    branches: [$PRINCIPALE, $INTEGRATION]"
+    else
+        echo "    branches: [$PRINCIPALE]"
+    fi
+    cat <<'YAML'
+  # Lancé par le workflow de release sur sa PR (release-auto)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+YAML
+    [ "$FLUX" != develop ] || echo "  pull-requests: write # fix-pr : PR mal visée reciblée"
+    cat <<'YAML'
+
+jobs:
+  repowarden:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # historique complet : messages de commit, diff depuis la base
+      # Outils du projet nécessaires au formatage et aux tests, par exemple :
+      # - uses: actions/setup-node@v7
+      #   with: { node-version: 24, cache: npm }
+      # - run: npm ci
+      - uses: simdevWarden/repowarden@v4
+YAML
+    if [ "$FLUX" = develop ]; then
+        cat <<'YAML'
+        with:
+          # strict: true   # outil absent bloquant, une fois l'outillage installé ci-dessus
+          # Seule la branche d'intégration entre dans la principale : une PR
+          # de travail mal visée est reciblée avant les vérifications
+          fix-pr: "true"
+YAML
+    else
+        cat <<'YAML'
+        # with:
+        #   strict: true   # outil absent bloquant, une fois l'outillage installé ci-dessus
+YAML
+    fi
+}
+
+modele_release() {
+    if [ "$FLUX" = develop ]; then
+        cat <<YAML
+# Releases, flux $INTEGRATION → $PRINCIPALE (mode tag) : préversion vX.Y.Z-next.N le
+# soir si $INTEGRATION a changé ; le vendredi matin (ou à la main), une demande
+# de livraison $INTEGRATION → $PRINCIPALE, qui publie le tag vX.Y.Z et la release.
+name: release
+
+on:
+  push:
+    branches: [$PRINCIPALE, $INTEGRATION]
+  schedule:
+    - cron: "0 19 * * *" # préversion du soir, si $INTEGRATION a changé
+    - cron: "0 7 * * 5" # fenêtre de livraison : le vendredi matin
+  workflow_dispatch: # à la main (et urgence) : préversion et demande de livraison
+
+# Une file par branche et par déclencheur ; une demande manuelle ou planifiée
+# remplace celle en attente ; un push n'annule jamais un run en cours
+concurrency:
+  group: release-\${{ github.ref_name }}-\${{ github.event.schedule || github.event_name }}
+  cancel-in-progress: \${{ github.event_name != 'push' }}
+
+permissions: {}
+
+jobs:
+  release:
+    uses: simdevWarden/repowarden/.github/workflows/release-auto.yml@v4
+    permissions: { contents: write, pull-requests: write, actions: write, checks: read, statuses: write }
+    with:
+      mode: tag
+      integration-branch: $INTEGRATION
+      main-branch: $PRINCIPALE
+      delivery-schedule: "0 7 * * 5" # même cron que la fenêtre ci-dessus
+YAML
+        if [ -n "$AVEC_APP" ]; then
+            cat <<'YAML'
+      delivery-environment: production # « Approve and deploy » valide la livraison
+      app-client-id: ${{ vars.REPOWARDEN_APP_CLIENT_ID }} # la GitHub App merge la livraison approuvée
+    secrets:
+      app-key: ${{ secrets.REPOWARDEN_APP_KEY }}
+YAML
+        fi
+    else
+        cat <<'YAML'
+# Releases automatiques : à chaque merge sur la branche principale, la version
+# (semver) est calculée depuis les Conventional Commits ; une PR « release
+# x.y.z » est validée par la CI puis mergée, et le tag et la release créés.
+name: release
+
+on:
+  push:
+YAML
+        echo "    branches: [$PRINCIPALE]"
+        cat <<'YAML'
+  workflow_dispatch:
+
+# Une release à la fois
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  release:
+    uses: simdevWarden/repowarden/.github/workflows/release-auto.yml@v4
+    permissions: { contents: write, pull-requests: write, actions: write, checks: read, statuses: write }
+YAML
+        if [ -n "$AVEC_APP" ]; then
+            cat <<'YAML'
+    with:
+      app-client-id: ${{ vars.REPOWARDEN_APP_CLIENT_ID }}
+    secrets:
+      app-key: ${{ secrets.REPOWARDEN_APP_KEY }}
+YAML
+        fi
+    fi
+}
+
+modele_nettoyage() {
+    cat <<'YAML'
+# Branches de PR supprimées après merge (la suppression automatique de GitHub
+# est désactivée dans le flux develop : elle supprimerait la branche
+# d'intégration au merge de la livraison). Les branches longues et toute
+# branche encore source d'une PR ouverte sont conservées.
+name: nettoyage
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions: {}
+
+jobs:
+  nettoyage:
+    uses: simdevWarden/repowarden/.github/workflows/nettoyage-branches.yml@v4
+    permissions:
+      contents: write
+      pull-requests: read
+YAML
+}
+
+fichier_du() { # $1 bot → REPLY : chemin de son workflow (vide : aucun)
+    case "$1" in
+        ci) REPLY=.github/workflows/repowarden.yml ;;
+        release) REPLY=.github/workflows/release.yml ;;
+        nettoyage) REPLY=.github/workflows/nettoyage.yml ;;
+        *) REPLY="" ;;
+    esac
+}
+
+# --- Aperçu, puis confirmation ---------------------------------------------
+echo >&2
+step_t bots.preview
+[ -z "$CREER_DEVELOP" ] || info_t bots.prev_develop "$INTEGRATION" "$PRINCIPALE"
+if [ "$FLUX" = develop ]; then
+    info_t bots.prev_conf "$INTEGRATION"
+    [ -n "$AVEC_APP" ] || info_t bots.prev_review
+fi
+for bot in ${BOTS[@]+"${BOTS[@]}"}; do
+    fichier_du "$bot"
+    f="$REPLY"
+    if [ -n "$f" ]; then
+        if [ -e "$f" ]; then
+            ecart="$(diff <("modele_$bot") "$f" | grep -c '^[<>]' || true)"
+            info_t bots.prev_kept "$f" "$ecart"
+        else
+            info_t bots.prev_file "$f"
+        fi
+    else
+        info_t "bots.prev_$bot"
+    fi
+done
+demander bots.ask_confirm n || { info_t bots.later; exit 0; }
+
+# --- Application -----------------------------------------------------------
+echecs=0
+lancer() { # $1 bot, puis la commande : une erreur n'arrête pas les autres
+    local bot="$1"
+    shift
+    echo >&2
+    step_t "bots.run_$bot"
+    if ! "$@"; then
+        err_t bots.failed_one "$bot"
+        echecs=$((echecs + 1))
+    fi
+}
+
+if [ -n "$CREER_DEVELOP" ]; then
+    sha="$(gh api "repos/$REPO/git/ref/heads/$DEFAUT" --jq .object.sha)"
+    gh api -X POST "repos/$REPO/git/refs" -f "ref=refs/heads/$INTEGRATION" -f "sha=$sha" --silent
+    ok_t bots.develop_created "$INTEGRATION" "$DEFAUT"
+fi
+if [ "$FLUX" = develop ]; then
+    conf="$GIT_TOPLEVEL/.repowarden.conf"
+    git config -f "$conf" repowarden.integrationBranch "$INTEGRATION"
+    git config -f "$conf" --get repowarden.protectedBranches >/dev/null ||
+        git config -f "$conf" repowarden.protectedBranches "$PRINCIPALE $INTEGRATION"
+    if [ -z "$AVEC_APP" ]; then
+        git config -f "$conf" --get repowarden.deliveryApproval >/dev/null ||
+            git config -f "$conf" repowarden.deliveryApproval review
+    fi
+    ok_t bots.conf_written .repowarden.conf
+fi
+for bot in ${BOTS[@]+"${BOTS[@]}"}; do
+    fichier_du "$bot"
+    f="$REPLY"
+    if [ -n "$f" ]; then
+        if [ -e "$f" ]; then
+            info_t bots.kept "$f"
+        else
+            mkdir -p "${f%/*}"
+            "modele_$bot" >"$f"
+            ok_t bots.written "$f"
+        fi
+    fi
+done
+choisi tickets && lancer tickets bash "$BIN/tickets" init --repo "$REPO"
+choisi app && lancer app bash "$BIN/app" init --repo "$REPO"
+choisi proteger && lancer proteger bash "$BIN/proteger" --repo "$REPO"
+choisi npm && lancer npm bash "$BIN/npm-publication" --repo "$REPO"
+
+echo >&2
+if [ "$echecs" = 0 ]; then
+    ok_t bots.done
+else
+    attention_t bots.done_errors "$echecs"
+fi
+[ -z "$(git status --porcelain -- .github .repowarden.conf 2>/dev/null)" ] || info_t bots.commit_files
+dim_t bots.verify
+[ "$echecs" = 0 ]

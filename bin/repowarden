@@ -3,6 +3,7 @@
 #   repowarden                                     état du poste et étape suivante
 #   repowarden statut                              (idem)
 #   repowarden install [--global] [--lang fr|en]   active les hooks (install.sh)
+#   repowarden bots                                bots du dépôt GitHub (CI, releases, tickets…)
 #   repowarden uninstall [--global] [--purge]      les retire (avant npm uninstall -g)
 #   repowarden cc                                  assistant de commit
 #   repowarden code-mort                           nouveau code mort de la branche
@@ -37,7 +38,7 @@ source "$ROOT/hooks/lib/ui.sh"
 # shellcheck source=../hooks/lib/i18n.sh
 source "$ROOT/hooks/lib/i18n.sh"
 
-aide() { sed -n '2,23p' "$ROOT/bin/repowarden" | sed 's/^# \{0,1\}//'; }
+aide() { sed -n '2,24p' "$ROOT/bin/repowarden" | sed 's/^# \{0,1\}//'; }
 
 commande="${1:-}"
 [ $# -eq 0 ] || shift
@@ -66,6 +67,7 @@ case "$commande" in
     migrer | migrate) exec bash "$ROOT/bin/migrer" "$@" ;;
     npm-publication | npm-publish) exec bash "$ROOT/bin/npm-publication" "$@" ;;
     app) exec bash "$ROOT/bin/app" "$@" ;;
+    bots) exec bash "$ROOT/bin/bots" "$@" ;;
     bot) exec bash "$ROOT/bin/bot" "$@" ;;
     -v | --version | version)
         repowarden_version_r "$ROOT"

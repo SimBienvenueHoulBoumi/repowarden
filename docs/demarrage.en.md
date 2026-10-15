@@ -32,6 +32,7 @@ Three paths, depending on your use case. The fastest way to try it: **On my mach
     | Try the next version | `npm install -g repowarden@next` (back: `@latest`) |
     | Change language | `repowarden install --global --lang fr` |
     | A single repository | `cd my-project && repowarden install` |
+    | GitHub repository bots (CI, releases, tickets, protection…) | `repowarden bots` (offered by `repowarden install` in a GitHub repository; `--sans-bots` to stop seeing it) |
     | Uninstall | `repowarden uninstall --global`, then `npm uninstall -g repowarden` ([full uninstall](desinstallation.md)) |
 
     `npx` is refused for the global installation: its temporary folder can be deleted at any time. With nvm, each Node version has its own global packages: run `repowarden install --global` again after switching versions.
@@ -49,7 +50,7 @@ Three paths, depending on your use case. The fastest way to try it: **On my mach
 
     1. **Everyone** installs repowarden once on their machine ("On my machine" tab): `npm install -g repowarden`, then `repowarden install --global`.
 
-    2. **The project** adds the templates from [`templates/project/`](https://github.com/simdevWarden/repowarden/tree/main/templates/project):
+    2. **The project**, on GitHub: `repowarden bots` (someone with admin rights) offers each bot (CI, releases, cleanup, tickets, GitHub App, protection, npm), shows what will be created or changed, then waits for confirmation. Nothing is done without consent, and an existing file is never overwritten. Otherwise, by hand, it adds the templates from [`templates/project/`](https://github.com/simdevWarden/repowarden/tree/main/templates/project):
 
         | File | Role |
         |---|---|
