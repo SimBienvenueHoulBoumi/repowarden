@@ -64,6 +64,9 @@ PY
     # SIGPIPE et, avec pipefail, la condition échoue au hasard du timing
     run git grep -nE '\| *(grep -[a-zA-Z]*q|head)\b' -- ci hooks bin install.sh
     [ -z "$output" ] || { echo "$output"; return 1; }
+    # awk qui sort avant la fin (exit) : même effet sur la commande qui écrit
+    run git grep -nE '\| *awk [^|]*\bexit\b' -- ci hooks bin install.sh
+    [ -z "$output" ] || { echo "$output"; return 1; }
     # Même chose quand le tube est coupé en fin de ligne
     run awk 'FNR == 1 { prev = "" } prev ~ /\|[ \t]*$/ && $0 ~ /^[ \t]*(grep -[a-zA-Z]*q|head)([ \t]|$)/ { print FILENAME ":" FNR } { prev = $0 }' \
         $(git ls-files ci hooks bin install.sh)

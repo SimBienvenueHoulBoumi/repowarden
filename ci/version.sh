@@ -29,7 +29,8 @@ base="$last"
 if [ -n "$last" ]; then
     arbre="$(git rev-parse "$last^{tree}")"
     # Merge commit qui a réuni le tag dans ref, au contenu identique au tag
-    identique="$(git log --merges --format='%H %T' "$ref" | awk -v a="$arbre" '$2 == a { print $1; exit }')"
+    # awk lit tout (sans exit) : un tube coupé tôt tuerait git log (SIGPIPE + pipefail)
+    identique="$(git log --merges --format='%H %T' "$ref" | awk -v a="$arbre" '!vu && $2 == a { print $1; vu = 1 }')"
     if [ -n "$identique" ] && git merge-base --is-ancestor "$last" "$identique"; then
         base="$identique"
     fi
@@ -153,7 +154,7 @@ notes_livraison() {
     corps="$(gh api "repos/{owner}/{repo}/commits/$sha/pulls" --jq "[.[] | select(.merged_at != null
         and (.head.ref == \"${INTEGRATION:-develop}\" or (.head.ref | startswith(\"livraison/\"))))][0].body // empty" \
         2>/dev/null || true)"
-    corps="$(tr -d '\r' <<<"$corps" | awk 'f == 0 { if ($0 == "") f = 1; next } /^---$/ { exit } { print }')"
+    corps="$(tr -d '\r' <<<"$corps" | awk 'fin { next } f == 0 { if ($0 == "") f = 1; next } /^---$/ { fin = 1; next } { print }')"
     if [ -n "$(tr -d '[:space:]' <<<"$corps")" ]; then
         printf '%s\n' "$corps"
     else
