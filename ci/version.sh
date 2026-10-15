@@ -22,7 +22,19 @@ ref="${2:-HEAD}"
 scope='(\([a-z0-9._-]+\))?'
 # Dernière version stable : les préversions (v3.5.0-next.2) ne comptent pas
 last="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | awk '!/-/ && !f { print; f = 1 }')"
-range="${last:+$last..}$ref"
+# Base : le tag ; après une livraison squashée (dépôt sans rulesets), les
+# commits livrés ne sont pas des ancêtres du tag : la base devient le merge
+# commit qui a réuni le tag dans ref, s'il a le même contenu que le tag
+base="$last"
+if [ -n "$last" ]; then
+    arbre="$(git rev-parse "$last^{tree}")"
+    # Merge commit qui a réuni le tag dans ref, au contenu identique au tag
+    identique="$(git log --merges --format='%H %T' "$ref" | awk -v a="$arbre" '$2 == a { print $1; exit }')"
+    if [ -n "$identique" ] && git merge-base --is-ancestor "$last" "$identique"; then
+        base="$identique"
+    fi
+fi
+range="${base:+$base..}$ref"
 
 next() {
     local subjects bump major minor patch announced

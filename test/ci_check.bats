@@ -612,6 +612,20 @@ ancien_ruleset() {
     [[ "$output" == *"Protection de main (id 7) : ancien ruleset"* ]]
 }
 
+@test "proteger : sans rulesets, flux develop -> squash desactive (merge commit seul)" {
+    fake_gh_repo
+    git config repowarden.integrationBranch develop
+    git config repowarden.protectedBranches "main develop"
+    GH_RULESETS_403=1 GH_BRANCHES="main develop" run "$PROTEGER"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"squash désactivé (merge commit seul)"* ]]
+    grep -q "allow_squash_merge=false" "$GH_LOG"
+    # avec rulesets : squash gardé (imposé par branche)
+    : >"$GH_LOG"
+    GH_BRANCHES="main develop" run "$PROTEGER"
+    grep -q "allow_squash_merge=true" "$GH_LOG"
+}
+
 @test "proteger : tags refuses dans une organisation -> regle des comptes personnels, avertissement" {
     fake_gh_repo
     GH_OWNER_TYPE=Organization GH_REFUSE_INTEGRATION=1 GH_BRANCHES="main" run "$PROTEGER"
@@ -890,6 +904,27 @@ c() { git commit -q --no-verify --allow-empty -m "$1"; }
     git tag v1.0.0
     c "chore(release): v1.3.0"
     [ "$("$VERSION" next 2>/dev/null)" = 1.3.0 ]
+}
+
+@test "version : livraison squashee puis historiques reunis -> rien de recompte" {
+    git tag v1.0.0
+    git switch -q -c develop
+    echo a >a; git add a; git commit -q --no-verify -m "feat: panier"
+    echo b >b; git add b; git commit -q --no-verify -m "fix: arrondi"
+    # livraison squashée sur main (dépôt sans rulesets), taguée
+    git switch -q main
+    git merge -q --squash develop >/dev/null
+    git commit -q --no-verify -m "chore(release): v1.1.0 (#21)"
+    git tag v1.1.0
+    # historiques réunis par un merge commit de main dans develop
+    git switch -q develop
+    git merge -q --no-ff --no-edit main
+    [ -z "$("$VERSION" next 2>/dev/null)" ]
+    # travail suivant : seul lui compte
+    echo c >c; git add c; git commit -q --no-verify -m "fix: suite"
+    [ "$("$VERSION" next 2>/dev/null)" = 1.1.1 ]
+    run "$VERSION" notes
+    [[ "$output" == *"- fix: suite"* && "$output" != *"feat: panier"* ]]
 }
 
 @test "version : notes groupees, incompatibles en tete" {

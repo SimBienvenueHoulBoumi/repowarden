@@ -335,6 +335,7 @@ _msg_fr() {
         ci.proteger.api_error) _M="Ruleset « %s » refusé par GitHub : %s" ;;
         ci.proteger.incomplete) _M="Protection incomplète : voir les erreurs ci-dessus." ;;
         ci.proteger.rulesets_unavailable) _M="Rulesets indisponibles pour %s : GitHub les refuse sur un dépôt privé d'un compte gratuit. Rendre le dépôt public, ou passer à GitHub Pro / Team ; les autres réglages sont appliqués." ;;
+        ci.proteger.no_squash) _M="Sans rulesets, le mode de merge ne peut pas être imposé par branche : squash désactivé (merge commit seul), sinon une livraison squashée casserait l'historique de la branche principale." ;;
         ci.proteger.tags_fallback) _M="Ruleset des tags : exception « GitHub Actions » refusée dans cette organisation ; tags protégés comme sur un compte personnel (ni déplacés ni supprimés, création libre)." ;;
         ci.version.usage) _M="Usage : ci/version.sh next|notes|notes-livraison [ref]" ;;
         ci.version.breaking) _M="Changements incompatibles" ;;
