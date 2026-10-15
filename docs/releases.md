@@ -166,6 +166,9 @@ Il passe au vert dès que la condition est remplie. Rien à faire pour un projet
 
 ### Notes de version
 
+!!! warning "Permission `issues: read`"
+    Depuis 4.8.3, `release-auto` demande `issues: read` (titres des tickets livrés dans les notes ; indispensable sur un dépôt privé). Le job qui l'appelle doit l'accorder, sinon le workflow ne démarre pas : `repowarden migrer` l'ajoute.
+
 Rédigées par le bot, sans rien à remplir ni rien d'inventé. En tête, une introduction dont chaque partie n'apparaît que si elle a un contenu :
 
 | Partie | Contenu | Source |

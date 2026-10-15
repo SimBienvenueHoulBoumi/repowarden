@@ -166,6 +166,9 @@ It turns green as soon as the condition is met. Nothing to do for a project with
 
 ### Release notes
 
+!!! warning "`issues: read` permission"
+    Since 4.8.3, `release-auto` requests `issues: read` (titles of the delivered tickets in the notes; essential on a private repository). The calling job must grant it, otherwise the workflow does not start: `repowarden migrer` adds it.
+
 Written by the bot, with nothing to fill in and nothing made up. At the top, an introduction whose parts only appear when they have content:
 
 | Part | Content | Source |
