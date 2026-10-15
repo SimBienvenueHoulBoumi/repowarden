@@ -346,7 +346,7 @@ _msg_en() {
         ci.version.todo) _M="To do" ;;
         ci.version.update) _M="Update" ;;
         ci.version.tickets) _M="Delivered tickets" ;;
-        ci.version.unreadable) _M="Unreadable tickets (%s): add issues: read to the permissions of the release job in release.yml (private repository)." ;;
+        ci.version.unreadable) _M="Unreadable tickets (%s): grant issues: read to the release job in release.yml (required by release-auto since 4.8.3; repowarden migrer adds it)." ;;
         ci.livraison.protection) _M="Protection of the %s flow missing (merge commit, no deletion): run repowarden proteger" ;;
         ci.livraison.maintenance) _M="Maintenance only: no version to publish" ;;
         ci.livraison.non_exigee) _M="%s: prerelease not required" ;;

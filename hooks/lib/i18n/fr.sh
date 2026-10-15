@@ -346,7 +346,7 @@ _msg_fr() {
         ci.version.todo) _M="À faire" ;;
         ci.version.update) _M="Mettre à jour" ;;
         ci.version.tickets) _M="Tickets livrés" ;;
-        ci.version.unreadable) _M="Tickets illisibles (%s) : ajouter issues: read aux permissions du job release de release.yml (dépôt privé)." ;;
+        ci.version.unreadable) _M="Tickets illisibles (%s) : accorder issues: read au job release de release.yml (exigé par release-auto depuis 4.8.3 ; repowarden migrer l'ajoute)." ;;
         ci.livraison.protection) _M="Protection du flux %s absente (merge commit, pas de suppression) : lancer repowarden proteger" ;;
         ci.livraison.maintenance) _M="Maintenance seule : aucune version à publier" ;;
         ci.livraison.non_exigee) _M="%s : préversion non exigée" ;;
