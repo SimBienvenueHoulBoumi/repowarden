@@ -216,6 +216,35 @@ setup() {
     done
 }
 
+@test "ci : branche develop presente mais flux non declare -> travail refuse vers main" {
+    git update-ref refs/remotes/origin/develop HEAD
+    REPOWARDEN_TARGET=main run "$CHECK" branch
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"la branche develop existe mais .repowarden.conf ne déclare pas"* ]]
+    [[ "$output" == *"integrationBranch = develop"* ]]
+    # develop elle-même, ou une autre cible : rien à signaler
+    REPOWARDEN_BRANCH=develop REPOWARDEN_TARGET=main run "$CHECK" branch
+    [ "$status" -eq 0 ]
+    git config repowarden.mainBranch trunk
+    REPOWARDEN_TARGET=main run "$CHECK" branch
+    [ "$status" -eq 0 ]
+    git config --unset repowarden.mainBranch
+    # le statut le signale aussi
+    run "$BATS_TEST_DIRNAME/../bin/statut"
+    [[ "$output" == *"flux develop → main n'est pas déclaré"* ]]
+    # flux déclaré : règles du flux develop, plus d'alerte
+    git config repowarden.integrationBranch develop
+    REPOWARDEN_TARGET=develop run "$CHECK" branch
+    [ "$status" -eq 0 ]
+    run "$BATS_TEST_DIRNAME/../bin/statut"
+    [[ "$output" != *"n'est pas déclaré"* ]]
+    # sans branche develop : projet « main seule », PR vers main admise
+    git config --unset repowarden.integrationBranch
+    git update-ref -d refs/remotes/origin/develop
+    REPOWARDEN_TARGET=main run "$CHECK" branch
+    [ "$status" -eq 0 ]
+}
+
 @test "ci : flux develop, mauvaise cible refusee avec la correction" {
     git config repowarden.integrationBranch develop
     REPOWARDEN_TARGET=main run "$CHECK" branch
@@ -474,6 +503,25 @@ print(json.dumps(out))' <<<"$(sed -n '/^{/,$p' <<<"$1")"
     GH_BRANCHES="main develop" run "$PROTEGER" --dry-run
     [ "$status" -ne 0 ]
     git config --unset repowarden.deliveryApproval
+}
+
+@test "proteger : livraison exigee sur la branche principale si release-auto est appele (flux develop)" {
+    require python3
+    fake_gh_repo
+    git config repowarden.integrationBranch develop
+    git config repowarden.protectedBranches "main develop"
+    GH_BRANCHES="main develop" run "$PROTEGER" --dry-run
+    python3 -c 'import json,sys; r=json.loads(sys.argv[1]); \
+        assert all("livraison" not in [c["context"] for c in x["rules"][3]["parameters"]["required_status_checks"]] for x in r if x.get("target")=="branch")' \
+        "$(rulesets_json "$output")"
+    mkdir -p .github/workflows
+    printf 'jobs:\n  r:\n    uses: o/r/.github/workflows/release-auto.yml@v4\n' >.github/workflows/release.yml
+    GH_BRANCHES="main develop" run "$PROTEGER" --dry-run
+    [[ "$output" == *"vérification « livraison » exigée"* ]]
+    python3 -c 'import json,sys; r=json.loads(sys.argv[1]); m,d=r[0],r[1]; \
+        assert [c["context"] for c in m["rules"][3]["parameters"]["required_status_checks"]]==["repowarden","livraison"]; \
+        assert [c["context"] for c in d["rules"][3]["parameters"]["required_status_checks"]]==["repowarden"]' \
+        "$(rulesets_json "$output")"
 }
 
 @test "proteger : etiquette urgent creee si absente (flux develop), jamais en double" {
@@ -913,6 +961,70 @@ GH
     # aucune PR : notes recalculées
     run "$VERSION" notes-livraison HEAD
     [[ "$output" == *"### Fonctionnalités"*"- feat: panier"* ]]
+}
+
+# --- ci/livraison.sh (statut « livraison » de la PR de livraison) : gh simulé ----
+
+LIVRAISON="$BATS_TEST_DIRNAME/../ci/livraison.sh"
+
+# Faux gh : règles de develop = $GH_REGLES ; réglages du dépôt = $GH_REGLAGES
+# (« allow_merge_commit delete_branch_on_merge ») ; statut posté journalisé
+fake_gh_livraison() {
+    mkdir -p "$BATS_TEST_TMPDIR/bin"
+    cat >"$BATS_TEST_TMPDIR/bin/gh" <<'GH'
+#!/usr/bin/env bash
+echo "$*" >>"$GH_LOG"
+case "$*" in
+    "api repos/moi/projet/rules/branches/develop"*) echo "${GH_REGLES-deletion non_fast_forward pull_request}" ;;
+    "api repos/moi/projet --jq"*) echo "${GH_REGLAGES:-true false}" ;;
+esac
+GH
+    chmod +x "$BATS_TEST_TMPDIR/bin/gh"
+    export PATH="$BATS_TEST_TMPDIR/bin:$PATH" GH_LOG="$BATS_TEST_TMPDIR/gh.log" \
+        GH_REPO=moi/projet INTEGRATION=develop ID=next OBLIGATOIRE=true
+}
+
+@test "livraison : en echec sans preversion de la version annoncee, livrable avec" {
+    fake_gh_livraison
+    git tag v1.0.0
+    c "feat: panier"
+    run "$LIVRAISON"
+    [ "$status" -eq 0 ]
+    [[ "$output" == failure*"v1.1.0 : aucune préversion v1.1.0-next.N"*"Run workflow sur develop"* ]]
+    # publiée dans le même run, ou déjà taguée
+    PREVERSION_CREEE=v1.1.0-next.3 run "$LIVRAISON"
+    [[ "$output" == success*"v1.1.0 : préversion testée"* ]]
+    git tag v1.1.0-next.2
+    run "$LIVRAISON"
+    [[ "$output" == success* ]]
+    # préversion d'une autre version : ne compte pas
+    c "feat!: refonte"
+    run "$LIVRAISON"
+    [[ "$output" == failure*"v2.0.0"* ]]
+    # non exigée, ou maintenance seule : livrable
+    OBLIGATOIRE=false run "$LIVRAISON"
+    [[ "$output" == success*"non exigée"* ]]
+}
+
+@test "livraison : protection du flux develop absente -> en echec, repowarden proteger" {
+    fake_gh_livraison
+    git tag v1.0.0
+    git tag v1.1.0-next.1
+    c "feat: panier"
+    GH_REGLES="pull_request" run "$LIVRAISON"
+    [[ "$output" == failure*"repowarden proteger"* ]]
+    GH_REGLAGES="false false" run "$LIVRAISON"
+    [[ "$output" == failure*"repowarden proteger"* ]]
+    GH_REGLAGES="true true" run "$LIVRAISON"
+    [[ "$output" == failure*"repowarden proteger"* ]]
+    # réglages non renvoyés par l'API (jeton sans droits) : pas de faux échec
+    GH_REGLAGES="null null" run "$LIVRAISON"
+    [[ "$output" == success* ]]
+    # statut posté sur le commit, description limitée à 140 caractères
+    : >"$GH_LOG"
+    GH_REGLES="pull_request" run "$LIVRAISON" poster abc123
+    grep -q "^api repos/moi/projet/statuses/abc123 -f state=failure -f context=livraison -f description=" "$GH_LOG"
+    [[ "$output" == *"::warning::livraison"* ]]
 }
 
 # --- Code mort (ci/check.sh deadcode) : outils simulés ---------------------------

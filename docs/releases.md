@@ -155,6 +155,15 @@ Le rythme des versions stables est régulier : `develop` accumule, une livraison
 
 La CI du projet doit tourner sur les pushs vers `develop` : ses vérifications portent sur le commit de tête, et valent donc pour la PR de livraison.
 
+### Garde-fou de livraison
+
+À chaque passage sur `develop`, `release-auto` pose sur son commit de tête (donc sur la PR de livraison) le statut **`livraison`**, exigé sur `main` par `repowarden proteger`. Il est en échec tant que la livraison ne pourrait pas aboutir :
+
+- **protection du flux absente** : `develop` sans règle interdisant sa suppression, merge commit désactivé, ou suppression automatique des branches active. Mergée en squash, la livraison supprimerait `develop`. Correction : `repowarden proteger` ;
+- **version jamais publiée en préversion** (avec `preversion-obligatoire`, le défaut) : la release refuserait `vX.Y.Z`. Correction : attendre la préversion du soir, ou *Actions → release → Run workflow* sur `develop`.
+
+Il passe au vert dès que la condition est remplie. Rien à faire pour un projet sans version à publier (maintenance seule).
+
 ### Notes de version
 
 Rédigées par le bot, sans rien à remplir ni rien d'inventé. En tête, une introduction dont chaque partie n'apparaît que si elle a un contenu :

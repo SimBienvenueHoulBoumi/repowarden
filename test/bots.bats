@@ -112,6 +112,14 @@ lancer() { run bash -c "\"$BOTS\" <\"$F/reponses\""; }
     [ ! -e .repowarden.conf ]
 }
 
+@test "bots : flux develop propose par defaut" {
+    # global, flux (Entrée), ci, release, nettoyage, tickets, app, protection, confirmation
+    repondre o "" o o n n n n o
+    GH_DEVELOP=1 lancer
+    [ "$status" -eq 0 ]
+    [ "$(git config -f .repowarden.conf repowarden.integrationBranch)" = develop ]
+}
+
 @test "bots : fichier existant jamais ecrase, ecart signale ; confirmation refusee -> rien" {
     mkdir -p .github/workflows
     echo "# perso" >.github/workflows/repowarden.yml

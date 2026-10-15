@@ -233,6 +233,7 @@ _msg_fr() {
         ci.check.16) _M="Cible « %s » conforme au flux." ;;
         ci.check.17) _M="PR de « %s » vers « %s » : cible attendue %s (réglage integrationBranch)." ;;
         ci.check.18) _M="  Corriger : modifier la branche de base de la PR (Edit, à côté du titre), ou gh pr edit --base %s" ;;
+        ci.check.develop_undeclared) _M="PR %s → %s : la branche develop existe mais .repowarden.conf ne déclare pas le flux develop → main. Ajouter integrationBranch = develop (le travail passe alors par develop), ou supprimer develop si le projet n'en veut pas." ;;
         ci.check.19) _M="gitleaks absent : lancer ci/install-tool.sh gitleaks avant ce script." ;;
         ci.check.20) _M="Dossier de travail modifié avant la vérification : impossible de contrôler le formatage." ;;
         ci.check.21) _M="Un formateur a échoué (erreur de syntaxe, ou outil / dépendance indisponible) : voir le log ci-dessus." ;;
@@ -297,6 +298,7 @@ _msg_fr() {
         ci.proteger.verify_ok) _M="Règles en ligne à jour." ;;
         ci.proteger.delivery) _M="  livraison vers main : %s approbation(s) exigée(s) (passage à une nouvelle version) ; merge automatique des PR de travail vers develop : %s" ;;
         ci.proteger.methods_flow) _M="main : merge commit ; %s : squash ou merge commit" ;;
+        ci.proteger.livraison_check) _M="  vérification « livraison » exigée sur la branche principale (préversion publiée, protection en place)" ;;
         ci.proteger.tags_org) _M="réservés aux workflows" ;;
         ci.proteger.tags_user) _M="ni déplacés ni supprimés (compte personnel : création libre)" ;;
         ci.proteger.tags_none) _M="non protégés (--sans-tags)" ;;
@@ -323,6 +325,7 @@ _msg_fr() {
         mig.pr_after) _M="Après le merge : lancer repowarden proteger (la vérification exigée s'appelle désormais repowarden) et recréer sous leur nouveau nom les secrets REPOGARDE_* éventuels." ;;
         mig.pr_created) _M="PR de migration ouverte (%s)." ;;
         st.repo_migrate) _M="Anciens noms repogarde dans ce projet : repowarden migrer" ;;
+        st.repo_develop_undeclared) _M="La branche develop existe mais le flux develop → main n'est pas déclaré : ajouter integrationBranch = develop dans .repowarden.conf (sinon le travail peut entrer directement dans main)." ;;
         ci.proteger.legacy_taken) _M="Ruleset « %s » : ancien ruleset « %s » repris (vérification repogarde retirée)." ;;
         ci.proteger.legacy_left) _M="Ancien ruleset « %s » (id %s) : exige encore la vérification repogarde, retirée en v4, et bloque ses branches. Le supprimer : Settings → Rules → Rulesets, ou gh api -X DELETE repos/%s/rulesets/%s." ;;
         ci.proteger.verify_legacy) _M="%s (id %s) : ancien ruleset, exige encore la vérification repogarde (retirée en v4)" ;;
@@ -337,6 +340,11 @@ _msg_fr() {
         ci.version.todo) _M="À faire" ;;
         ci.version.update) _M="Mettre à jour" ;;
         ci.version.tickets) _M="Tickets livrés" ;;
+        ci.livraison.protection) _M="Protection du flux %s absente (merge commit, pas de suppression) : lancer repowarden proteger" ;;
+        ci.livraison.maintenance) _M="Maintenance seule : aucune version à publier" ;;
+        ci.livraison.non_exigee) _M="%s : préversion non exigée" ;;
+        ci.livraison.ok) _M="%s : préversion testée, livrable" ;;
+        ci.livraison.preversion) _M="%s : aucune préversion %s ; attendre celle du soir, ou Actions → release → Run workflow sur %s" ;;
         ci.install_tool.os) _M="Système non supporté : %s" ;;
         ci.install_tool.arch) _M="Architecture non supportée : %s" ;;
         ci.install_tool.unknown) _M="Outil inconnu : %s" ;;

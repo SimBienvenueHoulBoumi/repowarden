@@ -193,7 +193,15 @@ if [ -n "$integration" ]; then
     # develop ne l'a pas reçu (retour main → develop vide après chaque
     # release). Une livraison n'apporte que develop, vérifiée par la CI ; le
     # retour reste fait quand main a un contenu propre (correctif direct).
+    # Garde-fou de livraison (statut posé par release-auto) : la livraison ne
+    # se merge que si elle peut aboutir (préversion publiée, protection en place)
+    contexts_branches="$contexts"
+    if grep -qs "release-auto.yml" "$GIT_TOPLEVEL"/.github/workflows/*.y*ml; then
+        contexts="${contexts:+$contexts,} {\"context\": \"livraison\", \"integration_id\": 15368}"
+        livraison_exigee=1
+    fi
     [ -z "$others" ] || rulesets+=("$(branch_ruleset repowarden "$others" '"merge"' false "$livraison" "$last_push" "$deploiement")")
+    contexts="$contexts_branches"
     # Branche d'intégration : squash seul (un commit par PR de travail, titre =
     # message : les commits intermédiaires n'entrent jamais) ; plus de retour
     # main → develop à merger, seuls develop et ses instantanés livraison/*
@@ -254,6 +262,7 @@ fi
 echo_t ci.proteger.1 "$REPO"
 echo_t ci.proteger.2 "$existing"
 echo_t ci.proteger.3 "$CHECKS"
+[ -z "${livraison_exigee:-}" ] || echo_t ci.proteger.livraison_check
 echo_t ci.proteger.4 "$methods" "$delete_on_merge"
 if [ -n "$integration" ] && [ "$DELIVERY" = deployment ]; then
     echo_t ci.proteger.delivery_deploy "$ENVIRONMENT" "$auto_merge"
