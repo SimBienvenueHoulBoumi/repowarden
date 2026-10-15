@@ -233,6 +233,7 @@ _msg_en() {
         ci.check.16) _M="Target \"%s\" matches the flow." ;;
         ci.check.17) _M="PR from \"%s\" to \"%s\": expected target %s (integrationBranch setting)." ;;
         ci.check.18) _M="  Fix: change the PR base branch (Edit, next to the title), or gh pr edit --base %s" ;;
+        ci.check.develop_undeclared) _M="PR %s → %s: the develop branch exists but .repowarden.conf does not declare the develop → main flow. Add integrationBranch = develop (work then goes through develop), or delete develop if the project does not want it." ;;
         ci.check.19) _M="gitleaks not installed: run ci/install-tool.sh gitleaks before this script." ;;
         ci.check.20) _M="Working tree modified before the check: formatting cannot be verified." ;;
         ci.check.21) _M="A formatter failed (syntax error, or tool / dependency unavailable): see the log above." ;;
@@ -297,6 +298,7 @@ _msg_en() {
         ci.proteger.verify_ok) _M="Online rules up to date." ;;
         ci.proteger.delivery) _M="  delivery into main: %s approval(s) required (moving to a new version); auto-merge of work PRs into develop: %s" ;;
         ci.proteger.methods_flow) _M="main: merge commit; %s: squash or merge commit" ;;
+        ci.proteger.livraison_check) _M="  \"livraison\" check required on the main branch (prerelease published, protection in place)" ;;
         ci.proteger.tags_org) _M="reserved for workflows" ;;
         ci.proteger.tags_user) _M="neither moved nor deleted (personal account: creation allowed)" ;;
         ci.proteger.tags_none) _M="not protected (--sans-tags)" ;;
@@ -323,6 +325,7 @@ _msg_en() {
         mig.pr_after) _M="After merging: run repowarden proteger (the required check is now called repowarden) and recreate any REPOGARDE_* secrets under their new name." ;;
         mig.pr_created) _M="Migration PR opened (%s)." ;;
         st.repo_migrate) _M="Old repogarde names in this project: repowarden migrer" ;;
+        st.repo_develop_undeclared) _M="The develop branch exists but the develop → main flow is not declared: add integrationBranch = develop to .repowarden.conf (otherwise work can go straight into main)." ;;
         ci.proteger.legacy_taken) _M="Ruleset \"%s\": old ruleset \"%s\" taken over (repogarde check removed)." ;;
         ci.proteger.legacy_left) _M="Old ruleset \"%s\" (id %s): still requires the repogarde check, removed in v4, and blocks its branches. Delete it: Settings → Rules → Rulesets, or gh api -X DELETE repos/%s/rulesets/%s." ;;
         ci.proteger.verify_legacy) _M="%s (id %s): old ruleset, still requires the repogarde check (removed in v4)" ;;
@@ -337,6 +340,11 @@ _msg_en() {
         ci.version.todo) _M="To do" ;;
         ci.version.update) _M="Update" ;;
         ci.version.tickets) _M="Delivered tickets" ;;
+        ci.livraison.protection) _M="Protection of the %s flow missing (merge commit, no deletion): run repowarden proteger" ;;
+        ci.livraison.maintenance) _M="Maintenance only: no version to publish" ;;
+        ci.livraison.non_exigee) _M="%s: prerelease not required" ;;
+        ci.livraison.ok) _M="%s: prerelease tested, deliverable" ;;
+        ci.livraison.preversion) _M="%s: no prerelease %s; wait for the evening one, or Actions → release → Run workflow on %s" ;;
         ci.install_tool.os) _M="Unsupported system: %s" ;;
         ci.install_tool.arch) _M="Unsupported architecture: %s" ;;
         ci.install_tool.unknown) _M="Unknown tool: %s" ;;

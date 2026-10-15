@@ -82,8 +82,8 @@ t bots.flow_main "$PRINCIPALE"
 printf '  1) %s\n' "$REPLY" >&2
 t bots.flow_develop "$PRINCIPALE"
 printf '  2) %s\n' "$REPLY" >&2
-choix_flux=1
-[ -z "$INTEGRATION" ] || choix_flux=2
+# develop → main par défaut : seul develop entre dans main
+choix_flux=2
 read -r -p "[$choix_flux] : " reponse || reponse=""
 case "${reponse:-$choix_flux}" in
     2*) FLUX=develop; INTEGRATION="${INTEGRATION:-develop}" ;;

@@ -155,6 +155,15 @@ Stable versions follow a regular pace: `develop` accumulates, one delivery per w
 
 The project CI must run on pushes to `develop`: its checks apply to the head commit, and therefore to the delivery PR.
 
+### Delivery safeguard
+
+On every run on `develop`, `release-auto` sets the **`livraison`** status on its head commit (and therefore on the delivery PR); `repowarden proteger` requires it on `main`. It fails as long as the delivery could not succeed:
+
+- **flow protection missing**: `develop` without a rule forbidding its deletion, merge commit disabled, or automatic branch deletion enabled. Squash-merged, the delivery would delete `develop`. Fix: `repowarden proteger`;
+- **version never published as a prerelease** (with `preversion-obligatoire`, the default): the release would refuse `vX.Y.Z`. Fix: wait for the evening prerelease, or *Actions → release → Run workflow* on `develop`.
+
+It turns green as soon as the condition is met. Nothing to do for a project with no version to publish (maintenance only).
+
 ### Release notes
 
 Written by the bot, with nothing to fill in and nothing made up. At the top, an introduction whose parts only appear when they have content:

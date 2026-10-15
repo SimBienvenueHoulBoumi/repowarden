@@ -48,6 +48,8 @@ La CI vérifie alors la cible de chaque PR :
 
 Seul `develop` entre dans `main` : tout, correctif urgent compris, passe par ses préversions de test avant la production.
 
+**Branche `develop` sans flux déclaré** : si `develop` existe mais que `integrationBranch` est absent, repowarden traiterait le projet comme « `main` seule ». La CI refuse alors une PR de travail vers `main`, et `repowarden statut` le signale : déclarer `integrationBranch = develop`, ou supprimer `develop`.
+
 Une PR mal ciblée est refusée, avec la commande de correction (`gh pr edit --base develop`). Avec l'entrée `fix-pr: true` de l'action, elle est **reciblée automatiquement** (ou fermée si une PR de la même branche vise déjà la bonne cible), et un titre non conforme est remplacé : par le commit conforme au plus fort impact de version (incompatible, puis `feat`, puis `fix`/`perf` ; « ! » ajouté si un pied `BREAKING CHANGE` existe), sinon déduit de la branche.
 
 ## Réglages locaux (non partagés)

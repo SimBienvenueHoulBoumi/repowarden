@@ -49,6 +49,8 @@ The CI then checks the target of each PR:
 
 Only `develop` goes into `main`: everything, urgent fixes included, goes through its test pre-releases before production.
 
+**`develop` branch without a declared flow**: if `develop` exists but `integrationBranch` is missing, repowarden would treat the project as "`main` only". The CI then refuses a work PR to `main`, and `repowarden statut` reports it: declare `integrationBranch = develop`, or delete `develop`.
+
 A wrongly targeted PR is rejected, with the command to fix it (`gh pr edit --base develop`). With the action's `fix-pr: true` input, it is **retargeted automatically** (or closed if a PR from the same branch already targets the right branch), and a non-compliant title is replaced: by the compliant commit with the highest version impact (breaking, then `feat`, then `fix`/`perf`; "!" added if a `BREAKING CHANGE` footer exists), otherwise derived from the branch.
 
 ## Local settings (not shared)

@@ -575,6 +575,22 @@ jobs:
           } >>"$GITHUB_OUTPUT"
           echo "::notice::Préversion $tag publiée"
 
+      # Statut « livraison » de la tête de la branche d'intégration (donc de sa
+      # PR de livraison), exigé sur la branche principale par repowarden
+      # proteger : en échec tant que la livraison ne peut pas aboutir
+      # (protection du flux absente, version jamais publiée en préversion)
+      - name: Garde-fou de livraison
+        if: github.ref_name == inputs.integration-branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          INTEGRATION: ${{ inputs.integration-branch }}
+          ID: ${{ inputs.preversion }}
+          OBLIGATOIRE: ${{ inputs.preversion-obligatoire }}
+          INITIAL_VERSION: ${{ inputs.initial-version }}
+          PREVERSION_CREEE: ${{ steps.preversion.outputs.tag }}
+        run: bash .repowarden-ci/ci/livraison.sh poster "$GITHUB_SHA"
+
       - name: Tag et release
         id: publier
         if: inputs.mode == 'tag' && github.ref_name == inputs.main-branch
