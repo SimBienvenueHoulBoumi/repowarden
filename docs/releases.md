@@ -112,7 +112,7 @@ concurrency:
 jobs:
   release:
     uses: simdevWarden/repowarden/.github/workflows/release-auto.yml@v4
-    permissions: { contents: write, pull-requests: write, actions: write, checks: read, statuses: write }
+    permissions: { contents: write, pull-requests: write, actions: write, checks: read, statuses: write, issues: read }
     with:
       mode: tag
       delivery-environment: production       # « Approve and deploy » valide la livraison
@@ -194,7 +194,7 @@ on:
 jobs:
   release:
     uses: simdevWarden/repowarden/.github/workflows/release-auto.yml@v4
-    permissions: { contents: write, pull-requests: write, actions: write, checks: read, statuses: write }
+    permissions: { contents: write, pull-requests: write, actions: write, checks: read, statuses: write, issues: read }
     with:
       mode: cycle
 ```

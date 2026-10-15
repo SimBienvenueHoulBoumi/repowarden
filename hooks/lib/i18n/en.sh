@@ -312,6 +312,7 @@ _msg_en() {
         mig.dir) _M=".repogarde/ → .repowarden/" ;;
         mig.workflow) _M="%s: uses: to simdevWarden/repowarden, old names replaced" ;;
         mig.renamed) _M="%s → %s" ;;
+        mig.release_issues) _M="%s: issues: read added (release notes: delivered tickets readable on a private repository)" ;;
         mig.tickets_events) _M="%s: ticket tracking events completed (push, review, assignment, closing): prefilled draft PR on the first push" ;;
         mig.tickets_labels) _M="Tracking labels (type: feat, statuses…): repowarden tickets init (can be rerun, rewrites no file)" ;;
         mig.hooks_moved) _M="Leftover lefthook hooks (%s) moved to %s" ;;
@@ -344,6 +345,7 @@ _msg_en() {
         ci.version.todo) _M="To do" ;;
         ci.version.update) _M="Update" ;;
         ci.version.tickets) _M="Delivered tickets" ;;
+        ci.version.unreadable) _M="Unreadable tickets (%s): add issues: read to the permissions of the release job in release.yml (private repository)." ;;
         ci.livraison.protection) _M="Protection of the %s flow missing (merge commit, no deletion): run repowarden proteger" ;;
         ci.livraison.maintenance) _M="Maintenance only: no version to publish" ;;
         ci.livraison.non_exigee) _M="%s: prerelease not required" ;;

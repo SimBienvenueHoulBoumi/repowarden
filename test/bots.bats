@@ -66,6 +66,7 @@ lancer() { run bash -c "\"$BOTS\" <\"$F/reponses\""; }
     grep -q 'branches: \[main\]' .github/workflows/repowarden.yml
     ! grep -q 'fix-pr' .github/workflows/repowarden.yml
     grep -q 'release-auto.yml@v4' .github/workflows/release.yml
+    grep -q 'issues: read' .github/workflows/release.yml
     ! grep -q 'app-client-id' .github/workflows/release.yml
     [ ! -e .github/workflows/nettoyage.yml ]
     grep -q "^tickets init --repo moi/projet$" "$F/log"

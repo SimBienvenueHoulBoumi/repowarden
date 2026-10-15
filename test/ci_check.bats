@@ -978,7 +978,20 @@ GH
     git commit -q --no-verify --allow-empty -m "fix: b" -m "Ticket : #99"
     PATH="$BATS_TEST_TMPDIR/bin:$PATH" run "$VERSION" notes
     [ "$status" -eq 0 ]
-    [[ "$output" != *"En bref"* && "$output" != *"#99"* ]]
+    [[ "$output" != *"En bref"* && "$output" != *"Tickets livrés"* ]]
+    [[ "$output" == *"Tickets illisibles ( #99)"* ]]
+}
+
+@test "version : tickets illisibles (depot prive sans issues: read) -> avertissement, notes inchangees" {
+    fake_gh_notes
+    git tag v1.0.0
+    git commit -q --no-verify --allow-empty -m "feat: panier" -m "Ticket : #12"
+    git commit -q --no-verify --allow-empty -m "fix: b" -m "Ticket : #99"
+    run bash -c "\"$VERSION\" notes 2>\"$BATS_TEST_TMPDIR/err\""
+    [ "$status" -eq 0 ]
+    [[ "$(cat "$BATS_TEST_TMPDIR/err")" == *"::warning::Tickets illisibles ( #99)"*"issues: read"* ]]
+    [[ "$output" != *"::warning::"* ]]
+    [[ "$output" == *"- Panier : total affiché (#12)"* ]]
 }
 
 @test "version : release -> notes de la PR de livraison relue, sinon recalculees" {
@@ -1017,6 +1030,7 @@ fake_gh_livraison() {
 echo "$*" >>"$GH_LOG"
 case "$*" in
     "api repos/moi/projet/rules/branches/develop"*) echo "${GH_REGLES-deletion non_fast_forward pull_request}" ;;
+    "api repos/moi/projet/rulesets") [ -z "${GH_RULESETS_403:-}" ] || { echo '{"message":"Upgrade to GitHub Pro","status":"403"}'; exit 1; } ;;
     "api repos/moi/projet --jq"*) echo "${GH_REGLAGES:-true false}" ;;
 esac
 GH
@@ -1057,6 +1071,11 @@ GH
     GH_REGLAGES="false false" run "$LIVRAISON"
     [[ "$output" == failure*"repowarden proteger"* ]]
     GH_REGLAGES="true true" run "$LIVRAISON"
+    [[ "$output" == failure*"repowarden proteger"* ]]
+    # rulesets indisponibles (privé, compte gratuit) : seule la règle manque, réglages bons
+    GH_RULESETS_403=1 GH_REGLES="" run "$LIVRAISON"
+    [[ "$output" == success* ]]
+    GH_RULESETS_403=1 GH_REGLES="" GH_REGLAGES="true true" run "$LIVRAISON"
     [[ "$output" == failure*"repowarden proteger"* ]]
     # réglages non renvoyés par l'API (jeton sans droits) : pas de faux échec
     GH_REGLAGES="null null" run "$LIVRAISON"
