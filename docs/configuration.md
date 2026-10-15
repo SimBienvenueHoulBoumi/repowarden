@@ -18,6 +18,10 @@ Versionné à la racine du projet, au format `git config`, lu **par les hooks et
     allowedBranches = main develop release/*
     exclude = vendor/* generated/*      # chemins ni formatés ni testés
     allowAgentSignatures = false        # agents IA (auteur, Co-Authored-By) refusés ; défaut false
+    releaseUpdate = npm update -g mon-outil   # commande « Mettre à jour » des notes de version
+    # Bot d'organisation (repowarden bot)
+    bot = auto                          # auto (défaut) : protection appliquée et PR de migration ; pr : PR seulement ; off : ignoré
+    requiredChecks = repowarden,tests   # vérifications exigées posées par le bot ; défaut : celles en ligne
 ```
 
 `version` : si repowarden est plus ancien sur un poste, les hooks le signalent avec la commande de mise à jour (`npm update -g repowarden`, ou `git pull` pour un clone). C'est un avertissement seulement : la CI vérifie chaque PR à sa propre version.
@@ -43,6 +47,8 @@ La CI vérifie alors la cible de chaque PR :
 | `release/…`, `hotfix/…`                            | `develop`           |
 
 Seul `develop` entre dans `main` : tout, correctif urgent compris, passe par ses préversions de test avant la production.
+
+**Branche `develop` sans flux déclaré** : si `develop` existe mais que `integrationBranch` est absent, repowarden traiterait le projet comme « `main` seule ». La CI refuse alors une PR de travail vers `main`, et `repowarden statut` le signale : déclarer `integrationBranch = develop`, ou supprimer `develop`.
 
 Une PR mal ciblée est refusée, avec la commande de correction (`gh pr edit --base develop`). Avec l'entrée `fix-pr: true` de l'action, elle est **reciblée automatiquement** (ou fermée si une PR de la même branche vise déjà la bonne cible), et un titre non conforme est remplacé : par le commit conforme au plus fort impact de version (incompatible, puis `feat`, puis `fix`/`perf` ; « ! » ajouté si un pied `BREAKING CHANGE` existe), sinon déduit de la branche.
 

@@ -1,0 +1,205 @@
+#!/usr/bin/env bash
+# Passage de repogarde à repowarden dans le projet courant (docs/migration-v4.md) :
+#   repowarden migrer           applique la migration dans l'arbre de travail
+#   repowarden migrer --pr      sur une branche chore/migration-repowarden-vN :
+#                               commit, push et PR (rien si une PR est ouverte)
+#   repowarden migrer --hooks   déplace aussi les hooks lefthook résiduels de
+#                               .git/hooks dans .git/hooks-lefthook/
+# Configuration (.repowarden.conf, .repowarden/), workflows (uses: vers le
+# dépôt repowarden et sa version majeure, anciens noms, permissions), puis la
+# liste de ce qui reste à faire à la main. Relançable : rien n'est fait deux fois.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+# shellcheck source=../hooks/lib/common.sh
+source "$ROOT/hooks/lib/common.sh"
+
+aide() { sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'; }
+
+PR="" HOOKS_LEFTHOOK=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --pr) PR=1 ;;
+        --hooks) HOOKS_LEFTHOOK=1 ;;
+        -h | --help) aide; exit 0 ;;
+        *) err_t install.unknown_arg "$1"; exit 1 ;;
+    esac
+    shift
+done
+[ -n "$GIT_TOPLEVEL" ] || { err_t install.not_repo; exit 1; }
+cd "$GIT_TOPLEVEL"
+
+# Version majeure dont le tag flottant (vN) est publié : celle de repowarden ;
+# préversion d'une nouvelle majeure (X.0.0-next) : X-1, vX n'existant pas encore
+majeure_r() {
+    local v
+    repowarden_version_r "$ROOT"
+    v="$REPLY"
+    REPLY="${v%%.*}"
+    REPLY="${REPLY%%-*}"
+    [[ "$v" != *.0.0-* ]] || REPLY=$((REPLY - 1))
+}
+if [ -n "${REPOWARDEN_MAJEURE:-}" ]; then
+    MAJEURE="$REPOWARDEN_MAJEURE"
+else
+    majeure_r
+    MAJEURE="$REPLY"
+fi
+[[ "$MAJEURE" =~ ^[1-9][0-9]*$ ]] || { err_t mig.no_major "$MAJEURE"; exit 1; }
+BRANCHE="chore/migration-repowarden-v$MAJEURE"
+
+if [ -n "$PR" ]; then
+    command -v gh >/dev/null || { err_t bot.no_gh; exit 1; }
+    [ -z "$(git status --porcelain)" ] || { err_t mig.dirty; exit 1; }
+    if [ -n "$(gh pr list --head "$BRANCHE" --state open --json number --jq '.[].number' 2>/dev/null)" ]; then
+        info_t mig.pr_open "$BRANCHE"
+        exit 0
+    fi
+    git switch -q -c "$BRANCHE"
+fi
+
+FAITS=0
+fait() { FAITS=$((FAITS + 1)); ok_t "$@"; }
+
+# Fichier réécrit par sed (-E), sans -i (BSD et GNU diffèrent)
+reecrire() { # $1 fichier, $2… expressions sed
+    local f="$1" tmp
+    shift
+    tmp="$(mktemp)"
+    sed -E "$@" "$f" >"$tmp"
+    if cmp -s "$f" "$tmp"; then
+        rm -f "$tmp"
+        return 1
+    fi
+    cat "$tmp" >"$f"
+    rm -f "$tmp"
+}
+
+# 1. Configuration du projet
+if [ -f .repogarde.conf ]; then
+    if [ -e .repowarden.conf ]; then
+        attention_t mig.both .repogarde.conf .repowarden.conf
+    else
+        git mv .repogarde.conf .repowarden.conf 2>/dev/null || mv .repogarde.conf .repowarden.conf
+        reecrire .repowarden.conf -e 's/repogarde/repowarden/g' \
+            -e "s/^([[:space:]]*version[[:space:]]*=[[:space:]]*).*/\\1$MAJEURE/" || true
+        fait mig.conf
+    fi
+fi
+if [ -d .repogarde ]; then
+    if [ -e .repowarden ]; then
+        attention_t mig.both .repogarde/ .repowarden/
+    else
+        git mv .repogarde .repowarden 2>/dev/null || mv .repogarde .repowarden
+        fait mig.dir
+    fi
+fi
+
+# 2. Workflows
+secrets=""
+for wf in .github/workflows/*.yml .github/workflows/*.yaml; do
+    [ -f "$wf" ] || continue
+    grep -qi repogarde "$wf" || continue
+    # shellcheck disable=SC2013 # noms sans espace
+    for nom in $(grep -oE '(secrets|vars)\.REPOGARDE_[A-Z0-9_]+' "$wf" | sort -u); do
+        secrets="$secrets ${nom/REPOGARDE_/REPOWARDEN_}"
+    done
+    # uses: vers l'ancien dépôt, toute référence (tag, branche d'essai) ;
+    # entrée retirée (version désormais fixée par uses:) ; anciens noms ;
+    # tickets.yml de la v4 : création de branches (contents: write)
+    change=""
+    reecrire "$wf" \
+        -e "s#(uses:[[:space:]]*)[A-Za-z0-9_.-]+/repogarde((/[^@[:space:]]+)?)@[^[:space:]]+#\\1simdevWarden/repowarden\\2@v$MAJEURE#" \
+        -e '/^[[:space:]]*repogarde-ref:/d' \
+        -e 's#SimBienvenueHoulBoumi/repogarde#simdevWarden/repowarden#g' \
+        -e 's/repogarde/repowarden/g' -e 's/REPOGARDE_/REPOWARDEN_/g' && change=1
+    # permissions du job (pas celles du workflow, souvent « {} »)
+    if grep -q 'repowarden/.github/workflows/tickets.yml' "$wf"; then
+        reecrire "$wf" -e '/^[[:space:]]*permissions:[[:space:]]*\{[^}]*issues:/{/contents:/!s/\{[[:space:]]*/{ contents: write, /;}' && change=1
+    fi
+    [ -z "$change" ] || fait mig.workflow "$wf"
+done
+if [ -f .github/workflows/repogarde.yml ] && [ ! -e .github/workflows/repowarden.yml ]; then
+    git mv .github/workflows/repogarde.yml .github/workflows/repowarden.yml 2>/dev/null ||
+        mv .github/workflows/repogarde.yml .github/workflows/repowarden.yml
+    fait mig.renamed .github/workflows/repogarde.yml .github/workflows/repowarden.yml
+fi
+
+# Suivi des tickets d'une version antérieure : sans l'événement push, le
+# premier push d'une branche de ticket n'ouvre pas la PR brouillon préremplie
+# (ni revue, assignation, fermeture : statuts figés). Section on: remplacée
+# par celle du modèle (repowarden tickets init), le reste gardé.
+for wf in .github/workflows/*.yml .github/workflows/*.yaml; do
+    [ -f "$wf" ] || continue
+    grep -q 'repowarden/.github/workflows/tickets.yml' "$wf" || continue
+    grep -qE '^  push:' "$wf" && continue
+    tmp="$(mktemp)"
+    awk '
+        /^on:/ {
+            print "on:"
+            print "  pull_request_target:"
+            print "    types: [opened, reopened, edited, synchronize, ready_for_review, converted_to_draft, closed]"
+            print "  pull_request_review:"
+            print "    types: [submitted]"
+            print "  issues:"
+            print "    types: [opened, labeled, assigned, closed]"
+            print "  push:"
+            print "    branches-ignore: [main, master, develop]"
+            dans = 1
+            next
+        }
+        dans && /^[^ #]/ { dans = 0 }
+        !dans { print }
+    ' "$wf" >"$tmp"
+    cat "$tmp" >"$wf"
+    rm -f "$tmp"
+    fait mig.tickets_events "$wf"
+    info_t mig.tickets_labels
+done
+
+# 3. Hooks lefthook résiduels (lefthook n'est plus pris en charge)
+hooks_dir="$(git rev-parse --git-common-dir)/hooks"
+residuels=""
+for h in "$hooks_dir"/*; do
+    [ -f "$h" ] && [[ "$h" != *.sample ]] && grep -qs lefthook "$h" && residuels="$residuels ${h##*/}"
+done
+if [ -n "$residuels" ]; then
+    if [ -n "$HOOKS_LEFTHOOK" ]; then
+        mkdir -p "$hooks_dir-lefthook"
+        for h in $residuels; do mv "$hooks_dir/$h" "$hooks_dir-lefthook/$h"; done
+        ok_t mig.hooks_moved "$residuels" "$hooks_dir-lefthook/"
+    else
+        attention_t mig.hooks_left "$residuels"
+    fi
+fi
+for f in lefthook.yml lefthook.yaml .lefthook.yml .lefthook.yaml; do
+    [ -f "$f" ] && attention_t mig.lefthook_conf "$f"
+done
+
+# 4. À faire à la main
+[ -z "$secrets" ] || attention_t mig.secrets "$secrets"
+restants="$(git grep -il repogarde -- . ':!CHANGELOG.md' 2>/dev/null | tr '\n' ' ' || true)"
+[ -z "$restants" ] || info_t mig.remaining "$restants"
+
+if [ "$FAITS" = 0 ]; then
+    ok_t mig.nothing
+    if [ -n "$PR" ]; then
+        git switch -q -
+        git branch -q -D "$BRANCHE"
+    fi
+    exit 0
+fi
+info_t mig.next
+
+[ -n "$PR" ] || exit 0
+git add -A
+t mig.commit_subject "$MAJEURE"
+sujet="$REPLY"
+t mig.commit_body
+bash "$ROOT/bin/commit" -m "$sujet" --type chore --scope migration --body "$REPLY"
+git push -q -u origin "$BRANCHE"
+t mig.pr_body
+corps="$REPLY"
+t mig.pr_after
+gh pr create --head "$BRANCHE" --title "chore(migration): $sujet" --body "$corps"$'\n\n'"$REPLY" >/dev/null
+ok_t mig.pr_created "$BRANCHE"

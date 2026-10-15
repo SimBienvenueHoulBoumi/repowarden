@@ -179,6 +179,17 @@ check_branch() {
     target="$(detect_target)"
     pr_targets_r "$branch"
     allowed="$REPLY"
+    # Branche develop présente mais flux non déclaré : repowarden traiterait le
+    # projet comme « main seule » et laisserait le travail entrer dans main
+    cfg_r integrationBranch ""
+    if [ -z "$REPLY" ] && [ -n "$target" ] && [ "$branch" != develop ] &&
+        git rev-parse -q --verify refs/remotes/origin/develop >/dev/null; then
+        cfg_r mainBranch main
+        if [ "$target" = "$REPLY" ]; then
+            ci_error_t ci.check.develop_undeclared "$branch" "$target"
+            return 1
+        fi
+    fi
     [ -n "$target" ] && [ -n "$allowed" ] || return 0
     if [[ " $allowed " == *" $target "* ]]; then
         ok_t ci.check.16 "$target"

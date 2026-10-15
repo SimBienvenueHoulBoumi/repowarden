@@ -60,7 +60,9 @@ Un poste sans hooks ne bloque personne : la CI refait toutes les vérifications 
 
 ## 4. Adopter repowarden dans un projet
 
-Copier depuis `templates/project/` :
+**Sur GitHub** : `repowarden bots`, lancé par une personne avec les droits d'administration (aussi proposé par `repowarden install`). Il demande le flux (`main` seule, ou `develop` → `main`, avec création de `develop` après accord), puis un accord par bot : CI (`repowarden.yml`), releases (`release.yml`), nettoyage (`nettoyage.yml`, flux develop), tickets (`repowarden tickets init`), GitHub App (`repowarden app init`), protection (`repowarden proteger`), npm (`repowarden npm-publication`, paquet public seulement). Il montre ensuite l'aperçu (fichiers créés, fichiers existants gardés avec leur écart avec le modèle, réglages modifiés) et attend la confirmation. Les fichiers écrits sont ensuite à commiter par une PR. Sans terminal, sans `gh` connecté ou sans droits d'administration, rien n'est proposé : une ligne dit pourquoi. `repowarden install --sans-bots` : plus jamais proposé.
+
+**À la main**, copier depuis `templates/project/` :
 
 | Fichier | Rôle |
 |---|---|
@@ -107,7 +109,11 @@ Le script pose le ruleset « repowarden » (PR obligatoire, vérifications exig�
 
 Avec un flux `develop`, il crée aussi l'étiquette `urgent` si elle manque : son merge lance tout de suite la demande de livraison.
 
-**Règles à jour ?** Après une mise à jour de repowarden ou de `.repowarden.conf`, `repowarden proteger --verifier` compare les règles en ligne à celles que `proteger` poserait, sans rien modifier : chaque écart est listé (« en ligne » / « attendu ») et la commande échoue. Passer les mêmes `--checks` qu'à l'application : la liste des vérifications exigées n'est pas dans `.repowarden.conf`, et sans `--checks` elle n'est pas comparée. Attention, `repowarden proteger` sans `--checks` ramène les vérifications exigées à la seule `repowarden`.
+**Ancien ruleset** (posé à la main ou par repogarde, sous un autre nom, qui exige encore la vérification `repogarde`) : le script le **reprend** (mis à jour en place, donc renommé) plutôt que de créer un second ruleset à côté ; les branches ne sont jamais un instant sans protection. S'il en reste plusieurs sur les mêmes branches, les autres sont listés avec la commande pour les supprimer, jamais supprimés par le script, et la commande échoue. Un refus de GitHub affiche son détail (ruleset concerné, message, erreurs) ; les autres rulesets sont quand même appliqués.
+
+**Limites de GitHub** : sur un dépôt **privé** d'un compte **gratuit**, GitHub refuse les rulesets. `proteger` applique alors les autres réglages et l'indique (rendre le dépôt public, ou passer à GitHub Pro / Team) ; `--verifier` échoue avec le même message. Dans une **organisation** où l'exception « GitHub Actions » est refusée sur le ruleset des tags, les tags sont protégés comme sur un compte personnel (ni déplacés ni supprimés, création libre), avec un avertissement.
+
+**Règles à jour ?** Après une mise à jour de repowarden ou de `.repowarden.conf`, `repowarden proteger --verifier` compare les règles en ligne à celles que `proteger` poserait, sans rien modifier : chaque écart est listé (« en ligne » / « attendu »), ainsi que tout ancien ruleset qui exige encore `repogarde`, et la commande échoue. Passer les mêmes `--checks` qu'à l'application : la liste des vérifications exigées n'est pas dans `.repowarden.conf`, et sans `--checks` elle n'est pas comparée. Attention, `repowarden proteger` sans `--checks` ramène les vérifications exigées à la seule `repowarden`.
 
 À la main : *Settings → Rules → Rulesets* (ou *Branches → Branch protection rules*) sur `main` :
 
@@ -126,6 +132,35 @@ repowarden app init --administration # + droit d'administration (configuration a
 ```
 
 La commande ouvre la page de création de GitHub, préremplie : permissions minimales (contenu, PR, tickets, statuts), sans webhook. Elle range l'identifiant (variable `REPOWARDEN_APP_CLIENT_ID`) et la clé privée (secret `REPOWARDEN_APP_KEY`) sans les afficher, puis ouvre la page d'installation. Les workflows obtiennent ensuite un jeton d'une heure à chaque run ; sans l'App, ils reprennent le jeton des Actions. L'App suit les mêmes règles que tout le monde : aucune exception dans les rulesets.
+
+### Bot d'organisation
+
+Le bot tient à jour **tous les projets** d'une organisation, depuis un **dépôt de pilotage**. Chaque nuit, il passe sur chaque dépôt où son App est installée :
+
+- **protection** : `repowarden proteger --verifier`, puis `repowarden proteger` si les règles sont périmées. Les vérifications exigées sont celles de `requiredChecks`, sinon celles déjà en ligne : le bot n'en retire jamais ;
+- **migration** : `repowarden migrer --pr`. Le code des projets ne change que **par PR**, relue et vérifiée par la CI comme les autres ;
+- **rapport** : un tableau (dépôt, mode, protection, migration) dans le résumé du run et dans **une issue unique** « Rapport du bot repowarden » du dépôt de pilotage, mise à jour à chaque passage.
+
+**Quels projets ?** L'installation de l'App dit ce que le bot **peut** toucher. Il faut l'installer sur « All repositories » : un nouveau dépôt est alors couvert dès sa création. Le projet dit ce qu'il **veut**, dans son `.repowarden.conf` (versionné, changé par PR relue) :
+
+| `bot` | Effet |
+|---|---|
+| `auto` (défaut) | protection appliquée, PR de migration |
+| `pr` | PR de migration seulement ; protection périmée signalée dans le rapport |
+| `off` | dépôt ignoré |
+
+Un dépôt **sans** `.repowarden.conf` n'est jamais touché : il apparaît « non adopté » dans le rapport. Pour l'adopter : `repowarden install` ou `repowarden tickets init` dans le projet.
+
+**Mise en place**, une fois, dans le dépôt de pilotage (par exemple `<organisation>/repowarden-pilote`) :
+
+```bash
+repowarden bot init          # écrit .github/workflows/bot.yml (chaque nuit + lancement manuel)
+repowarden app init --bot    # App du bot : workflows et administration ; installer sur « All repositories »
+```
+
+Ensuite, *Actions → bot → Run workflow*, avec la case `dry-run` pour voir ce qui serait fait sans rien modifier.
+
+**Garde-fous** : la clé de l'App n'existe que dans le dépôt de pilotage, et le workflow ne tourne que depuis sa branche par défaut. L'App n'a aucune exception dans les rulesets. Une erreur sur un projet (détail de GitHub dans le rapport) n'arrête pas les autres.
 
 ### GitLab
 

@@ -32,6 +32,7 @@ Trois parcours, selon l'usage. Le plus rapide pour essayer : **Sur mon poste**.
     | Tester la prochaine version | `npm install -g repowarden@next` (retour : `@latest`) |
     | Changer de langue | `repowarden install --global --lang en` |
     | Un seul dépôt | `cd mon-projet && repowarden install` |
+    | Bots du dépôt GitHub (CI, releases, tickets, protection…) | `repowarden bots` (proposé par `repowarden install` dans un dépôt GitHub ; `--sans-bots` pour ne plus le voir) |
     | Désinstaller | `repowarden uninstall --global`, puis `npm uninstall -g repowarden` ([désinstallation complète](desinstallation.md)) |
 
     `npx` est refusé pour l'installation globale : son dossier temporaire peut être effacé à tout moment. Avec nvm, chaque version de Node a ses propres paquets globaux : relancer `repowarden install --global` après un changement de version.
@@ -49,7 +50,7 @@ Trois parcours, selon l'usage. Le plus rapide pour essayer : **Sur mon poste**.
 
     1. **Chaque personne** installe repowarden une fois sur son poste (onglet « Sur mon poste ») : `npm install -g repowarden`, puis `repowarden install --global`.
 
-    2. **Le projet** ajoute les modèles de [`templates/project/`](https://github.com/simdevWarden/repowarden/tree/main/templates/project) :
+    2. **Le projet**, sur GitHub : `repowarden bots` (une personne avec les droits d'administration) propose chaque bot (CI, releases, nettoyage, tickets, GitHub App, protection, npm), montre ce qui sera créé ou modifié, puis attend la confirmation. Rien n'est fait sans accord, et un fichier existant n'est jamais écrasé. Sinon, à la main, il ajoute les modèles de [`templates/project/`](https://github.com/simdevWarden/repowarden/tree/main/templates/project) :
 
         | Fichier | Rôle |
         |---|---|

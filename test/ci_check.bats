@@ -216,6 +216,35 @@ setup() {
     done
 }
 
+@test "ci : branche develop presente mais flux non declare -> travail refuse vers main" {
+    git update-ref refs/remotes/origin/develop HEAD
+    REPOWARDEN_TARGET=main run "$CHECK" branch
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"la branche develop existe mais .repowarden.conf ne déclare pas"* ]]
+    [[ "$output" == *"integrationBranch = develop"* ]]
+    # develop elle-même, ou une autre cible : rien à signaler
+    REPOWARDEN_BRANCH=develop REPOWARDEN_TARGET=main run "$CHECK" branch
+    [ "$status" -eq 0 ]
+    git config repowarden.mainBranch trunk
+    REPOWARDEN_TARGET=main run "$CHECK" branch
+    [ "$status" -eq 0 ]
+    git config --unset repowarden.mainBranch
+    # le statut le signale aussi
+    run "$BATS_TEST_DIRNAME/../bin/statut"
+    [[ "$output" == *"flux develop → main n'est pas déclaré"* ]]
+    # flux déclaré : règles du flux develop, plus d'alerte
+    git config repowarden.integrationBranch develop
+    REPOWARDEN_TARGET=develop run "$CHECK" branch
+    [ "$status" -eq 0 ]
+    run "$BATS_TEST_DIRNAME/../bin/statut"
+    [[ "$output" != *"n'est pas déclaré"* ]]
+    # sans branche develop : projet « main seule », PR vers main admise
+    git config --unset repowarden.integrationBranch
+    git update-ref -d refs/remotes/origin/develop
+    REPOWARDEN_TARGET=main run "$CHECK" branch
+    [ "$status" -eq 0 ]
+}
+
 @test "ci : flux develop, mauvaise cible refusee avec la correction" {
     git config repowarden.integrationBranch develop
     REPOWARDEN_TARGET=main run "$CHECK" branch
@@ -364,10 +393,31 @@ fake_gh_repo() {
     cat >"$BATS_TEST_TMPDIR/bin/gh" <<'GH'
 #!/usr/bin/env bash
 echo "$*" >>"$GH_LOG"
+# rulesets refusés (dépôt privé, compte gratuit) si $GH_RULESETS_403
+if [ -n "${GH_RULESETS_403:-}" ] && [[ "$*" == *"repos/moi/projet/rulesets"* ]]; then
+    echo '{"message":"Upgrade to GitHub Pro or make this repository public to enable this feature.","status":"403"}'
+    echo "gh: Upgrade to GitHub Pro or make this repository public to enable this feature. (HTTP 403)" >&2
+    exit 1
+fi
 case "$*" in
     "repo view"*) echo moi/projet ;;
     "api user --jq .login") echo moi ;;
     "api repos/moi/projet --jq .owner.type") echo "${GH_OWNER_TYPE:-User}" ;;
+    "api repos/moi/projet --jq .default_branch") echo "${GH_DEFAULT_BRANCH:-main}" ;;
+    # création / mise à jour : ruleset reçu journalisé ; refusé (422) si son
+    # nom est $GH_REFUSE, avec la réponse de GitHub sur la sortie standard
+    "api -X POST repos/moi/projet/rulesets"* | "api -X PUT repos/moi/projet/rulesets/"*)
+        r="$(cat)"; echo "$r" >>"$GH_LOG"
+        # exception GitHub Actions refusée dans l'organisation si $GH_REFUSE_INTEGRATION
+        if [ -n "${GH_REFUSE_INTEGRATION:-}" ] && [[ "$r" == *'"actor_type": "Integration"'* ]]; then
+            echo '{"message":"Validation Failed","errors":["Actor GitHub Actions integration must be part of the ruleset source or owner organization"],"status":"422"}'
+            exit 1
+        fi
+        if [ -n "${GH_REFUSE:-}" ] && [[ "$r" == *"\"name\": \"$GH_REFUSE\""* ]]; then
+            echo '{"message":"Validation Failed","errors":["Invalid rule 'creation': bypass actor not allowed"],"status":"422"}'
+            echo "gh: Validation Failed (HTTP 422)" >&2
+            exit 1
+        fi ;;
     # personnes ayant l'écriture = $GH_WRITERS (vide : inconnu)
     "api repos/moi/projet/collaborators"*) echo "${GH_WRITERS:-}" ;;
     "api users/"*) case "$2" in users/moi) echo 101 ;; users/alice) echo 102 ;; *) exit 1 ;; esac ;;
@@ -466,6 +516,25 @@ print(json.dumps(out))' <<<"$(sed -n '/^{/,$p' <<<"$1")"
     git config --unset repowarden.deliveryApproval
 }
 
+@test "proteger : livraison exigee sur la branche principale si release-auto est appele (flux develop)" {
+    require python3
+    fake_gh_repo
+    git config repowarden.integrationBranch develop
+    git config repowarden.protectedBranches "main develop"
+    GH_BRANCHES="main develop" run "$PROTEGER" --dry-run
+    python3 -c 'import json,sys; r=json.loads(sys.argv[1]); \
+        assert all("livraison" not in [c["context"] for c in x["rules"][3]["parameters"]["required_status_checks"]] for x in r if x.get("target")=="branch")' \
+        "$(rulesets_json "$output")"
+    mkdir -p .github/workflows
+    printf 'jobs:\n  r:\n    uses: o/r/.github/workflows/release-auto.yml@v4\n' >.github/workflows/release.yml
+    GH_BRANCHES="main develop" run "$PROTEGER" --dry-run
+    [[ "$output" == *"vérification « livraison » exigée"* ]]
+    python3 -c 'import json,sys; r=json.loads(sys.argv[1]); m,d=r[0],r[1]; \
+        assert [c["context"] for c in m["rules"][3]["parameters"]["required_status_checks"]]==["repowarden","livraison"]; \
+        assert [c["context"] for c in d["rules"][3]["parameters"]["required_status_checks"]]==["repowarden"]' \
+        "$(rulesets_json "$output")"
+}
+
 @test "proteger : etiquette urgent creee si absente (flux develop), jamais en double" {
     fake_gh_repo
     git config repowarden.integrationBranch develop
@@ -503,6 +572,75 @@ print(json.dumps(out))' <<<"$(sed -n '/^{/,$p' <<<"$1")"
     # ruleset absent -> ecart
     GH_RULESETS='[]' GH_BRANCHES="main develop" run "$PROTEGER" --verifier
     [ "$status" -ne 0 ]
+}
+
+# Ancien ruleset (vérification repogarde exigée), au nom libre : $1 id, $2 nom, $3 branches (JSON)
+ancien_ruleset() {
+    printf '{"id": %s, "name": "%s", "target": "branch", "source_type": "Repository", "conditions": {"ref_name": {"include": %s, "exclude": []}}, "rules": [{"type": "required_status_checks", "parameters": {"required_status_checks": [{"context": "repogarde"}]}}]}' "$1" "$2" "$3"
+}
+
+@test "proteger : ancien ruleset exigeant repogarde repris quel que soit son nom" {
+    require jq
+    fake_gh_repo
+    # ancien ruleset sur la branche par defaut, et un ruleset sans rapport (build)
+    export GH_RULESETS="[$(ancien_ruleset 7 "Protection de main" '["~DEFAULT_BRANCH"]'),
+        {\"id\": 9, \"name\": \"Autre\", \"target\": \"branch\", \"source_type\": \"Repository\",
+         \"conditions\": {\"ref_name\": {\"include\": [\"refs/heads/main\"]}},
+         \"rules\": [{\"type\": \"required_status_checks\", \"parameters\": {\"required_status_checks\": [{\"context\": \"build\"}]}}]}]"
+    GH_BRANCHES="main" run "$PROTEGER"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ancien ruleset « Protection de main » repris"* ]]
+    # mis a jour en place (renomme), aucun second ruleset de branche, l'autre intact
+    grep -q "^api -X PUT repos/moi/projet/rulesets/7 " "$GH_LOG"
+    ! grep -q "rulesets/9" <(grep -- "-X" "$GH_LOG")
+    [ "$(grep -c '^api -X POST repos/moi/projet/rulesets ' "$GH_LOG")" -eq 1 ] # tags seulement
+}
+
+@test "proteger : ancien ruleset en trop jamais supprime, marche a suivre, echec" {
+    require jq
+    fake_gh_repo
+    export GH_RULESETS="[$(ancien_ruleset 7 "Protection de main" '["refs/heads/main"]'), $(ancien_ruleset 8 "Vieux" '["~ALL"]')]"
+    GH_BRANCHES="main" run "$PROTEGER"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"ancien ruleset « Protection de main » repris"* ]]
+    [[ "$output" == *"Ancien ruleset « Vieux » (id 8)"* ]]
+    [[ "$output" == *"gh api -X DELETE repos/moi/projet/rulesets/8"* ]]
+    ! grep -q "DELETE" <(grep "^api" "$GH_LOG")
+    # --verifier : l'ancien ruleset compte comme un ecart
+    GH_BRANCHES="main" run "$PROTEGER" --verifier
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"Protection de main (id 7) : ancien ruleset"* ]]
+}
+
+@test "proteger : tags refuses dans une organisation -> regle des comptes personnels, avertissement" {
+    fake_gh_repo
+    GH_OWNER_TYPE=Organization GH_REFUSE_INTEGRATION=1 GH_BRANCHES="main" run "$PROTEGER"
+    [ "$status" -eq 0 ] || { echo "$output"; return 1; }
+    [[ "$output" == *"exception « GitHub Actions » refusée dans cette organisation"* ]]
+    # second envoi : sans l'exception GitHub Actions, création libre
+    grep -q '"actor_type": "RepositoryRole"' "$GH_LOG"
+    [[ "$output" != *"refusé par GitHub"* ]]
+}
+
+@test "proteger : rulesets indisponibles (prive, compte gratuit) -> message clair, reglages appliques" {
+    fake_gh_repo
+    GH_RULESETS_403=1 GH_BRANCHES="main" run "$PROTEGER"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Rulesets indisponibles pour moi/projet"*"GitHub Pro"* ]]
+    grep -q "^api -X PATCH repos/moi/projet " "$GH_LOG"
+    ! grep -q "^api -X POST repos/moi/projet/rulesets" "$GH_LOG"
+    GH_RULESETS_403=1 GH_BRANCHES="main" run "$PROTEGER" --verifier
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"Rulesets indisponibles"* ]]
+}
+
+@test "proteger : refus de GitHub affiche avec son detail, les autres rulesets appliques" {
+    fake_gh_repo
+    GH_REFUSE="repowarden" GH_BRANCHES="main" run "$PROTEGER"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"Ruleset « repowarden » refusé par GitHub : Validation Failed : Invalid rule"* ]]
+    [[ "$output" == *"Protection incomplète"* ]]
+    grep -q '"name": "repowarden (tags)"' "$GH_LOG"
 }
 
 @test "proteger : livraison approuvee par deploiement sans workflow qui le cree -> avertissement" {
@@ -786,6 +924,140 @@ c() { git commit -q --no-verify --allow-empty -m "$1"; }
     REPOWARDEN_LANG=en run "$VERSION" notes
     [[ "$output" == *"### Features"*"### Bug fixes"* ]]
     [[ "$output" == *"_Since v1.0.0._"* ]]
+}
+
+# Faux gh des notes : tickets #12 (feat), #13 (fix) et #14 (docs) ; PR de
+# livraison mergée au commit demandé si $GH_LIVRAISON (sa description)
+fake_gh_notes() {
+    mkdir -p "$BATS_TEST_TMPDIR/bin"
+    cat >"$BATS_TEST_TMPDIR/bin/gh" <<'GH'
+#!/usr/bin/env bash
+case "$1 $2 $3" in
+    "issue view 12") printf 'Panier : total affiché\ttype: feat\n' ;;
+    "issue view 13") printf 'API : délai dépassé géré\ttype: fix\n' ;;
+    "issue view 14") printf 'Guide : installation\ttype: docs\n' ;;
+    "issue view "*) exit 1 ;;
+    "api repos/{owner}/{repo}/commits/"*)
+        [ -n "${GH_LIVRAISON:-}" ] || { echo ""; exit 0; }
+        printf '%s\n' "$GH_LIVRAISON" ;;
+esac
+GH
+    chmod +x "$BATS_TEST_TMPDIR/bin/gh"
+    export PATH="$BATS_TEST_TMPDIR/bin:$PATH"
+}
+
+@test "version : notes introduites par En bref, A faire, Mettre a jour et Tickets livres" {
+    fake_gh_notes
+    git tag v1.0.0
+    git commit -q --no-verify --allow-empty -m "fix(api): timeout" -m "Ticket : #13"
+    git commit -q --no-verify --allow-empty -m "feat: panier" -m "À faire : relancer repowarden proteger" -m "Ticket : #12"
+    git commit -q --no-verify --allow-empty -m "docs: guide" -m "Ticket : #14"
+    git commit -q --no-verify --allow-empty -m "feat: suite du panier" -m "Ticket : #12"
+    git commit -q --no-verify --allow-empty -m "feat!: nouvelle API" -m "BREAKING CHANGE: /v1 retirée"
+    printf '[repowarden]\n\treleaseUpdate = npm update -g mon-outil\n' >.repowarden.conf
+    run "$VERSION" notes
+    [ "$status" -eq 0 ]
+    # fonctionnalités, puis corrections, puis le reste ; un ticket une seule fois
+    [[ "$output" == *"### En bref"*"- Panier : total affiché (#12)"*"- API : délai dépassé géré (#13)"*"- Guide : installation (#14)"*"### À faire"* ]]
+    [ "$(grep -c "(#12)" <<<"$output")" -eq 1 ]
+    [[ "$output" == *"### À faire"*"- relancer repowarden proteger"*"- /v1 retirée"* ]]
+    [[ "$output" == *"### Mettre à jour"*'`npm update -g mon-outil`'* ]]
+    [[ "$output" == *"### Tickets livrés"*"#12, #13, #14"*"### ⚠ Changements incompatibles"* ]]
+    [[ "$output" == *"### Fonctionnalités"*"- feat: panier"* ]]
+}
+
+@test "version : sans ticket, sans gh ni reglage -> notes sans introduction" {
+    git tag v1.0.0
+    c "feat: panier"
+    run "$VERSION" notes
+    [[ "$output" != *"En bref"* && "$output" != *"Mettre à jour"* && "$output" != *"Tickets livrés"* ]]
+    # tickets cités mais gh absent ou muet : pas de partie tickets
+    mkdir -p "$BATS_TEST_TMPDIR/bin"
+    printf '#!/usr/bin/env bash\nexit 1\n' >"$BATS_TEST_TMPDIR/bin/gh"
+    chmod +x "$BATS_TEST_TMPDIR/bin/gh"
+    git commit -q --no-verify --allow-empty -m "fix: b" -m "Ticket : #99"
+    PATH="$BATS_TEST_TMPDIR/bin:$PATH" run "$VERSION" notes
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"En bref"* && "$output" != *"#99"* ]]
+}
+
+@test "version : release -> notes de la PR de livraison relue, sinon recalculees" {
+    fake_gh_notes
+    git tag v1.0.0
+    c "feat: panier"
+    # PR trouvée : sans la phrase d'en-tête ni le pied
+    GH_LIVRAISON="$(printf 'Merger cette PR publie **v1.1.0**.\n\n### En bref\n\n- Corrigé à la relecture\n\n---\n_Tenue à jour (repowarden)._')" \
+        run "$VERSION" notes-livraison HEAD
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"- Corrigé à la relecture"* ]]
+    [[ "$output" != *"Merger cette PR"* && "$output" != *"Tenue à jour"* && "$output" != *"feat: panier"* ]]
+    # aucune PR : notes recalculées
+    run "$VERSION" notes-livraison HEAD
+    [[ "$output" == *"### Fonctionnalités"*"- feat: panier"* ]]
+}
+
+# --- ci/livraison.sh (statut « livraison » de la PR de livraison) : gh simulé ----
+
+LIVRAISON="$BATS_TEST_DIRNAME/../ci/livraison.sh"
+
+# Faux gh : règles de develop = $GH_REGLES ; réglages du dépôt = $GH_REGLAGES
+# (« allow_merge_commit delete_branch_on_merge ») ; statut posté journalisé
+fake_gh_livraison() {
+    mkdir -p "$BATS_TEST_TMPDIR/bin"
+    cat >"$BATS_TEST_TMPDIR/bin/gh" <<'GH'
+#!/usr/bin/env bash
+echo "$*" >>"$GH_LOG"
+case "$*" in
+    "api repos/moi/projet/rules/branches/develop"*) echo "${GH_REGLES-deletion non_fast_forward pull_request}" ;;
+    "api repos/moi/projet --jq"*) echo "${GH_REGLAGES:-true false}" ;;
+esac
+GH
+    chmod +x "$BATS_TEST_TMPDIR/bin/gh"
+    export PATH="$BATS_TEST_TMPDIR/bin:$PATH" GH_LOG="$BATS_TEST_TMPDIR/gh.log" \
+        GH_REPO=moi/projet INTEGRATION=develop ID=next OBLIGATOIRE=true
+}
+
+@test "livraison : en echec sans preversion de la version annoncee, livrable avec" {
+    fake_gh_livraison
+    git tag v1.0.0
+    c "feat: panier"
+    run "$LIVRAISON"
+    [ "$status" -eq 0 ]
+    [[ "$output" == failure*"v1.1.0 : aucune préversion v1.1.0-next.N"*"Run workflow sur develop"* ]]
+    # publiée dans le même run, ou déjà taguée
+    PREVERSION_CREEE=v1.1.0-next.3 run "$LIVRAISON"
+    [[ "$output" == success*"v1.1.0 : préversion testée"* ]]
+    git tag v1.1.0-next.2
+    run "$LIVRAISON"
+    [[ "$output" == success* ]]
+    # préversion d'une autre version : ne compte pas
+    c "feat!: refonte"
+    run "$LIVRAISON"
+    [[ "$output" == failure*"v2.0.0"* ]]
+    # non exigée, ou maintenance seule : livrable
+    OBLIGATOIRE=false run "$LIVRAISON"
+    [[ "$output" == success*"non exigée"* ]]
+}
+
+@test "livraison : protection du flux develop absente -> en echec, repowarden proteger" {
+    fake_gh_livraison
+    git tag v1.0.0
+    git tag v1.1.0-next.1
+    c "feat: panier"
+    GH_REGLES="pull_request" run "$LIVRAISON"
+    [[ "$output" == failure*"repowarden proteger"* ]]
+    GH_REGLAGES="false false" run "$LIVRAISON"
+    [[ "$output" == failure*"repowarden proteger"* ]]
+    GH_REGLAGES="true true" run "$LIVRAISON"
+    [[ "$output" == failure*"repowarden proteger"* ]]
+    # réglages non renvoyés par l'API (jeton sans droits) : pas de faux échec
+    GH_REGLAGES="null null" run "$LIVRAISON"
+    [[ "$output" == success* ]]
+    # statut posté sur le commit, description limitée à 140 caractères
+    : >"$GH_LOG"
+    GH_REGLES="pull_request" run "$LIVRAISON" poster abc123
+    grep -q "^api repos/moi/projet/statuses/abc123 -f state=failure -f context=livraison -f description=" "$GH_LOG"
+    [[ "$output" == *"::warning::livraison"* ]]
 }
 
 # --- Code mort (ci/check.sh deadcode) : outils simulés ---------------------------

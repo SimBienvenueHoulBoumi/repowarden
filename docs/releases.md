@@ -155,6 +155,30 @@ Le rythme des versions stables est régulier : `develop` accumule, une livraison
 
 La CI du projet doit tourner sur les pushs vers `develop` : ses vérifications portent sur le commit de tête, et valent donc pour la PR de livraison.
 
+### Garde-fou de livraison
+
+À chaque passage sur `develop`, `release-auto` pose sur son commit de tête (donc sur la PR de livraison) le statut **`livraison`**, exigé sur `main` par `repowarden proteger`. Il est en échec tant que la livraison ne pourrait pas aboutir :
+
+- **protection du flux absente** : `develop` sans règle interdisant sa suppression, merge commit désactivé, ou suppression automatique des branches active. Mergée en squash, la livraison supprimerait `develop`. Correction : `repowarden proteger` ;
+- **version jamais publiée en préversion** (avec `preversion-obligatoire`, le défaut) : la release refuserait `vX.Y.Z`. Correction : attendre la préversion du soir, ou *Actions → release → Run workflow* sur `develop`.
+
+Il passe au vert dès que la condition est remplie. Rien à faire pour un projet sans version à publier (maintenance seule).
+
+### Notes de version
+
+Rédigées par le bot, sans rien à remplir ni rien d'inventé. En tête, une introduction dont chaque partie n'apparaît que si elle a un contenu :
+
+| Partie | Contenu | Source |
+|---|---|---|
+| **En bref** | les tickets livrés : fonctionnalités, puis corrections, puis le reste | `Ticket : #N` des commits (la description de la PR, en squash) ; titre et étiquette `type:` du ticket, lus par `gh` |
+| **À faire** | ce que l'utilisateur doit faire | lignes `BREAKING CHANGE: …` et `À faire : …` des commits (écrire « À faire : … » dans la description de la PR) |
+| **Mettre à jour** | la commande de mise à jour | `releaseUpdate` dans `.repowarden.conf` |
+| **Tickets livrés** | `#12, #13…` | les mêmes `Ticket : #N` |
+
+Viennent ensuite les commits par type (incompatibles, fonctionnalités, corrections, maintenance). Un titre de ticket clair se lit donc directement comme une ligne de « En bref ».
+
+**Relire avant de publier** : les notes s'affichent dans la PR de livraison. Ce qui y est corrigé avant l'approbation est publié tel quel : la release reprend la description de la PR de livraison mergée (sans sa phrase d'en-tête ni son pied), et ne recalcule les notes que si elle ne la trouve pas.
+
 ## Cycle develop → main avec fichiers de version (mode cycle)
 
 !!! warning "Déconseillé : préférer le mode tag"

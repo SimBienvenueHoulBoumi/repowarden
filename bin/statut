@@ -70,6 +70,18 @@ if [ -n "$GIT_TOPLEVEL" ]; then
         attention_t st.repo_lefthook "$f"
         break
     done
+    # Anciens noms (configuration, workflows de l'ancien dépôt, que GitHub ne
+    # redirige plus) : la migration les remplace
+    if [ -e "$GIT_TOPLEVEL/.repogarde.conf" ] || [ -d "$GIT_TOPLEVEL/.repogarde" ] ||
+        grep -qs repogarde "$GIT_TOPLEVEL"/.github/workflows/*.y*ml; then
+        attention_t st.repo_migrate
+        suivant="${suivant:-repowarden migrer}"
+    fi
+    # Branche develop présente, flux non déclaré : traité comme « main seule »
+    cfg_r integrationBranch ""
+    if [ -z "$REPLY" ] && git rev-parse -q --verify refs/remotes/origin/develop >/dev/null; then
+        attention_t st.repo_develop_undeclared
+    fi
     cfg_r version ""
     if [ -n "$REPLY" ]; then
         attendue="${REPLY#v}"

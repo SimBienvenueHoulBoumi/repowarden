@@ -193,7 +193,15 @@ if [ -n "$integration" ]; then
     # develop ne l'a pas reçu (retour main → develop vide après chaque
     # release). Une livraison n'apporte que develop, vérifiée par la CI ; le
     # retour reste fait quand main a un contenu propre (correctif direct).
+    # Garde-fou de livraison (statut posé par release-auto) : la livraison ne
+    # se merge que si elle peut aboutir (préversion publiée, protection en place)
+    contexts_branches="$contexts"
+    if grep -qs "release-auto.yml" "$GIT_TOPLEVEL"/.github/workflows/*.y*ml; then
+        contexts="${contexts:+$contexts,} {\"context\": \"livraison\", \"integration_id\": 15368}"
+        livraison_exigee=1
+    fi
     [ -z "$others" ] || rulesets+=("$(branch_ruleset repowarden "$others" '"merge"' false "$livraison" "$last_push" "$deploiement")")
+    contexts="$contexts_branches"
     # Branche d'intégration : squash seul (un commit par PR de travail, titre =
     # message : les commits intermédiaires n'entrent jamais) ; plus de retour
     # main → develop à merger, seuls develop et ses instantanés livraison/*
@@ -254,6 +262,7 @@ fi
 echo_t ci.proteger.1 "$REPO"
 echo_t ci.proteger.2 "$existing"
 echo_t ci.proteger.3 "$CHECKS"
+[ -z "${livraison_exigee:-}" ] || echo_t ci.proteger.livraison_check
 echo_t ci.proteger.4 "$methods" "$delete_on_merge"
 if [ -n "$integration" ] && [ "$DELIVERY" = deployment ]; then
     echo_t ci.proteger.delivery_deploy "$ENVIRONMENT" "$auto_merge"
@@ -308,10 +317,76 @@ sig_attendue() {
         "$(sed -n 's/.*"require_last_push_approval": \([a-z]*\).*/\1/p' <<<"$r")" \
         "$(sed -n 's/.*"require_code_owner_review": \([a-z]*\).*/\1/p' <<<"$r")" "$deps" "$checks"
 }
+# Anciens rulesets : rulesets de branche du dépôt, sous un autre nom que ceux
+# de repowarden, qui exigent encore la vérification « repogarde » (retirée en
+# v4) ; posés à la main ou par une ancienne version. Laissés à côté, ils
+# bloqueraient les branches pour toujours. Une ligne par ruleset dans ANCIENS :
+# id, nom, branches couvertes (~DEFAULT_BRANCH résolu : la branche par défaut
+# change ensuite dans le flux develop), séparés par des tabulations.
+# shellcheck disable=SC2016 # expressions jq (gh --jq), pas du shell
+anciens_rulesets() {
+    local ids id ligne defaut=""
+    ANCIENS=""
+    ids="$(gh api "repos/$REPO/rulesets" --jq '.[] | select(.target == "branch"
+        and (.source_type // "Repository") == "Repository"
+        and (.name | test("^(repowarden|repogarde)( \\(.*\\))?$") | not)) | .id')" || return 0
+    for id in $ids; do
+        ligne="$(gh api "repos/$REPO/rulesets/$id" --jq 'select([.rules[]? | select(.type == "required_status_checks")
+            | .parameters.required_status_checks[].context] | index("repogarde"))
+            | "\(.id)\t\(.name)\t\(.conditions.ref_name.include | join(" "))"')" || continue
+        [ -n "$ligne" ] || continue
+        if [[ "$ligne" == *"~DEFAULT_BRANCH"* ]]; then
+            [ -n "$defaut" ] || defaut="$(gh api "repos/$REPO" --jq .default_branch)"
+            ligne="${ligne//\~DEFAULT_BRANCH/refs/heads/$defaut}"
+        fi
+        ANCIENS="$ANCIENS$ligne"$'\n'
+    done
+}
+
+# Ancien ruleset (ligne de ANCIENS) couvrant une des branches du ruleset $2 (JSON)
+couvre() {
+    local motifs m b
+    read -ra motifs <<<"$(cut -f3 <<<"$1")"
+    for m in ${motifs[@]+"${motifs[@]}"}; do
+        [ "$m" != "~ALL" ] || return 0
+        for b in $(grep -o '"refs/heads/[^"]*"' <<<"$2" | tr -d '"'); do
+            # shellcheck disable=SC2053 # motif de GitHub (refs/heads/release/*)
+            [[ "$b" != $m ]] || return 0
+        done
+    done
+    return 1
+}
+
+# Réponse d'erreur de GitHub (JSON) → « message : erreurs », lisible
+erreur_github() {
+    local message="" erreurs="" re_message='"message": *"([^"]*)"' re_erreurs='"errors": *\[([^]]*)\]'
+    [[ ! "$1" =~ $re_message ]] || message="${BASH_REMATCH[1]}"
+    [[ ! "$1" =~ $re_erreurs ]] || erreurs="${BASH_REMATCH[1]//\"/}"
+    if [ -n "$message" ]; then
+        REPLY="$message${erreurs:+ : $erreurs}"
+    else
+        REPLY="$(tr '\n' ' ' <<<"$1")"
+    fi
+}
+
+# Rulesets indisponibles (dépôt privé d'un compte gratuit : GitHub les refuse
+# en 403) : les réglages du dépôt restent appliqués, les rulesets sautés avec
+# un message clair au lieu d'un arrêt sans explication
+RULESETS_OK=1
+if ! reponse="$(gh api "repos/$REPO/rulesets" 2>&1)" && [[ "$reponse" == *"403"* ]]; then
+    RULESETS_OK=""
+fi
+ANCIENS=""
+[ -z "$RULESETS_OK" ] || anciens_rulesets
+
 # shellcheck disable=SC2016 # expression jq (gh --jq), pas du shell
 SIG_EN_LIGNE='(.rules | map(select(.type == "pull_request"))[0].parameters) as $p
     | "approbations=\($p.required_approving_review_count) dernier_push=\($p.require_last_push_approval) codeowners=\($p.require_code_owner_review) deploiement=\([.rules[] | select(.type == "required_deployments") | .parameters.required_deployment_environments[]] | join(",")) verifications=\([.rules[] | select(.type == "required_status_checks") | .parameters.required_status_checks[].context] | sort | join(","))"'
 
+if [ -n "$VERIFY" ] && [ -z "$RULESETS_OK" ]; then
+    err_t ci.proteger.rulesets_unavailable "$REPO"
+    exit 1
+fi
 if [ -n "$VERIFY" ]; then
     ecarts=0
     for ruleset in "${rulesets[@]}"; do
@@ -335,6 +410,11 @@ if [ -n "$VERIFY" ]; then
             ecarts=$((ecarts + 1))
         fi
     done
+    while IFS=$'\t' read -r id name _; do
+        [ -n "$id" ] || continue
+        err_t ci.proteger.verify_legacy "$name" "$id"
+        ecarts=$((ecarts + 1))
+    done <<<"$ANCIENS"
     [ "$ecarts" = 0 ] || { err_t ci.proteger.verify_fix; exit 1; }
     ok_t ci.proteger.verify_ok
     exit 0
@@ -348,6 +428,7 @@ if [ -n "$integration" ] && ! gh api "repos/$REPO/labels/urgent" --silent 2>/dev
 fi
 
 if [ -n "$DRY_RUN" ]; then
+    [ -n "$RULESETS_OK" ] || attention_t ci.proteger.rulesets_unavailable "$REPO"
     printf '%s\n' "${rulesets[@]}"
     [ -z "$env_json" ] || printf '%s\n' "$env_json"
     exit 0
@@ -361,21 +442,60 @@ gh api -X PATCH "repos/$REPO" --silent "${settings[@]}"
 gh api -X PUT "repos/$REPO/actions/permissions/workflow" --silent \
     -f default_workflow_permissions=read -F can_approve_pull_request_reviews=true
 
-for ruleset in "${rulesets[@]}"; do
+echecs=0
+[ -n "$RULESETS_OK" ] || { attention_t ci.proteger.rulesets_unavailable "$REPO"; rulesets=(); }
+for ruleset in ${rulesets[@]+"${rulesets[@]}"}; do
     name="$(sed -n 's/^  "name": "\(.*\)",$/\1/p' <<<"$ruleset")"
     # Ruleset posé sous l'ancien nom (repogarde, v3) : repris et renommé, sinon
     # il resterait à côté et exigerait une vérification « repogarde » disparue
     old="${name/repowarden/repogarde}"
     id="$(gh api "repos/$REPO/rulesets" \
         --jq "([.[] | select(.name == \"$name\")] + [.[] | select(.name == \"$old\")]) | .[0].id // empty")"
+    # Sinon, un ancien ruleset sous un autre nom couvrant ses branches : repris
+    # (mis à jour en place, jamais un instant sans protection)
+    repris=""
+    if [ -z "$id" ] && grep -q '"target": "branch"' <<<"$ruleset"; then
+        while IFS= read -r ligne; do
+            { [ -n "$ligne" ] && couvre "$ligne" "$ruleset"; } || continue
+            id="${ligne%%$'\t'*}"
+            repris="$(cut -f2 <<<"$ligne")"
+            ANCIENS="$(grep -v "^$id"$'\t' <<<"$ANCIENS" || true)"
+            break
+        done <<<"$ANCIENS"
+    fi
     if [ -n "$id" ]; then
-        gh api -X PUT "repos/$REPO/rulesets/$id" --input - <<<"$ruleset" >/dev/null
-        ok_t ci.proteger.10 "$name"
+        methode=PUT chemin="repos/$REPO/rulesets/$id"
     else
-        gh api -X POST "repos/$REPO/rulesets" --input - <<<"$ruleset" >/dev/null
-        ok_t ci.proteger.11 "$name"
+        methode=POST chemin="repos/$REPO/rulesets"
+    fi
+    # Réponse gardée : en cas de refus, le détail de GitHub est affiché
+    if reponse="$(gh api -X "$methode" "$chemin" --input - <<<"$ruleset" 2>&1)"; then
+        if [ -n "$repris" ]; then
+            ok_t ci.proteger.legacy_taken "$name" "$repris"
+        elif [ -n "$id" ]; then
+            ok_t ci.proteger.10 "$name"
+        else
+            ok_t ci.proteger.11 "$name"
+        fi
+    elif [ "$name" = "repowarden (tags)" ] && [ "$owner_type" = Organization ] &&
+        [[ "$reponse" == *"ruleset source or owner organization"* ]] &&
+        gh api -X "$methode" "$chemin" --input - <<<"$(tags_ruleset User)" >/dev/null 2>&1; then
+        # Exception GitHub Actions refusée (App non installée dans l'organisation) :
+        # règle des comptes personnels, tags ni déplacés ni supprimés
+        attention_t ci.proteger.tags_fallback
+    else
+        erreur_github "$reponse"
+        err_t ci.proteger.api_error "$name" "$REPLY"
+        echecs=$((echecs + 1))
     fi
 done
+# Anciens rulesets non repris (plusieurs sur les mêmes branches) : jamais
+# supprimés ici, la marche à suivre est donnée
+while IFS=$'\t' read -r id name _; do
+    [ -n "$id" ] || continue
+    err_t ci.proteger.legacy_left "$name" "$id" "$REPO" "$id"
+    echecs=$((echecs + 1))
+done <<<"$ANCIENS"
 if [ -n "$env_json" ]; then
     gh api -X PUT "repos/$REPO/environments/$ENVIRONMENT" --input - --silent <<<"$env_json"
     policies="$(gh api "repos/$REPO/environments/$ENVIRONMENT/deployment-branch-policies" \
@@ -389,4 +509,5 @@ if [ -n "$env_json" ]; then
 fi
 [ -z "$urgent" ] || gh label create urgent -R "$REPO" --color B60205 \
     --description "Livraison immédiate après merge" >/dev/null
+[ "$echecs" = 0 ] || { err_t ci.proteger.incomplete; exit 1; }
 ok_t ci.proteger.13

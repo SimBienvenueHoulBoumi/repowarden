@@ -29,6 +29,8 @@ repowarden                            # vérifie : état du poste et étape suiv
 
 ## Dans chaque projet
 
+**En une commande**, à la racine du projet : `repowarden migrer` fait les étapes 1 à 3, complète un suivi des tickets périmé (événements `push`, revue, assignation, fermeture : PR brouillon préremplie au premier push), signale ce qui reste (hooks lefthook, secrets `REPOGARDE_*` à recréer, fichiers qui citent encore repogarde, étiquettes à créer par `repowarden tickets init`) et ne fait rien sur un projet déjà migré. `repowarden migrer --pr` fait la même chose sur une branche `chore/migration-repowarden-v4`, puis commite, pousse et ouvre la PR. `--hooks` met de côté les hooks lefthook résiduels de `.git/hooks`. Le détail, pour vérifier ou migrer à la main :
+
 1. Renommer `.repogarde.conf` en `.repowarden.conf`, et sa section `[repogarde]` en `[repowarden]` ; y mettre `version = 4`.
 2. Renommer le dossier `.repogarde/` en `.repowarden/`, s'il existe.
 3. Dans les workflows, **en premier les workflows réutilisables** (`release-auto.yml`, `tickets.yml`, `nettoyage-branches.yml`, `npm-publish.yml`) : remplacer **tout le chemin**, pas seulement la version. Changer `@v3` en `@v4` sans changer le dépôt ne répare rien :
@@ -37,4 +39,4 @@ repowarden                            # vérifie : état du poste et étape suiv
 
    Symptôme d'une ligne oubliée : un run en échec **sans aucun job**. Ensuite, l'action : `simdevWarden/repowarden@v4`, et les variables `REPOGARDE_*` en `REPOWARDEN_*`.
 4. Projet sous lefthook : déplacer ses commandes dans `.repowarden/<hook>`, puis `lefthook uninstall` et supprimer `lefthook.yml`.
-5. Mettre à jour la protection des branches, la vérification exigée s'appelant désormais `repowarden` : `repowarden proteger`.
+5. Mettre à jour la protection des branches, la vérification exigée s'appelant désormais `repowarden` : `repowarden proteger`. Un ancien ruleset qui exige `repogarde` est repris, quel que soit son nom ; `repowarden proteger --verifier` signale ceux qui restent.

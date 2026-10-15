@@ -24,11 +24,13 @@ source "$ROOT/hooks/lib/common.sh"
 REPO=""
 WORKFLOW="release.yml"
 ENVIRONMENT=""
+DRY_RUN=false
 while [ $# -gt 0 ]; do
     case "$1" in
         --repo) shift; REPO="${1:?--repo attend propriétaire/nom}" ;;
         --workflow) shift; WORKFLOW="${1:?--workflow attend un fichier}" ;;
         --environnement | --environment) shift; ENVIRONMENT="${1:?--environnement attend un nom}" ;;
+        --dry-run) DRY_RUN=true ;;
         -h | --help) sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) err_t install.unknown_arg "$1"; exit 1 ;;
     esac
@@ -49,6 +51,67 @@ name="$(node -p 'require("./package.json").name')"
 # Préfixe des jetons temporaires : nom unique à chaque création (npm refuse
 # les doublons, y compris celui d'une tentative interrompue) ; tous révoqués à la fin
 TOKEN_PREFIX="repowarden-ci-${REPO##*/}"
+
+# Vérifie si une relation de confiance correspond aux paramètres attendus.
+# Affiche l'écart si --dry-run ou pour confirmation.
+# Retourne : 0 = match, 1 = pas de relation, 2 = relation différente
+verifier_trust() {
+    local json attendu_repo="$REPO" attendu_file="$WORKFLOW" attendu_env="$ENVIRONMENT"
+    json="$(npm trust list "$name" --json 2>/dev/null || echo '[]')"
+    if [ "$json" = "[]" ] || [ -z "$json" ]; then
+        return 1
+    fi
+    local match=0 id repo file env allow_publish
+    while IFS=$'\t' read -r id repo file env allow_publish; do
+        [ -n "$id" ] || continue
+        if [ "$repo" = "$attendu_repo" ] && [ "$file" = "$attendu_file" ] && [ "$env" = "$attendu_env" ] && [ "$allow_publish" = "true" ]; then
+            match=1
+            break
+        fi
+    done < <(node -e "
+        const data = $json;
+        for (const t of data) {
+            const id = t.id || t.key;
+            const repo = t.repository || t.repo || '';
+            const file = t.file || t.workflow || '';
+            const env = t.environment || t.env || '';
+            const allowPublish = t.allowPublish === true || t['allow-publish'] === true;
+            console.log(id + '\t' + repo + '\t' + file + '\t' + env + '\t' + allowPublish);
+        }
+    ")
+    if [ "$match" = 1 ]; then
+        return 0
+    fi
+    return 2
+}
+
+# Affiche les détails d'une relation de confiance pour diagnostic
+afficher_trust() {
+    local json
+    json="$(npm trust list "$name" --json 2>/dev/null || echo '[]')"
+    if [ "$json" = "[]" ] || [ -z "$json" ]; then
+        echo "  (aucune relation de confiance)"
+        return
+    fi
+    node -e "
+        const data = $json;
+        for (const t of data) {
+            const id = t.id || t.key;
+            const repo = t.repository || t.repo || '(inconnu)';
+            const file = t.file || t.workflow || '(inconnu)';
+            const env = t.environment || t.env || '(aucun)';
+            const allowPublish = t.allowPublish === true || t['allow-publish'] === true;
+            const allowStagePublish = t.allowStagePublish === true || t['allow-stage-publish'] === true;
+            console.log('  ID: ' + id);
+            console.log('  Dépôt: ' + repo);
+            console.log('  Workflow: ' + file);
+            console.log('  Environnement: ' + env);
+            console.log('  npm publish: ' + (allowPublish ? 'oui' : 'non'));
+            console.log('  npm stage publish: ' + (allowStagePublish ? 'oui' : 'non'));
+            console.log('');
+        }
+    "
+}
 
 brand "npm · $name · $REPO"
 
@@ -127,16 +190,82 @@ fi
 
 # 3. Publication de confiance, puis plus aucun jeton
 step_t npm.step_trust
-if grep -q '"id"' <<<"$(npm trust list "$name" --json 2>/dev/null || true)"; then
+verifier_trust
+cas=$?
+if [ "$cas" = 0 ]; then
     ok_t npm.trust_exists
+elif [ "$cas" = 1 ]; then
+    # Aucune relation : créer
+    if [ "$DRY_RUN" = true ]; then
+        info_t npm.trust_would_create "$REPO" "$WORKFLOW" "${ENVIRONMENT:-(aucun)}"
+    else
+        npm trust github "$name" --file "$WORKFLOW" --repo "$REPO" ${ENVIRONMENT:+--env "$ENVIRONMENT"} --allow-publish --yes
+        ok_t npm.trust_set "$REPO" "$WORKFLOW"
+    fi
 else
-    npm trust github "$name" --file "$WORKFLOW" --repo "$REPO" ${ENVIRONMENT:+--env "$ENVIRONMENT"} --allow-publish --yes
-    ok_t npm.trust_set "$REPO" "$WORKFLOW"
+    # Relation différente : afficher l'écart, demander confirmation, corriger sans perte
+    attention_t npm.trust_mismatch
+    afficher_trust
+    echo "  Attendu :"
+    echo "  Dépôt: $REPO"
+    echo "  Workflow: $WORKFLOW"
+    echo "  Environnement: ${ENVIRONMENT:-(aucun)}"
+    echo "  npm publish: oui"
+    echo ""
+    if [ "$DRY_RUN" = true ]; then
+        info_t npm.trust_would_fix
+    else
+        # Confirmation avant changement
+        if [ -t 0 ]; then
+            t npm.trust_confirm
+            read -r -p "  $REPLY" rep
+            echo
+            [[ "$rep" =~ ^[OoYy]$ ]] || { err_t npm.trust_cancelled; exit 1; }
+        fi
+        # Créer la nouvelle relation AVANT de révoquer l'ancienne (pas de perte)
+        npm trust github "$name" --file "$WORKFLOW" --repo "$REPO" ${ENVIRONMENT:+--env "$ENVIRONMENT"} --allow-publish --yes
+        ok_t npm.trust_set "$REPO" "$WORKFLOW"
+        # Révoquer l'ancienne relation
+        json="$(npm trust list "$name" --json 2>/dev/null || echo '[]')"
+        old_id="$(node -e "
+            const data = $json;
+            for (const t of data) {
+                const id = t.id || t.key;
+                const repo = t.repository || t.repo || '';
+                const file = t.file || t.workflow || '';
+                const env = t.environment || t.env || '';
+                const allowPublish = t.allowPublish === true || t['allow-publish'] === true;
+                if (repo !== '$REPO' || file !== '$WORKFLOW' || env !== '$ENVIRONMENT' || allowPublish !== true) {
+                    console.log(id);
+                }
+            }
+        ")"
+        for id in $old_id; do
+            [ -n "$id" ] && npm trust revoke "$name" --id "$id" --yes && ok_t npm.trust_revoked "$id"
+        done
+    fi
 fi
 gh variable set REPOWARDEN_NPM --repo "$REPO" --body true
 if grep -q '^NPM_TOKEN' <<<"$(gh secret list --repo "$REPO")"; then
-    gh secret delete NPM_TOKEN --repo "$REPO"
-    ok_t npm.token_removed
+    if [ "$cas" = 0 ] || [ "$cas" = 2 ]; then
+        # Relation de confiance OK (ou corrigée) : signaler le token et proposer suppression
+        attention_t npm.token_present
+        if [ "$DRY_RUN" = true ]; then
+            info_t npm.token_would_remove
+        elif [ -t 0 ]; then
+            t npm.token_remove_confirm
+            read -r -p "  $REPLY" rep
+            echo
+            [[ "$rep" =~ ^[OoYy]$ ]] && gh secret delete NPM_TOKEN --repo "$REPO" && ok_t npm.token_removed
+        else
+            gh secret delete NPM_TOKEN --repo "$REPO"
+            ok_t npm.token_removed
+        fi
+    else
+        # Pas de relation de confiance : supprimer silencieusement (comportement existant)
+        gh secret delete NPM_TOKEN --repo "$REPO"
+        ok_t npm.token_removed
+    fi
 fi
 # Jetons temporaires révoqués sur npm (retrouvés par leur préfixe). npm peut
 # demander un code 2FA : la commande garde le terminal (questions visibles)

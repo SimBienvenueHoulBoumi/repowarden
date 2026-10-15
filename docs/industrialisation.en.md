@@ -60,7 +60,9 @@ A machine without hooks blocks no one: CI runs every check again and is authorit
 
 ## 4. Adopting repowarden in a project
 
-Copy from `templates/project/`:
+**On GitHub**: `repowarden bots`, run by someone with admin rights (also offered by `repowarden install`). It asks for the flow (`main` only, or `develop` → `main`, creating `develop` after consent), then one consent per bot: CI (`repowarden.yml`), releases (`release.yml`), cleanup (`nettoyage.yml`, develop flow), tickets (`repowarden tickets init`), GitHub App (`repowarden app init`), protection (`repowarden proteger`), npm (`repowarden npm-publication`, public package only). It then shows the preview (files created, existing files kept with their difference from the template, settings changed) and waits for confirmation. The written files are then to be committed through a PR. Without a terminal, a logged-in `gh` or admin rights, nothing is offered: one line says why. `repowarden install --sans-bots`: never offered again.
+
+**By hand**, copy from `templates/project/`:
 
 | File | Role |
 |---|---|
@@ -107,7 +109,11 @@ The script sets up the "repowarden" ruleset (PR required, required checks up to 
 
 With a `develop` flow, it also creates the `urgent` label if missing: merging a PR with it triggers the delivery request right away.
 
-**Rules up to date?** After updating repowarden or `.repowarden.conf`, `repowarden proteger --verifier` compares the online rules with those `proteger` would set, without changing anything: each difference is listed ("online" / "expected") and the command fails. Pass the same `--checks` as when applying: the list of required checks is not in `.repowarden.conf`, and without `--checks` it is not compared. Note that `repowarden proteger` without `--checks` reduces the required checks to `repowarden` alone.
+**Old ruleset** (set by hand or by repogarde, under another name, still requiring the `repogarde` check): the script **takes it over** (updated in place, so renamed) instead of creating a second ruleset next to it; the branches are never unprotected, not even for a moment. If several remain on the same branches, the others are listed with the command to delete them, never deleted by the script, and the command fails. A refusal from GitHub shows its details (ruleset, message, errors); the other rulesets are still applied.
+
+**GitHub limits**: on a **private** repository of a **free** account, GitHub refuses rulesets. `proteger` then applies the other settings and says so (make the repository public, or move to GitHub Pro / Team); `--verifier` fails with the same message. In an **organization** where the "GitHub Actions" bypass is refused on the tags ruleset, tags are protected as on a personal account (not moved or deleted, creation allowed), with a warning.
+
+**Rules up to date?** After updating repowarden or `.repowarden.conf`, `repowarden proteger --verifier` compares the online rules with those `proteger` would set, without changing anything: each difference is listed ("online" / "expected"), as well as any old ruleset still requiring `repogarde`, and the command fails. Pass the same `--checks` as when applying: the list of required checks is not in `.repowarden.conf`, and without `--checks` it is not compared. Note that `repowarden proteger` without `--checks` reduces the required checks to `repowarden` alone.
 
 Manually: *Settings → Rules → Rulesets* (or *Branches → Branch protection rules*) on `main`:
 
@@ -126,6 +132,35 @@ repowarden app init --administration # + administration right (configuration app
 ```
 
 The command opens GitHub's creation page, prefilled: minimal permissions (contents, PRs, issues, statuses), no webhook. It stores the identifier (variable `REPOWARDEN_APP_CLIENT_ID`) and the private key (secret `REPOWARDEN_APP_KEY`) without displaying them, then opens the installation page. Workflows then get a one-hour token on each run; without the App, they fall back to the Actions token. The App follows the same rules as everyone: no exception in the rulesets.
+
+### Organization bot
+
+The bot keeps **every project** of an organization up to date, from a **control repository**. Every night, it goes through each repository where its App is installed:
+
+- **protection**: `repowarden proteger --verifier`, then `repowarden proteger` if the rules are outdated. The required checks are those of `requiredChecks`, otherwise those already online: the bot never removes any;
+- **migration**: `repowarden migrer --pr`. Project code only changes **through PRs**, reviewed and checked by the CI like any other;
+- **report**: a table (repository, mode, protection, migration) in the run summary and in **a single issue** "Rapport du bot repowarden" of the control repository, updated on each run.
+
+**Which projects?** The App installation says what the bot **can** touch. Install it on "All repositories": a new repository is then covered as soon as it is created. The project says what it **wants**, in its `.repowarden.conf` (versioned, changed through a reviewed PR):
+
+| `bot` | Effect |
+|---|---|
+| `auto` (default) | protection applied, migration PRs |
+| `pr` | migration PRs only; outdated protection reported |
+| `off` | repository ignored |
+
+A repository **without** `.repowarden.conf` is never touched: it shows as "not adopted" in the report. To adopt it: `repowarden install` or `repowarden tickets init` in the project.
+
+**Setup**, once, in the control repository (for example `<organization>/repowarden-pilote`):
+
+```bash
+repowarden bot init          # writes .github/workflows/bot.yml (every night + manual run)
+repowarden app init --bot    # bot App: workflows and administration; install on "All repositories"
+```
+
+Then *Actions → bot → Run workflow*, with the `dry-run` box to see what would be done without changing anything.
+
+**Safeguards**: the App key only exists in the control repository, and the workflow only runs from its default branch. The App has no exception in the rulesets. An error on one project (GitHub details in the report) does not stop the others.
 
 ### GitLab
 

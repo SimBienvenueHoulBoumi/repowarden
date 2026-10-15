@@ -4,6 +4,9 @@
 #   ./install.sh --global              active les hooks pour tous les dépôts
 #                                      (et l'assistant de commit : git cc)
 #   ./install.sh --global --lang en    langue des messages (fr, en) ; demandée une fois sinon
+#   ./install.sh --bots                propose ensuite les bots du dépôt GitHub (repowarden bots) ;
+#                                      proposés d'office dans un dépôt GitHub, avec un terminal
+#   ./install.sh --sans-bots           ne plus jamais les proposer
 #   ./install.sh --uninstall [--global]
 #                                      retire les hooks (seulement s'ils sont ceux de repowarden)
 #   ./install.sh --uninstall --global --purge [--scan DOSSIER]
@@ -22,12 +25,15 @@ ACTION="install"
 PURGE=""
 SCAN=""
 LANG_CHOICE=""
+BOTS=""
 
 while [ $# -gt 0 ]; do
     case "$1" in
         --global) SCOPE="--global" ;;
         --uninstall) ACTION="uninstall" ;;
         --purge) PURGE=1 ;;
+        --bots) BOTS=demande ;;
+        --sans-bots) BOTS=jamais ;;
         --lang)
             shift
             LANG_CHOICE="${1:-}"
@@ -37,7 +43,7 @@ while [ $# -gt 0 ]; do
             SCAN="${1:?--scan attend un dossier}"
             ;;
         -h | --help)
-            sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'
+            sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'
             exit 0
             ;;
         *)
@@ -243,3 +249,15 @@ if [ "$SCOPE" = --global ]; then
     t install.local_wins
     info "$REPLY"
 fi
+
+# Bots du dépôt GitHub courant (CI, releases, tickets, protection…) : proposés,
+# jamais configurés sans accord ; --sans-bots : plus jamais proposés
+case "$BOTS" in
+    jamais)
+        git config "$SCOPE" repowarden.bots off
+        t install.bots_never
+        info "$REPLY"
+        ;;
+    demande) bash "$ROOT/bin/bots" ;;
+    *) ! git rev-parse --git-dir >/dev/null 2>&1 || bash "$ROOT/bin/bots" --depuis-install || true ;;
+esac
