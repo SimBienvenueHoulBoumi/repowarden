@@ -60,7 +60,9 @@ A machine without hooks blocks no one: CI runs every check again and is authorit
 
 ## 4. Adopting repowarden in a project
 
-Copy from `templates/project/`:
+**On GitHub**: `repowarden bots`, run by someone with admin rights (also offered by `repowarden install`). It asks for the flow (`main` only, or `develop` → `main`, creating `develop` after consent), then one consent per bot: CI (`repowarden.yml`), releases (`release.yml`), cleanup (`nettoyage.yml`, develop flow), tickets (`repowarden tickets init`), GitHub App (`repowarden app init`), protection (`repowarden proteger`), npm (`repowarden npm-publication`, public package only). It then shows the preview (files created, existing files kept with their difference from the template, settings changed) and waits for confirmation. The written files are then to be committed through a PR. Without a terminal, a logged-in `gh` or admin rights, nothing is offered: one line says why. `repowarden install --sans-bots`: never offered again.
+
+**By hand**, copy from `templates/project/`:
 
 | File | Role |
 |---|---|

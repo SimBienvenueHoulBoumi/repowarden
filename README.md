@@ -99,7 +99,11 @@ Sans Node : `git clone https://github.com/simdevWarden/repowarden.git ~/repoward
 
 ### 2. Dans un projet d'équipe : les mêmes règles pour tous
 
-Chaque personne de l'équipe installe repowarden une fois sur son poste (partie 1). Le projet, lui, ajoute deux fichiers, à copier depuis [`templates/project/`](templates/project) :
+Chaque personne de l'équipe installe repowarden une fois sur son poste (partie 1).
+
+**Sur GitHub, en une commande** : dans le projet, `repowarden bots` (aussi proposé par `repowarden install`) configure les bots du dépôt, avec ton accord pour chacun : CI, releases, nettoyage des branches, tickets, GitHub App, protection, npm. Il demande le flux (`main` seule, ou `develop` → `main`), montre l'aperçu, puis attend ta confirmation ; un fichier existant n'est jamais écrasé.
+
+**À la main**, le projet ajoute deux fichiers, à copier depuis [`templates/project/`](templates/project) :
 
 | Fichier | Rôle |
 |---|---|
