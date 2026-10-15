@@ -288,6 +288,8 @@ _msg_fr() {
         ci.proteger.automerge_invalid) _M="autoMergeWork : true ou false." ;;
         ci.proteger.unattributed_invalid) _M="unattributedApproval : true ou false." ;;
         ci.proteger.no_branch) _M="Aucune des branches « %s » n'existe sur %s." ;;
+        ci.proteger.no_integration) _M="Branche d'intégration « %s » absente de %s : rien n'a été modifié." ;;
+        ci.proteger.no_integration_hint) _M="  La créer depuis la branche principale : git push origin %s:refs/heads/%s (ou repowarden bots), puis relancer." ;;
         ci.proteger.no_cleanup) _M="Suppression automatique des branches désactivée (elle supprimerait develop) : ajouter un workflow qui appelle nettoyage-branches.yml, sinon les branches mergées restent (voir En organisation)." ;;
         ci.proteger.no_delivery_env) _M="main exigera un déploiement « %s » réussi, mais aucun workflow ne crée ce déploiement : un déploiement que rien ne crée bloquerait main pour toujours. Appeler release-auto.yml avec delivery-environment (voir docs/releases.md, flux develop), ou deliveryApproval = review dans .repowarden.conf." ;;
         ci.proteger.stale_concurrency) _M="%s : une demande de livraison (manuelle ou planifiée) en attente bloquerait en silence les suivantes. Mettre cancel-in-progress: \${{ github.event_name != 'push' }} (une nouvelle demande remplace celle en attente) et un groupe par déclencheur : release-\${{ github.ref_name }}-\${{ github.event.schedule || github.event_name }}." ;;

@@ -21,7 +21,11 @@ case "$*" in
     "repo view"*) echo moi/projet ;;
     "api repos/moi/projet --jq .permissions.admin") echo "${GH_ADMIN:-true}" ;;
     "api repos/moi/projet --jq .default_branch") echo main ;;
-    "api repos/moi/projet/branches/develop"*) [ -n "${GH_DEVELOP:-}" ] && echo develop || exit 1 ;;
+    # absente : comme le vrai gh, corps de la 404 sur la sortie standard
+    "api repos/moi/projet/branches/develop"*)
+        [ -n "${GH_DEVELOP:-}" ] && { echo develop; exit 0; }
+        echo '{"message":"Branch not found","status":"404"}'
+        exit 1 ;;
     "variable get REPOWARDEN_APP_CLIENT_ID"*) [ -n "${GH_APP:-}" ] && echo Iv1.abc || exit 1 ;;
     "api repos/moi/projet/git/ref/heads/main"*) echo abc123 ;;
 esac
@@ -82,6 +86,7 @@ lancer() { run bash -c "\"$BOTS\" <\"$F/reponses\""; }
     repondre o 2 o o o o n o o
     GH_APP=1 lancer
     [ "$status" -eq 0 ]
+    [[ "$output" == *"seul develop entre dans main (livraison)"* ]]
     [[ "$output" == *"déjà configurée"* ]]
     grep -q "^gh api -X POST repos/moi/projet/git/refs -f ref=refs/heads/develop -f sha=abc123" "$F/log"
     [ "$(git config -f .repowarden.conf repowarden.integrationBranch)" = develop ]
@@ -111,6 +116,16 @@ lancer() { run bash -c "\"$BOTS\" <\"$F/reponses\""; }
     lancer
     grep -q 'branches: \[main\]' .github/workflows/repowarden.yml
     [ ! -e .repowarden.conf ]
+}
+
+@test "bots : integrationBranch deja en place -> .repowarden.conf laisse tel quel" {
+    printf '[repowarden]\n    integrationBranch = develop\n    protectedBranches = main develop\n    deliveryApproval = review\n' >.repowarden.conf
+    cp .repowarden.conf "$F/avant"
+    # global, flux 2 (develop existe), ci, release (non), nettoyage (non), tickets (non), app (non), protection (non), confirmation
+    repondre o 2 o n n n n n o
+    GH_DEVELOP=1 lancer
+    [ "$status" -eq 0 ]
+    cmp .repowarden.conf "$F/avant"
 }
 
 @test "bots : flux develop propose par defaut" {
