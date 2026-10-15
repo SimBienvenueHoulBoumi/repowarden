@@ -89,13 +89,14 @@ notes() {
 # demandées (BREAKING CHANGE, « À faire : »), commande de mise à jour
 # (releaseUpdate). Chaque partie vide est omise.
 intro() {
-    local corps numeros n infos titre type feats="" fixes="" autres="" faire liste="" maj
+    local corps numeros n infos titre type feats="" fixes="" autres="" faire liste="" maj illisibles=""
     corps="$(git log --no-merges --reverse --format=%B "$range")"
     numeros="$(grep -oE '^Tickets? *: *#[0-9]+' <<<"$corps" | grep -oE '[0-9]+' | awk '!vu[$0]++' || true)"
     if [ -n "$numeros" ] && command -v gh >/dev/null; then
         for n in $numeros; do
             infos="$(gh issue view "$n" --json title,labels \
-                --jq '[.title, ([.labels[].name | select(startswith("type: "))][0] // "")] | @tsv' 2>/dev/null)" || continue
+                --jq '[.title, ([.labels[].name | select(startswith("type: "))][0] // "")] | @tsv' 2>/dev/null)" ||
+                { illisibles="$illisibles #$n"; continue; }
             IFS="$tab" read -r titre type <<<"$infos"
             case "$type" in
                 "type: feat") feats="$feats- $titre (#$n)"$'\n' ;;
@@ -105,6 +106,9 @@ intro() {
             liste="$liste $n"
         done
     fi
+    # Tickets cités mais illisibles (dépôt privé sans issues: read) : signalés,
+    # les notes restent sur la sortie standard
+    [ -z "$illisibles" ] || { t ci.version.unreadable "$illisibles"; echo "::warning::$REPLY" >&2; }
     if [ -n "$feats$fixes$autres" ]; then
         t ci.version.summary
         printf '### %s\n\n%s\n' "$REPLY" "$feats$fixes$autres"

@@ -18,10 +18,15 @@ source "$REPOWARDEN_DIR/hooks/lib/common.sh"
 
 # REPLY = « état<TAB>description »
 etat_r() {
-    local regles reglages version
+    local regles reglages version reponse
     # 1. Protection du flux develop (rulesets lisibles avec le jeton des Actions ;
     # réglages du dépôt : vérifiés seulement si l'API les renvoie)
     regles="$(gh api "repos/$GH_REPO/rules/branches/$INTEGRATION" --jq '[.[].type] | join(" ")' 2>/dev/null || echo "?")"
+    # Rulesets indisponibles (dépôt privé d'un compte gratuit : 403) : aucune
+    # règle ne peut interdire la suppression, seuls les réglages comptent
+    if ! reponse="$(gh api "repos/$GH_REPO/rulesets" 2>&1)" && [[ "$reponse" == *"403"* ]]; then
+        regles="?"
+    fi
     reglages="$(gh api "repos/$GH_REPO" --jq '"\(.allow_merge_commit) \(.delete_branch_on_merge)"' 2>/dev/null || echo "? ?")"
     if { [ "$regles" != "?" ] && [[ " $regles " != *" deletion "* ]]; } ||
         [ "${reglages% *}" = false ] || [ "${reglages#* }" = true ]; then
