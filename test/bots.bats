@@ -51,7 +51,8 @@ lancer() { run bash -c "\"$BOTS\" <\"$F/reponses\""; }
     [[ "$output" == *"droits d'administration"* ]]
     GH_AUTH=1 lancer
     [[ "$output" == *"gh auth login"* ]]
-    git remote set-url origin https://gitlab.com/moi/projet.git
+    # réglage forge : prioritaire sur la CI (GITHUB_ACTIONS) et sur le remote
+    git config repowarden.forge gitlab
     lancer
     [[ "$output" == *"hors de GitHub"* ]]
 }
