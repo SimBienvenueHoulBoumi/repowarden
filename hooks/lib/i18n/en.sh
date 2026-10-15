@@ -310,6 +310,8 @@ _msg_en() {
         mig.dir) _M=".repogarde/ → .repowarden/" ;;
         mig.workflow) _M="%s: uses: to simdevWarden/repowarden, old names replaced" ;;
         mig.renamed) _M="%s → %s" ;;
+        mig.tickets_events) _M="%s: ticket tracking events completed (push, review, assignment, closing): prefilled draft PR on the first push" ;;
+        mig.tickets_labels) _M="Tracking labels (type: feat, statuses…): repowarden tickets init (can be rerun, rewrites no file)" ;;
         mig.hooks_moved) _M="Leftover lefthook hooks (%s) moved to %s" ;;
         mig.hooks_left) _M="Leftover lefthook hooks in .git/hooks (%s), ignored: repowarden migrer --hooks to set them aside." ;;
         mig.lefthook_conf) _M="%s: lefthook is no longer supported; move its commands to .repowarden/<hook>, then delete this file." ;;
@@ -328,6 +330,8 @@ _msg_en() {
         ci.proteger.verify_legacy) _M="%s (id %s): old ruleset, still requires the repogarde check (removed in v4)" ;;
         ci.proteger.api_error) _M="Ruleset \"%s\" rejected by GitHub: %s" ;;
         ci.proteger.incomplete) _M="Incomplete protection: see the errors above." ;;
+        ci.proteger.rulesets_unavailable) _M="Rulesets unavailable for %s: GitHub refuses them on a private repository of a free account. Make the repository public, or move to GitHub Pro / Team; the other settings are applied." ;;
+        ci.proteger.tags_fallback) _M="Tags ruleset: \"GitHub Actions\" bypass refused in this organization; tags protected as on a personal account (not moved or deleted, creation allowed)." ;;
         ci.version.usage) _M="Usage: ci/version.sh next|notes|notes-livraison [ref]" ;;
         ci.version.breaking) _M="Breaking changes" ;;
         ci.version.features) _M="Features" ;;

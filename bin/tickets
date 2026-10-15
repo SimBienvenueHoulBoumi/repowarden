@@ -141,13 +141,11 @@ GH_REPO="$REPO" AUTO_VALIDATE="${AUTO_VALIDATE:-maintainers}" "$ROOT/ci/tickets.
 
 # Afficher l'état de ticketAutoCreate
 echo
-if git config --get repowarden.ticketAutoCreate | grep -qE '^(true|oui|yes)$'; then
-    t tk.init_auto_create_on
-    hint "$_T"
-else
-    t tk.init_auto_create_off
-    hint "$_T"
-fi
+cfg_r ticketAutoCreate false
+case "$REPLY" in
+    true | oui | yes) dim_t tk.init_auto_create_on ;;
+    *) dim_t tk.init_auto_create_off ;;
+esac
 
 echo
 ok_t tk.init_done

@@ -364,6 +364,12 @@ fake_gh_repo() {
     cat >"$BATS_TEST_TMPDIR/bin/gh" <<'GH'
 #!/usr/bin/env bash
 echo "$*" >>"$GH_LOG"
+# rulesets refusés (dépôt privé, compte gratuit) si $GH_RULESETS_403
+if [ -n "${GH_RULESETS_403:-}" ] && [[ "$*" == *"repos/moi/projet/rulesets"* ]]; then
+    echo '{"message":"Upgrade to GitHub Pro or make this repository public to enable this feature.","status":"403"}'
+    echo "gh: Upgrade to GitHub Pro or make this repository public to enable this feature. (HTTP 403)" >&2
+    exit 1
+fi
 case "$*" in
     "repo view"*) echo moi/projet ;;
     "api user --jq .login") echo moi ;;
@@ -373,6 +379,11 @@ case "$*" in
     # nom est $GH_REFUSE, avec la réponse de GitHub sur la sortie standard
     "api -X POST repos/moi/projet/rulesets"* | "api -X PUT repos/moi/projet/rulesets/"*)
         r="$(cat)"; echo "$r" >>"$GH_LOG"
+        # exception GitHub Actions refusée dans l'organisation si $GH_REFUSE_INTEGRATION
+        if [ -n "${GH_REFUSE_INTEGRATION:-}" ] && [[ "$r" == *'"actor_type": "Integration"'* ]]; then
+            echo '{"message":"Validation Failed","errors":["Actor GitHub Actions integration must be part of the ruleset source or owner organization"],"status":"422"}'
+            exit 1
+        fi
         if [ -n "${GH_REFUSE:-}" ] && [[ "$r" == *"\"name\": \"$GH_REFUSE\""* ]]; then
             echo '{"message":"Validation Failed","errors":["Invalid rule 'creation': bypass actor not allowed"],"status":"422"}'
             echo "gh: Validation Failed (HTTP 422)" >&2
@@ -551,6 +562,28 @@ ancien_ruleset() {
     GH_BRANCHES="main" run "$PROTEGER" --verifier
     [ "$status" -ne 0 ]
     [[ "$output" == *"Protection de main (id 7) : ancien ruleset"* ]]
+}
+
+@test "proteger : tags refuses dans une organisation -> regle des comptes personnels, avertissement" {
+    fake_gh_repo
+    GH_OWNER_TYPE=Organization GH_REFUSE_INTEGRATION=1 GH_BRANCHES="main" run "$PROTEGER"
+    [ "$status" -eq 0 ] || { echo "$output"; return 1; }
+    [[ "$output" == *"exception « GitHub Actions » refusée dans cette organisation"* ]]
+    # second envoi : sans l'exception GitHub Actions, création libre
+    grep -q '"actor_type": "RepositoryRole"' "$GH_LOG"
+    [[ "$output" != *"refusé par GitHub"* ]]
+}
+
+@test "proteger : rulesets indisponibles (prive, compte gratuit) -> message clair, reglages appliques" {
+    fake_gh_repo
+    GH_RULESETS_403=1 GH_BRANCHES="main" run "$PROTEGER"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Rulesets indisponibles pour moi/projet"*"GitHub Pro"* ]]
+    grep -q "^api -X PATCH repos/moi/projet " "$GH_LOG"
+    ! grep -q "^api -X POST repos/moi/projet/rulesets" "$GH_LOG"
+    GH_RULESETS_403=1 GH_BRANCHES="main" run "$PROTEGER" --verifier
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"Rulesets indisponibles"* ]]
 }
 
 @test "proteger : refus de GitHub affiche avec son detail, les autres rulesets appliques" {
