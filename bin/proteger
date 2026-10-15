@@ -84,6 +84,16 @@ for b in $protected; do
     [ "$(gh api "repos/$REPO/branches/$b" --jq .name 2>/dev/null)" = "$b" ] && existing="$existing $b"
 done
 [ -n "$existing" ] || { err_t ci.proteger.no_branch "$protected" "$REPO"; exit 1; }
+# Branche d'intégration absente : arrêt avant toute modification (GitHub
+# refuserait une branche par défaut inexistante, réglages posés à moitié)
+if [ -n "$integration" ] &&
+    [ "$(gh api "repos/$REPO/branches/$integration" --jq .name 2>/dev/null)" != "$integration" ]; then
+    principale=main
+    for b in $existing; do [ "$b" = "$integration" ] || { principale="$b"; break; }; done
+    err_t ci.proteger.no_integration "$integration" "$REPO"
+    dim_t ci.proteger.no_integration_hint "$principale" "$integration"
+    exit 1
+fi
 
 # Vérifications séparées par des virgules : un nom de job peut contenir des
 # espaces (« tests (ubuntu-latest) »)

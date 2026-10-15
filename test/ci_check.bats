@@ -801,6 +801,20 @@ ancien_ruleset() {
     grep -q "^api -X PUT repos/moi/projet/rulesets/9 " "$GH_LOG"
 }
 
+@test "proteger : branche d'integration absente -> arret avant toute modification, commande pour la creer" {
+    fake_gh_repo
+    git config repowarden.integrationBranch develop
+    git config repowarden.protectedBranches "main develop"
+    for mode in --dry-run ""; do
+        : >"$GH_LOG"
+        GH_BRANCHES="main" run "$PROTEGER" $mode
+        [ "$status" -ne 0 ]
+        [[ "$output" == *"« develop » absente"*"rien n'a été modifié"* ]]
+        [[ "$output" == *"git push origin main:refs/heads/develop"* ]]
+        ! grep -qE -- "-X (PATCH|PUT|POST)" "$GH_LOG"
+    done
+}
+
 @test "proteger : aucune branche protegee existante -> erreur" {
     fake_gh_repo
     GH_BRANCHES="" run "$PROTEGER" --dry-run

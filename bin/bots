@@ -80,7 +80,7 @@ t bots.flow_question
 printf '%s\n' "$REPLY" >&2
 t bots.flow_main "$PRINCIPALE"
 printf '  1) %s\n' "$REPLY" >&2
-t bots.flow_develop "$PRINCIPALE"
+t bots.flow_develop "$PRINCIPALE" "$PRINCIPALE"
 printf '  2) %s\n' "$REPLY" >&2
 # develop → main par défaut : seul develop entre dans main
 choix_flux=2
@@ -90,8 +90,9 @@ case "${reponse:-$choix_flux}" in
     *) FLUX=main; INTEGRATION="" ;;
 esac
 CREER_DEVELOP=""
+# Nom renvoyé comparé : sur une 404, gh écrit le corps de l'erreur sur stdout
 if [ "$FLUX" = develop ] &&
-    [ -z "$(gh api "repos/$REPO/branches/$INTEGRATION" --jq .name 2>/dev/null || true)" ]; then
+    [ "$(gh api "repos/$REPO/branches/$INTEGRATION" --jq .name 2>/dev/null || true)" != "$INTEGRATION" ]; then
     if demander bots.ask_create_develop o; then
         CREER_DEVELOP=1
     else
@@ -332,7 +333,9 @@ if [ -n "$CREER_DEVELOP" ]; then
 fi
 if [ "$FLUX" = develop ]; then
     conf="$GIT_TOPLEVEL/.repowarden.conf"
-    git config -f "$conf" repowarden.integrationBranch "$INTEGRATION"
+    # Valeur déjà en place : fichier laissé tel quel (git config le réindenterait)
+    [ "$(git config -f "$conf" --get repowarden.integrationBranch || true)" = "$INTEGRATION" ] ||
+        git config -f "$conf" repowarden.integrationBranch "$INTEGRATION"
     git config -f "$conf" --get repowarden.protectedBranches >/dev/null ||
         git config -f "$conf" repowarden.protectedBranches "$PRINCIPALE $INTEGRATION"
     if [ -z "$AVEC_APP" ]; then
