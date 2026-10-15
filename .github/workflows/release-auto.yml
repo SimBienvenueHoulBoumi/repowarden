@@ -651,7 +651,10 @@ jobs:
           INTEGRATION: ${{ inputs.integration-branch }}
           MAIN: ${{ inputs.main-branch }}
         run: |
-          fichiers="$(gh api "repos/$GH_REPO/compare/$INTEGRATION...$MAIN" --jq '[.files[].filename] | join(", ")')"
+          # Contenus comparés, pas les historiques : une livraison squashée puis
+          # réunie dans la branche d'intégration n'est pas du contenu propre
+          git -c credential.helper= -c 'credential.helper=!gh auth git-credential' fetch -q origin "$INTEGRATION"
+          fichiers="$(git diff --name-only "origin/$INTEGRATION" HEAD | paste -sd, - | sed 's/,/, /g')"
           if [ -z "$fichiers" ]; then
             echo "$INTEGRATION contient déjà tout le contenu de $MAIN."
             exit 0

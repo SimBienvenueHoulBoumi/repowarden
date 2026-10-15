@@ -204,7 +204,7 @@ permissions: {}
 jobs:
   release:
     uses: simdevWarden/repowarden/.github/workflows/release-auto.yml@v4
-    permissions: { contents: write, pull-requests: write, actions: write, checks: read, statuses: write }
+    permissions: { contents: write, pull-requests: write, actions: write, checks: read, statuses: write, issues: read }
     with:
       mode: tag
       integration-branch: $INTEGRATION
@@ -243,7 +243,7 @@ permissions: {}
 jobs:
   release:
     uses: simdevWarden/repowarden/.github/workflows/release-auto.yml@v4
-    permissions: { contents: write, pull-requests: write, actions: write, checks: read, statuses: write }
+    permissions: { contents: write, pull-requests: write, actions: write, checks: read, statuses: write, issues: read }
 YAML
         if [ -n "$AVEC_APP" ]; then
             cat <<'YAML'

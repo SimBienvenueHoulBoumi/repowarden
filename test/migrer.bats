@@ -205,6 +205,22 @@ YML
     [[ "$output" == *"Rien à migrer"* ]]
 }
 
+@test "migrer : release-auto sans issues: read -> ajoute (tickets lisibles sur un depot prive)" {
+    git rm -q -r .repogarde.conf .repogarde .github
+    mkdir -p .github/workflows
+    printf 'on: [push]\npermissions: {}\njobs:\n  release:\n    uses: simdevWarden/repowarden/.github/workflows/release-auto.yml@v4\n    permissions: { contents: write, pull-requests: write, actions: write, checks: read, statuses: write }\n' \
+        >.github/workflows/release.yml
+    git add -A && git -c core.hooksPath=/dev/null commit -q -m "chore: projet renommé"
+    run "$MIGRER"
+    [ "$status" -eq 0 ]
+    grep -q 'statuses: write, issues: read }$' .github/workflows/release.yml
+    grep -q '^permissions: {}$' .github/workflows/release.yml
+    [[ "$output" == *"issues: read ajouté"* ]]
+    git add -A && git -c core.hooksPath=/dev/null commit -q -m "chore: migration"
+    run "$MIGRER"
+    [[ "$output" == *"Rien à migrer"* ]]
+}
+
 @test "statut : anciens noms dans le projet -> repowarden migrer propose" {
     run "$BATS_TEST_DIRNAME/../bin/statut"
     [[ "$output" == *"Anciens noms repogarde dans ce projet : repowarden migrer"* ]]

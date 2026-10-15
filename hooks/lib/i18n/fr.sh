@@ -312,6 +312,7 @@ _msg_fr() {
         mig.dir) _M=".repogarde/ → .repowarden/" ;;
         mig.workflow) _M="%s : uses: vers simdevWarden/repowarden, anciens noms remplacés" ;;
         mig.renamed) _M="%s → %s" ;;
+        mig.release_issues) _M="%s : issues: read ajouté (notes de version : tickets livrés lisibles sur un dépôt privé)" ;;
         mig.tickets_events) _M="%s : événements du suivi des tickets complétés (push, revue, assignation, fermeture) : PR brouillon préremplie au premier push" ;;
         mig.tickets_labels) _M="Étiquettes du suivi (type: feat, statuts…) : repowarden tickets init (relançable, ne réécrit aucun fichier)" ;;
         mig.hooks_moved) _M="Hooks lefthook résiduels (%s) déplacés dans %s" ;;
@@ -334,6 +335,7 @@ _msg_fr() {
         ci.proteger.api_error) _M="Ruleset « %s » refusé par GitHub : %s" ;;
         ci.proteger.incomplete) _M="Protection incomplète : voir les erreurs ci-dessus." ;;
         ci.proteger.rulesets_unavailable) _M="Rulesets indisponibles pour %s : GitHub les refuse sur un dépôt privé d'un compte gratuit. Rendre le dépôt public, ou passer à GitHub Pro / Team ; les autres réglages sont appliqués." ;;
+        ci.proteger.no_squash) _M="Sans rulesets, le mode de merge ne peut pas être imposé par branche : squash désactivé (merge commit seul), sinon une livraison squashée casserait l'historique de la branche principale." ;;
         ci.proteger.tags_fallback) _M="Ruleset des tags : exception « GitHub Actions » refusée dans cette organisation ; tags protégés comme sur un compte personnel (ni déplacés ni supprimés, création libre)." ;;
         ci.version.usage) _M="Usage : ci/version.sh next|notes|notes-livraison [ref]" ;;
         ci.version.breaking) _M="Changements incompatibles" ;;
@@ -344,6 +346,7 @@ _msg_fr() {
         ci.version.todo) _M="À faire" ;;
         ci.version.update) _M="Mettre à jour" ;;
         ci.version.tickets) _M="Tickets livrés" ;;
+        ci.version.unreadable) _M="Tickets illisibles (%s) : ajouter issues: read aux permissions du job release de release.yml (dépôt privé)." ;;
         ci.livraison.protection) _M="Protection du flux %s absente (merge commit, pas de suppression) : lancer repowarden proteger" ;;
         ci.livraison.maintenance) _M="Maintenance seule : aucune version à publier" ;;
         ci.livraison.non_exigee) _M="%s : préversion non exigée" ;;

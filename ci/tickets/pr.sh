@@ -15,19 +15,19 @@ cmd_pr() {
         if [[ "$HEAD" == "${INTEGRATION:-develop}" && "${BASE:-}" != "${MAIN:-main}" ]] ||
             [[ "$HEAD" == "${MAIN:-main}" && "${BASE:-}" != "${INTEGRATION:-develop}" ]]; then
             _tr tk.pr_inverted "$HEAD" "${BASE:-}" "${INTEGRATION:-develop}"
-            gh pr close "$PR" --comment "$_T" >/dev/null
+            fermer_pr "$PR" "$_T"
             notice "$_T"
         elif [ "$HEAD" = "${MAIN:-main}" ] &&
             [ "$(gh api "repos/$GH_REPO/compare/$BASE...$HEAD" -q '.files | length')" = 0 ]; then
             _tr tk.pr_backmerge_empty "$HEAD" "$BASE"
-            gh pr close "$PR" --comment "$_T" >/dev/null
+            fermer_pr "$PR" "$_T"
             notice "$_T"
         # Livraison ouverte par le workflow de release : celle d'une personne
         # n'aurait jamais d'approbation de déploiement, elle resterait bloquée
         elif [ "$HEAD" = "${INTEGRATION:-develop}" ] && [ "${DELIVERY_WORKFLOW:-false}" = true ] &&
             [[ "${AUTHOR:-}" != *"[bot]" ]]; then
             _tr tk.pr_delivery_manual "$HEAD" "$BASE" "$HEAD" "$HEAD"
-            gh pr close "$PR" --comment "$_T" >/dev/null
+            fermer_pr "$PR" "$_T"
             notice "$_T"
             return 0
         fi

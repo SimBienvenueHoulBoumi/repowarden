@@ -612,6 +612,20 @@ ancien_ruleset() {
     [[ "$output" == *"Protection de main (id 7) : ancien ruleset"* ]]
 }
 
+@test "proteger : sans rulesets, flux develop -> squash desactive (merge commit seul)" {
+    fake_gh_repo
+    git config repowarden.integrationBranch develop
+    git config repowarden.protectedBranches "main develop"
+    GH_RULESETS_403=1 GH_BRANCHES="main develop" run "$PROTEGER"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"squash désactivé (merge commit seul)"* ]]
+    grep -q "allow_squash_merge=false" "$GH_LOG"
+    # avec rulesets : squash gardé (imposé par branche)
+    : >"$GH_LOG"
+    GH_BRANCHES="main develop" run "$PROTEGER"
+    grep -q "allow_squash_merge=true" "$GH_LOG"
+}
+
 @test "proteger : tags refuses dans une organisation -> regle des comptes personnels, avertissement" {
     fake_gh_repo
     GH_OWNER_TYPE=Organization GH_REFUSE_INTEGRATION=1 GH_BRANCHES="main" run "$PROTEGER"
@@ -892,6 +906,27 @@ c() { git commit -q --no-verify --allow-empty -m "$1"; }
     [ "$("$VERSION" next 2>/dev/null)" = 1.3.0 ]
 }
 
+@test "version : livraison squashee puis historiques reunis -> rien de recompte" {
+    git tag v1.0.0
+    git switch -q -c develop
+    echo a >a; git add a; git commit -q --no-verify -m "feat: panier"
+    echo b >b; git add b; git commit -q --no-verify -m "fix: arrondi"
+    # livraison squashée sur main (dépôt sans rulesets), taguée
+    git switch -q main
+    git merge -q --squash develop >/dev/null
+    git commit -q --no-verify -m "chore(release): v1.1.0 (#21)"
+    git tag v1.1.0
+    # historiques réunis par un merge commit de main dans develop
+    git switch -q develop
+    git merge -q --no-ff --no-edit main
+    [ -z "$("$VERSION" next 2>/dev/null)" ]
+    # travail suivant : seul lui compte
+    echo c >c; git add c; git commit -q --no-verify -m "fix: suite"
+    [ "$("$VERSION" next 2>/dev/null)" = 1.1.1 ]
+    run "$VERSION" notes
+    [[ "$output" == *"- fix: suite"* && "$output" != *"feat: panier"* ]]
+}
+
 @test "version : notes groupees, incompatibles en tete" {
     git tag v1.0.0
     c "feat: panier"
@@ -978,7 +1013,20 @@ GH
     git commit -q --no-verify --allow-empty -m "fix: b" -m "Ticket : #99"
     PATH="$BATS_TEST_TMPDIR/bin:$PATH" run "$VERSION" notes
     [ "$status" -eq 0 ]
-    [[ "$output" != *"En bref"* && "$output" != *"#99"* ]]
+    [[ "$output" != *"En bref"* && "$output" != *"Tickets livrés"* ]]
+    [[ "$output" == *"Tickets illisibles ( #99)"* ]]
+}
+
+@test "version : tickets illisibles (depot prive sans issues: read) -> avertissement, notes inchangees" {
+    fake_gh_notes
+    git tag v1.0.0
+    git commit -q --no-verify --allow-empty -m "feat: panier" -m "Ticket : #12"
+    git commit -q --no-verify --allow-empty -m "fix: b" -m "Ticket : #99"
+    run bash -c "\"$VERSION\" notes 2>\"$BATS_TEST_TMPDIR/err\""
+    [ "$status" -eq 0 ]
+    [[ "$(cat "$BATS_TEST_TMPDIR/err")" == *"::warning::Tickets illisibles ( #99)"*"issues: read"* ]]
+    [[ "$output" != *"::warning::"* ]]
+    [[ "$output" == *"- Panier : total affiché (#12)"* ]]
 }
 
 @test "version : release -> notes de la PR de livraison relue, sinon recalculees" {
@@ -1017,6 +1065,7 @@ fake_gh_livraison() {
 echo "$*" >>"$GH_LOG"
 case "$*" in
     "api repos/moi/projet/rules/branches/develop"*) echo "${GH_REGLES-deletion non_fast_forward pull_request}" ;;
+    "api repos/moi/projet/rulesets") [ -z "${GH_RULESETS_403:-}" ] || { echo '{"message":"Upgrade to GitHub Pro","status":"403"}'; exit 1; } ;;
     "api repos/moi/projet --jq"*) echo "${GH_REGLAGES:-true false}" ;;
 esac
 GH
@@ -1057,6 +1106,11 @@ GH
     GH_REGLAGES="false false" run "$LIVRAISON"
     [[ "$output" == failure*"repowarden proteger"* ]]
     GH_REGLAGES="true true" run "$LIVRAISON"
+    [[ "$output" == failure*"repowarden proteger"* ]]
+    # rulesets indisponibles (privé, compte gratuit) : seule la règle manque, réglages bons
+    GH_RULESETS_403=1 GH_REGLES="" run "$LIVRAISON"
+    [[ "$output" == success* ]]
+    GH_RULESETS_403=1 GH_REGLES="" GH_REGLAGES="true true" run "$LIVRAISON"
     [[ "$output" == failure*"repowarden proteger"* ]]
     # réglages non renvoyés par l'API (jeton sans droits) : pas de faux échec
     GH_REGLAGES="null null" run "$LIVRAISON"

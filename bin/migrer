@@ -125,6 +125,15 @@ if [ -f .github/workflows/repogarde.yml ] && [ ! -e .github/workflows/repowarden
     fait mig.renamed .github/workflows/repogarde.yml .github/workflows/repowarden.yml
 fi
 
+# Releases : notes introduites par les tickets livrés, lisibles sur un dépôt
+# privé seulement avec issues: read (permissions en ligne du job)
+for wf in .github/workflows/*.yml .github/workflows/*.yaml; do
+    [ -f "$wf" ] || continue
+    grep -q 'repowarden/.github/workflows/release-auto.yml' "$wf" || continue
+    reecrire "$wf" -e '/^[[:space:]]*permissions:[[:space:]]*\{[^}]*pull-requests:[^}]*\}/{/issues:/!s/[[:space:]]*\}[[:space:]]*$/, issues: read }/;}' &&
+        fait mig.release_issues "$wf"
+done
+
 # Suivi des tickets d'une version antérieure : sans l'événement push, le
 # premier push d'une branche de ticket n'ouvre pas la PR brouillon préremplie
 # (ni revue, assignation, fermeture : statuts figés). Section on: remplacée
