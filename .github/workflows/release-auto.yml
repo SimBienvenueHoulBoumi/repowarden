@@ -452,7 +452,9 @@ jobs:
           if [ "$APP_TOKEN" != true ]; then
             echo "::warning::Pas de GitHub App configurée (entrée app-client-id) : la PR de livraison est créée/mise à jour avec le jeton des Actions. Ce jeton ne déclenche pas les autres workflows (ex. suivi des tickets). Pour activer l'App : repowarden app init."
           fi
-          git fetch -q origin "$MAIN"
+          # Identifiants par le jeton de l'étape (GH_TOKEN, via gh) : un dépôt
+          # privé refuse le fetch anonyme (checkout sans identifiants persistés)
+          git -c credential.helper= -c 'credential.helper=!gh auth git-credential' fetch -q origin "$MAIN"
           pr="$(gh pr list --head "$INTEGRATION" --base "$MAIN" --state open --json number -q '.[0].number // empty')"
           if [ -z "$(git log --oneline "origin/$MAIN..HEAD")" ]; then
             echo "$INTEGRATION ne contient rien de plus que $MAIN : pas de livraison."
@@ -550,7 +552,9 @@ jobs:
           ID: ${{ inputs.preversion }}
           INITIAL_VERSION: ${{ inputs.initial-version }}
         run: |
-          git fetch -q origin "$MAIN"
+          # Identifiants par le jeton de l'étape (GH_TOKEN, via gh) : un dépôt
+          # privé refuse le fetch anonyme (checkout sans identifiants persistés)
+          git -c credential.helper= -c 'credential.helper=!gh auth git-credential' fetch -q origin "$MAIN"
           base="$(bash .repowarden-ci/ci/version.sh next HEAD)"
           if [ -z "$base" ]; then
             echo "Aucune nouvelle version (ci, chore, docs…) : pas de préversion."
