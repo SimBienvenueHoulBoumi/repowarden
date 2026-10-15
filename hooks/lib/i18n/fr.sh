@@ -312,6 +312,8 @@ _msg_fr() {
         mig.dir) _M=".repogarde/ → .repowarden/" ;;
         mig.workflow) _M="%s : uses: vers simdevWarden/repowarden, anciens noms remplacés" ;;
         mig.renamed) _M="%s → %s" ;;
+        mig.tickets_events) _M="%s : événements du suivi des tickets complétés (push, revue, assignation, fermeture) : PR brouillon préremplie au premier push" ;;
+        mig.tickets_labels) _M="Étiquettes du suivi (type: feat, statuts…) : repowarden tickets init (relançable, ne réécrit aucun fichier)" ;;
         mig.hooks_moved) _M="Hooks lefthook résiduels (%s) déplacés dans %s" ;;
         mig.hooks_left) _M="Hooks lefthook résiduels dans .git/hooks (%s), ignorés : repowarden migrer --hooks pour les mettre de côté." ;;
         mig.lefthook_conf) _M="%s : lefthook n'est plus pris en charge ; déplacer ses commandes dans .repowarden/<hook>, puis supprimer ce fichier." ;;
@@ -331,6 +333,8 @@ _msg_fr() {
         ci.proteger.verify_legacy) _M="%s (id %s) : ancien ruleset, exige encore la vérification repogarde (retirée en v4)" ;;
         ci.proteger.api_error) _M="Ruleset « %s » refusé par GitHub : %s" ;;
         ci.proteger.incomplete) _M="Protection incomplète : voir les erreurs ci-dessus." ;;
+        ci.proteger.rulesets_unavailable) _M="Rulesets indisponibles pour %s : GitHub les refuse sur un dépôt privé d'un compte gratuit. Rendre le dépôt public, ou passer à GitHub Pro / Team ; les autres réglages sont appliqués." ;;
+        ci.proteger.tags_fallback) _M="Ruleset des tags : exception « GitHub Actions » refusée dans cette organisation ; tags protégés comme sur un compte personnel (ni déplacés ni supprimés, création libre)." ;;
         ci.version.usage) _M="Usage : ci/version.sh next|notes|notes-livraison [ref]" ;;
         ci.version.breaking) _M="Changements incompatibles" ;;
         ci.version.features) _M="Fonctionnalités" ;;

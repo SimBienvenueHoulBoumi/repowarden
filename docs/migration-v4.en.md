@@ -29,7 +29,7 @@ repowarden                            # check: machine status and next step
 
 ## In each project
 
-**In one command**, at the project root: `repowarden migrer` performs steps 1 to 3, reports what remains (lefthook hooks, `REPOGARDE_*` secrets to recreate, files still mentioning repogarde) and does nothing on a project already migrated. `repowarden migrer --pr` does the same on a `chore/migration-repowarden-v4` branch, then commits, pushes and opens the PR. `--hooks` sets aside the leftover lefthook hooks in `.git/hooks`. The details, to check or migrate by hand:
+**In one command**, at the project root: `repowarden migrer` performs steps 1 to 3, completes an outdated ticket tracking (`push`, review, assignment, closing events: prefilled draft PR on the first push), reports what remains (lefthook hooks, `REPOGARDE_*` secrets to recreate, files still mentioning repogarde, labels to create with `repowarden tickets init`) and does nothing on a project already migrated. `repowarden migrer --pr` does the same on a `chore/migration-repowarden-v4` branch, then commits, pushes and opens the PR. `--hooks` sets aside the leftover lefthook hooks in `.git/hooks`. The details, to check or migrate by hand:
 
 1. Rename `.repogarde.conf` to `.repowarden.conf`, and its `[repogarde]` section to `[repowarden]`; set `version = 4` in it.
 2. Rename the `.repogarde/` folder to `.repowarden/`, if it exists.

@@ -125,6 +125,38 @@ if [ -f .github/workflows/repogarde.yml ] && [ ! -e .github/workflows/repowarden
     fait mig.renamed .github/workflows/repogarde.yml .github/workflows/repowarden.yml
 fi
 
+# Suivi des tickets d'une version antérieure : sans l'événement push, le
+# premier push d'une branche de ticket n'ouvre pas la PR brouillon préremplie
+# (ni revue, assignation, fermeture : statuts figés). Section on: remplacée
+# par celle du modèle (repowarden tickets init), le reste gardé.
+for wf in .github/workflows/*.yml .github/workflows/*.yaml; do
+    [ -f "$wf" ] || continue
+    grep -q 'repowarden/.github/workflows/tickets.yml' "$wf" || continue
+    grep -qE '^  push:' "$wf" && continue
+    tmp="$(mktemp)"
+    awk '
+        /^on:/ {
+            print "on:"
+            print "  pull_request_target:"
+            print "    types: [opened, reopened, edited, synchronize, ready_for_review, converted_to_draft, closed]"
+            print "  pull_request_review:"
+            print "    types: [submitted]"
+            print "  issues:"
+            print "    types: [opened, labeled, assigned, closed]"
+            print "  push:"
+            print "    branches-ignore: [main, master, develop]"
+            dans = 1
+            next
+        }
+        dans && /^[^ #]/ { dans = 0 }
+        !dans { print }
+    ' "$wf" >"$tmp"
+    cat "$tmp" >"$wf"
+    rm -f "$tmp"
+    fait mig.tickets_events "$wf"
+    info_t mig.tickets_labels
+done
+
 # 3. Hooks lefthook résiduels (lefthook n'est plus pris en charge)
 hooks_dir="$(git rev-parse --git-common-dir)/hooks"
 residuels=""

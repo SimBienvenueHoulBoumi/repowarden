@@ -76,6 +76,11 @@ YML
     ! grep -q 'ref:' $w/tickets.yml
     grep -q 'permissions: { contents: write, issues: write' $w/tickets.yml
     grep -q '^permissions: {}$' $w/tickets.yml
+    # événements du modèle : PR brouillon préremplie au premier push
+    grep -qE '^  push:$' $w/tickets.yml
+    grep -q 'types: \[opened, labeled, assigned, closed\]' $w/tickets.yml
+    grep -q 'integration-branch: main' $w/tickets.yml
+    [[ "$output" == *"repowarden tickets init"* ]]
     ! grep -rqi repogarde .github
     # à faire à la main : secret à recréer, README à relire (non modifié)
     [[ "$output" == *"REPOWARDEN_APP_KEY"* ]]
@@ -168,6 +173,36 @@ GH
     [[ "$output" == *"Rien à migrer"* ]]
     [ "$(git branch --show-current)" = main ]
     ! git show-ref -q --verify refs/heads/chore/migration-repowarden-v4
+}
+
+@test "migrer : projet deja renomme, suivi des tickets perime -> evenements completes" {
+    git rm -q -r .repogarde.conf .repogarde .github
+    mkdir -p .github/workflows
+    cat >.github/workflows/tickets.yml <<'YML'
+name: tickets
+on:
+  pull_request_target:
+    types: [opened, closed]
+  issues:
+    types: [opened, labeled]
+permissions: {}
+jobs:
+  tickets:
+    uses: simdevWarden/repowarden/.github/workflows/tickets.yml@v4
+    with:
+      integration-branch: develop
+YML
+    git add -A && git -c core.hooksPath=/dev/null commit -q -m "chore: projet renommé"
+    run "$MIGRER"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"événements du suivi des tickets complétés"* ]]
+    grep -qE '^  push:$' .github/workflows/tickets.yml
+    grep -q 'integration-branch: develop' .github/workflows/tickets.yml
+    [ "$(grep -c '^on:' .github/workflows/tickets.yml)" -eq 1 ]
+    if command -v actionlint >/dev/null; then actionlint .github/workflows/tickets.yml; fi
+    git add -A && git -c core.hooksPath=/dev/null commit -q -m "chore: migration"
+    run "$MIGRER"
+    [[ "$output" == *"Rien à migrer"* ]]
 }
 
 @test "statut : anciens noms dans le projet -> repowarden migrer propose" {

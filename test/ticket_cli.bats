@@ -184,3 +184,15 @@ gere() {
     ! grep -q "issue develop" "$F/log"
     [ -z "$(git branch --list 'feat/18*')" ]
 }
+
+@test "tickets init : etiquettes, fichiers du modele, fin sans erreur" {
+    gere
+    PATH="$F/bin:$PATH" run "$BATS_TEST_DIRNAME/../bin/tickets" init --repo o/r
+    [ "$status" -eq 0 ] || { echo "$output"; return 1; }
+    [[ "$output" != *"command not found"* ]]
+    [[ "$output" == *"Création auto de ticket : DÉSACTIVÉE"*"Suivi des tickets prêt."* ]]
+    grep -q '^label create type: feat --repo o/r' "$FAKE/log"
+    [ -f .github/ISSUE_TEMPLATE/ticket.yml ]
+    # workflow existant : laissé tel quel
+    grep -q "uses: o/repowarden/.github/workflows/tickets.yml@v4" .github/workflows/tickets.yml
+}
