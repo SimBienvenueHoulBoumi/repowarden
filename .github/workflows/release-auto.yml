@@ -389,6 +389,9 @@ jobs:
       actions: write # retour : lancer la CI sur sa PR
       checks: read
       statuses: write # retour : reporter le résultat de cette CI
+      # Notes de version : titres des tickets livrés (dépôt privé : sans cette
+      # permission, illisibles). L'appelant doit l'accorder (release.yml)
+      issues: read
     outputs:
       release_created: ${{ steps.publier.outputs.release_created }}
       tag_name: ${{ steps.publier.outputs.tag_name }}

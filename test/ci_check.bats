@@ -1044,6 +1044,12 @@ GH
     [[ "$output" == *"### Fonctionnalités"*"- feat: panier"* ]]
 }
 
+@test "workflows : release-auto demande issues: read (tickets des notes), repowarden l'accorde" {
+    cd "$BATS_TEST_DIRNAME/.."
+    awk '/^  tag:/ { j = 1 } j && /^  [a-z]+:$/ && !/^  tag:/ { j = 0 } j' .github/workflows/release-auto.yml | grep -q '^      issues: read'
+    grep -A8 'uses: ./.github/workflows/release-auto.yml' .github/workflows/release.yml | grep -q 'issues: read'
+}
+
 @test "workflows reutilisables : git fetch et push authentifies (depots prives)" {
     # checkout sans identifiants persistés : un fetch anonyme échoue sur un dépôt privé
     run grep -nE '^\s+git (fetch|push)' "$BATS_TEST_DIRNAME"/../.github/workflows/release-auto.yml \

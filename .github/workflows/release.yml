@@ -43,6 +43,7 @@ jobs:
       actions: write
       checks: read
       statuses: write
+      issues: read # notes de version : tickets livrés
     with:
       # Mode tag : le travail s'intègre dans develop (préversions next) ;
       # merger la PR de livraison develop → main publie le tag vX.Y.Z et la
