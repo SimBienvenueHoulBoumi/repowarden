@@ -845,6 +845,76 @@ c() { git commit -q --no-verify --allow-empty -m "$1"; }
     [[ "$output" == *"_Since v1.0.0._"* ]]
 }
 
+# Faux gh des notes : tickets #12 (feat), #13 (fix) et #14 (docs) ; PR de
+# livraison mergée au commit demandé si $GH_LIVRAISON (sa description)
+fake_gh_notes() {
+    mkdir -p "$BATS_TEST_TMPDIR/bin"
+    cat >"$BATS_TEST_TMPDIR/bin/gh" <<'GH'
+#!/usr/bin/env bash
+case "$1 $2 $3" in
+    "issue view 12") printf 'Panier : total affiché\ttype: feat\n' ;;
+    "issue view 13") printf 'API : délai dépassé géré\ttype: fix\n' ;;
+    "issue view 14") printf 'Guide : installation\ttype: docs\n' ;;
+    "issue view "*) exit 1 ;;
+    "api repos/{owner}/{repo}/commits/"*)
+        [ -n "${GH_LIVRAISON:-}" ] || { echo ""; exit 0; }
+        printf '%s\n' "$GH_LIVRAISON" ;;
+esac
+GH
+    chmod +x "$BATS_TEST_TMPDIR/bin/gh"
+    export PATH="$BATS_TEST_TMPDIR/bin:$PATH"
+}
+
+@test "version : notes introduites par En bref, A faire, Mettre a jour et Tickets livres" {
+    fake_gh_notes
+    git tag v1.0.0
+    git commit -q --no-verify --allow-empty -m "fix(api): timeout" -m "Ticket : #13"
+    git commit -q --no-verify --allow-empty -m "feat: panier" -m "À faire : relancer repowarden proteger" -m "Ticket : #12"
+    git commit -q --no-verify --allow-empty -m "docs: guide" -m "Ticket : #14"
+    git commit -q --no-verify --allow-empty -m "feat: suite du panier" -m "Ticket : #12"
+    git commit -q --no-verify --allow-empty -m "feat!: nouvelle API" -m "BREAKING CHANGE: /v1 retirée"
+    printf '[repowarden]\n\treleaseUpdate = npm update -g mon-outil\n' >.repowarden.conf
+    run "$VERSION" notes
+    [ "$status" -eq 0 ]
+    # fonctionnalités, puis corrections, puis le reste ; un ticket une seule fois
+    [[ "$output" == *"### En bref"*"- Panier : total affiché (#12)"*"- API : délai dépassé géré (#13)"*"- Guide : installation (#14)"*"### À faire"* ]]
+    [ "$(grep -c "(#12)" <<<"$output")" -eq 1 ]
+    [[ "$output" == *"### À faire"*"- relancer repowarden proteger"*"- /v1 retirée"* ]]
+    [[ "$output" == *"### Mettre à jour"*'`npm update -g mon-outil`'* ]]
+    [[ "$output" == *"### Tickets livrés"*"#12, #13, #14"*"### ⚠ Changements incompatibles"* ]]
+    [[ "$output" == *"### Fonctionnalités"*"- feat: panier"* ]]
+}
+
+@test "version : sans ticket, sans gh ni reglage -> notes sans introduction" {
+    git tag v1.0.0
+    c "feat: panier"
+    run "$VERSION" notes
+    [[ "$output" != *"En bref"* && "$output" != *"Mettre à jour"* && "$output" != *"Tickets livrés"* ]]
+    # tickets cités mais gh absent ou muet : pas de partie tickets
+    mkdir -p "$BATS_TEST_TMPDIR/bin"
+    printf '#!/usr/bin/env bash\nexit 1\n' >"$BATS_TEST_TMPDIR/bin/gh"
+    chmod +x "$BATS_TEST_TMPDIR/bin/gh"
+    git commit -q --no-verify --allow-empty -m "fix: b" -m "Ticket : #99"
+    PATH="$BATS_TEST_TMPDIR/bin:$PATH" run "$VERSION" notes
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"En bref"* && "$output" != *"#99"* ]]
+}
+
+@test "version : release -> notes de la PR de livraison relue, sinon recalculees" {
+    fake_gh_notes
+    git tag v1.0.0
+    c "feat: panier"
+    # PR trouvée : sans la phrase d'en-tête ni le pied
+    GH_LIVRAISON="$(printf 'Merger cette PR publie **v1.1.0**.\n\n### En bref\n\n- Corrigé à la relecture\n\n---\n_Tenue à jour (repowarden)._')" \
+        run "$VERSION" notes-livraison HEAD
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"- Corrigé à la relecture"* ]]
+    [[ "$output" != *"Merger cette PR"* && "$output" != *"Tenue à jour"* && "$output" != *"feat: panier"* ]]
+    # aucune PR : notes recalculées
+    run "$VERSION" notes-livraison HEAD
+    [[ "$output" == *"### Fonctionnalités"*"- feat: panier"* ]]
+}
+
 # --- Code mort (ci/check.sh deadcode) : outils simulés ---------------------------
 
 # Faux ruff et vulture : signalent une ligne de chaque fichier Python listé

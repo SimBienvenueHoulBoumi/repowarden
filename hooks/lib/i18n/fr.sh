@@ -328,11 +328,15 @@ _msg_fr() {
         ci.proteger.verify_legacy) _M="%s (id %s) : ancien ruleset, exige encore la vérification repogarde (retirée en v4)" ;;
         ci.proteger.api_error) _M="Ruleset « %s » refusé par GitHub : %s" ;;
         ci.proteger.incomplete) _M="Protection incomplète : voir les erreurs ci-dessus." ;;
-        ci.version.usage) _M="Usage : ci/version.sh next|notes [ref]" ;;
+        ci.version.usage) _M="Usage : ci/version.sh next|notes|notes-livraison [ref]" ;;
         ci.version.breaking) _M="Changements incompatibles" ;;
         ci.version.features) _M="Fonctionnalités" ;;
         ci.version.fixes) _M="Corrections" ;;
         ci.version.maintenance) _M="Maintenance" ;;
+        ci.version.summary) _M="En bref" ;;
+        ci.version.todo) _M="À faire" ;;
+        ci.version.update) _M="Mettre à jour" ;;
+        ci.version.tickets) _M="Tickets livrés" ;;
         ci.install_tool.os) _M="Système non supporté : %s" ;;
         ci.install_tool.arch) _M="Architecture non supportée : %s" ;;
         ci.install_tool.unknown) _M="Outil inconnu : %s" ;;
