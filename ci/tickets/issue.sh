@@ -98,7 +98,7 @@ cmd_issue() {
             while IFS= read -r pr; do
                 [ -n "$pr" ] || continue
                 _tr tk.abandoned "$ISSUE"
-                gh pr close "$pr" --comment "$_T" >/dev/null
+                fermer_pr "$pr" "$_T"
             done < <(gh pr list --state open --head "$branche" --json number -q '.[].number')
             gh api -X DELETE "repos/$GH_REPO/git/refs/heads/$branche" >/dev/null
             notice_t tk.branch_deleted "$branche" "$ISSUE"

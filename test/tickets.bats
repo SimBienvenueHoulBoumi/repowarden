@@ -21,6 +21,7 @@ case "$1 $2" in
             *"-q .body"*) cat "$F/pr_body.$3" 2>/dev/null || cat "$F/pr_body" 2>/dev/null || true ;;
             *"-q .title"*) echo "feat: panier" ;;
             *"-q .isDraft"*) echo "${FAKE_DRAFT:-true}" ;;
+            *"-q .state"*) echo "${FAKE_PR_STATE:-OPEN}" ;;
             *commits*) cat "$F/pr_commits" 2>/dev/null || true ;;
         esac ;;
     "pr edit")
@@ -40,7 +41,7 @@ case "$1 $2" in
             shift
         done
         echo "https://github.com/o/r/pull/9" ;;
-    "pr close") echo "pr-fermee $3" >>"$F/events" ;;
+    "pr close") [ -z "${FAKE_CLOSE_FAIL:-}" ] || exit 1; echo "pr-fermee $3" >>"$F/events" ;;
     "pr merge")
         case "$*" in
             *--disable-auto*) echo "merge-desarme $3" >>"$F/events" ;;
@@ -381,6 +382,12 @@ EOF
     : >"$F/events"
     ACTION=opened HEAD=develop BASE=main run "$TICKETS" pr
     ! grep -q "pr-fermee" "$F/events"
+    # deja mergee pendant le run : rien a fermer, pas un echec
+    FAKE_CLOSE_FAIL=1 FAKE_PR_STATE=MERGED FAKE_AHEAD=0 ACTION=opened HEAD=main BASE=develop run "$TICKETS" pr
+    [ "$status" -eq 0 ]
+    # encore ouverte et fermeture refusee : echec signale
+    FAKE_CLOSE_FAIL=1 FAKE_PR_STATE=OPEN FAKE_AHEAD=0 ACTION=opened HEAD=main BASE=develop run "$TICKETS" pr
+    [ "$status" -ne 0 ]
 }
 
 @test "tickets : livraison par le workflow -> PR develop vers main ouverte a la main fermee avec la marche a suivre" {
