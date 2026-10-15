@@ -996,6 +996,14 @@ GH
     [[ "$output" == *"### Fonctionnalités"*"- feat: panier"* ]]
 }
 
+@test "workflows reutilisables : git fetch et push authentifies (depots prives)" {
+    # checkout sans identifiants persistés : un fetch anonyme échoue sur un dépôt privé
+    run grep -nE '^\s+git (fetch|push)' "$BATS_TEST_DIRNAME"/../.github/workflows/release-auto.yml \
+        "$BATS_TEST_DIRNAME"/../.github/workflows/tickets.yml "$BATS_TEST_DIRNAME"/../.github/workflows/bot.yml
+    [ -z "$output" ] || { echo "sans identifiants :"; echo "$output"; return 1; }
+    grep -q "credential.helper=!gh auth git-credential' fetch -q origin" "$BATS_TEST_DIRNAME"/../.github/workflows/release-auto.yml
+}
+
 # --- ci/livraison.sh (statut « livraison » de la PR de livraison) : gh simulé ----
 
 LIVRAISON="$BATS_TEST_DIRNAME/../ci/livraison.sh"
