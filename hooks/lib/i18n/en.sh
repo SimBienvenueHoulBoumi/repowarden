@@ -335,6 +335,7 @@ _msg_en() {
         ci.proteger.api_error) _M="Ruleset \"%s\" rejected by GitHub: %s" ;;
         ci.proteger.incomplete) _M="Incomplete protection: see the errors above." ;;
         ci.proteger.rulesets_unavailable) _M="Rulesets unavailable for %s: GitHub refuses them on a private repository of a free account. Make the repository public, or move to GitHub Pro / Team; the other settings are applied." ;;
+        ci.proteger.no_squash) _M="Without rulesets, the merge method cannot be enforced per branch: squash disabled (merge commit only), otherwise a squashed delivery would break the main branch history." ;;
         ci.proteger.tags_fallback) _M="Tags ruleset: \"GitHub Actions\" bypass refused in this organization; tags protected as on a personal account (not moved or deleted, creation allowed)." ;;
         ci.version.usage) _M="Usage: ci/version.sh next|notes|notes-livraison [ref]" ;;
         ci.version.breaking) _M="Breaking changes" ;;

@@ -34,6 +34,13 @@ statut() {
     gh issue edit "$n" --add-label "$s" ${retirer[@]+"${retirer[@]}"} >/dev/null
 }
 
+# Ferme la PR $1 avec le commentaire $2 ; déjà fermée ou mergée entre-temps
+# (merge pendant le run) : rien à faire, pas un échec
+fermer_pr() {
+    gh pr close "$1" --comment "$2" >/dev/null 2>&1 && return 0
+    [ "$(gh pr view "$1" --json state -q .state 2>/dev/null)" != OPEN ]
+}
+
 etiquettes() { gh issue view "$1" --json labels -q '.labels[].name' 2>/dev/null || true; }
 
 # REPLY = « <n° de PR> <branche cible> » de la PR dont le merge a fermé le

@@ -434,7 +434,14 @@ if [ -n "$DRY_RUN" ]; then
     exit 0
 fi
 
-settings=(-F allow_squash_merge=true -F allow_merge_commit="$merge_commit" -F allow_rebase_merge=false
+# Sans rulesets, le mode de merge ne peut pas être imposé par branche : dans le
+# flux develop, merge commit seul (une livraison squashée casserait l'historique)
+squash=true
+if [ -z "$RULESETS_OK" ] && [ -n "$integration" ]; then
+    squash=false
+    attention_t ci.proteger.no_squash
+fi
+settings=(-F allow_squash_merge="$squash" -F allow_merge_commit="$merge_commit" -F allow_rebase_merge=false
     -F delete_branch_on_merge="$delete_on_merge" -F allow_auto_merge="$auto_merge"
     -f squash_merge_commit_title=PR_TITLE -f squash_merge_commit_message=PR_BODY)
 [ -z "$integration" ] || settings+=(-f default_branch="$integration")
