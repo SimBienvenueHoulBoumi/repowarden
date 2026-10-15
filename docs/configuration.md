@@ -18,6 +18,7 @@ Versionné à la racine du projet, au format `git config`, lu **par les hooks et
     allowedBranches = main develop release/*
     exclude = vendor/* generated/*      # chemins ni formatés ni testés
     allowAgentSignatures = false        # agents IA (auteur, Co-Authored-By) refusés ; défaut false
+    releaseUpdate = npm update -g mon-outil   # commande « Mettre à jour » des notes de version
     # Bot d'organisation (repowarden bot)
     bot = auto                          # auto (défaut) : protection appliquée et PR de migration ; pr : PR seulement ; off : ignoré
     requiredChecks = repowarden,tests   # vérifications exigées posées par le bot ; défaut : celles en ligne

@@ -18,6 +18,7 @@ Versioned at the project root, in `git config` format, read **by the hooks and b
     allowedBranches = main develop release/*
     exclude = vendor/* generated/*      # paths neither formatted nor tested
     allowAgentSignatures = false        # AI agents (author, Co-Authored-By) refused; default false
+    releaseUpdate = npm update -g my-tool     # "Update" command in the release notes
     # Organization bot (repowarden bot)
     bot = auto                          # auto (default): protection applied and migration PRs; pr: PRs only; off: ignored
     requiredChecks = repowarden,tests   # required checks set by the bot; default: the online ones

@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # Versions d'après les Conventional Commits, sans fichier de version (mode tag) :
 #   ci/version.sh next  [ref]   prochaine version X.Y.Z, ou rien s'il n'y a rien à publier
-#   ci/version.sh notes [ref]   notes de version (Markdown)
+#   ci/version.sh notes [ref]   notes de version (Markdown) : introduction (En bref,
+#                               À faire, Mettre à jour, Tickets livrés), puis commits par type
+#   ci/version.sh notes-livraison [ref]
+#                               notes de la PR de livraison mergée en ref (celles que
+#                               l'approbateur a relues, corrections comprises), sinon notes
 # Depuis le tag vX.Y.Z le plus élevé (pas le plus proche : une branche
 # d'intégration ne contient pas les merges tagués sur main).
 #   type! ou BREAKING CHANGE → majeure ; feat → mineure ; fix, perf → correctif.
@@ -68,6 +72,7 @@ notes() {
             breaking="$breaking- $s ($h)"$'\n'
         fi
     done <<<"$commits"
+    intro
     t ci.version.breaking
     [ -z "$breaking" ] || printf '### ⚠ %s\n\n%s\n' "$REPLY" "$breaking"
     t ci.version.features
@@ -77,6 +82,67 @@ notes() {
     t ci.version.maintenance
     section "$REPLY" "^(build|ci|chore|docs|refactor|style|test|revert)$scope!?: "
     echo_t ci.version.5 "${last:-le début du projet}"
+}
+
+# Introduction des notes, assemblée sans rien inventer : tickets livrés
+# (« Ticket : #N » des commits ; titres lus par gh s'il répond), actions
+# demandées (BREAKING CHANGE, « À faire : »), commande de mise à jour
+# (releaseUpdate). Chaque partie vide est omise.
+intro() {
+    local corps numeros n infos titre type feats="" fixes="" autres="" faire liste="" maj
+    corps="$(git log --no-merges --reverse --format=%B "$range")"
+    numeros="$(grep -oE '^Tickets? *: *#[0-9]+' <<<"$corps" | grep -oE '[0-9]+' | awk '!vu[$0]++' || true)"
+    if [ -n "$numeros" ] && command -v gh >/dev/null; then
+        for n in $numeros; do
+            infos="$(gh issue view "$n" --json title,labels \
+                --jq '[.title, ([.labels[].name | select(startswith("type: "))][0] // "")] | @tsv' 2>/dev/null)" || continue
+            IFS="$tab" read -r titre type <<<"$infos"
+            case "$type" in
+                "type: feat") feats="$feats- $titre (#$n)"$'\n' ;;
+                "type: fix") fixes="$fixes- $titre (#$n)"$'\n' ;;
+                *) autres="$autres- $titre (#$n)"$'\n' ;;
+            esac
+            liste="$liste $n"
+        done
+    fi
+    if [ -n "$feats$fixes$autres" ]; then
+        t ci.version.summary
+        printf '### %s\n\n%s\n' "$REPLY" "$feats$fixes$autres"
+    fi
+    faire="$(sed -nE 's/^(BREAKING[ -]CHANGE|À faire|A faire|To do) *: *(.+)$/- \2/p' <<<"$corps" | awk '!vu[$0]++' || true)"
+    if [ -n "$faire" ]; then
+        t ci.version.todo
+        printf '### %s\n\n%s\n\n' "$REPLY" "$faire"
+    fi
+    cfg_r releaseUpdate ""
+    maj="$REPLY"
+    if [ -n "$maj" ]; then
+        t ci.version.update
+        # shellcheck disable=SC2016 # accents graves Markdown, pas une substitution
+        printf '### %s\n\n`%s`\n\n' "$REPLY" "$maj"
+    fi
+    if [ -n "$liste" ]; then
+        liste="$(tr ' ' '\n' <<<"$liste" | sed '/^$/d' | sort -n | sed 's/^/#/' | paste -sd, - | sed 's/,/, /g')"
+        t ci.version.tickets
+        printf '### %s\n\n%s\n\n' "$REPLY" "$liste"
+    fi
+}
+
+# Notes de la PR de livraison (branche d'intégration ou instantané livraison/*)
+# mergée en $1 : sa description sans la phrase d'en-tête (premier paragraphe)
+# ni le pied (à partir de « --- ») ; sinon, notes recalculées
+notes_livraison() {
+    local sha corps
+    sha="$(git rev-parse "$1")"
+    corps="$(gh api "repos/{owner}/{repo}/commits/$sha/pulls" --jq "[.[] | select(.merged_at != null
+        and (.head.ref == \"${INTEGRATION:-develop}\" or (.head.ref | startswith(\"livraison/\"))))][0].body // empty" \
+        2>/dev/null || true)"
+    corps="$(tr -d '\r' <<<"$corps" | awk 'f == 0 { if ($0 == "") f = 1; next } /^---$/ { exit } { print }')"
+    if [ -n "$(tr -d '[:space:]' <<<"$corps")" ]; then
+        printf '%s\n' "$corps"
+    else
+        notes
+    fi
 }
 
 section() { # titre, motif sur le sujet
@@ -89,5 +155,6 @@ section() { # titre, motif sur le sujet
 case "$cmd" in
     next) next ;;
     notes) notes ;;
+    notes-livraison) notes_livraison "$ref" ;;
     *) echo_t ci.version.usage >&2; exit 2 ;;
 esac

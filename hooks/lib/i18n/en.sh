@@ -328,11 +328,15 @@ _msg_en() {
         ci.proteger.verify_legacy) _M="%s (id %s): old ruleset, still requires the repogarde check (removed in v4)" ;;
         ci.proteger.api_error) _M="Ruleset \"%s\" rejected by GitHub: %s" ;;
         ci.proteger.incomplete) _M="Incomplete protection: see the errors above." ;;
-        ci.version.usage) _M="Usage: ci/version.sh next|notes [ref]" ;;
+        ci.version.usage) _M="Usage: ci/version.sh next|notes|notes-livraison [ref]" ;;
         ci.version.breaking) _M="Breaking changes" ;;
         ci.version.features) _M="Features" ;;
         ci.version.fixes) _M="Bug fixes" ;;
         ci.version.maintenance) _M="Maintenance" ;;
+        ci.version.summary) _M="In short" ;;
+        ci.version.todo) _M="To do" ;;
+        ci.version.update) _M="Update" ;;
+        ci.version.tickets) _M="Delivered tickets" ;;
         ci.install_tool.os) _M="Unsupported system: %s" ;;
         ci.install_tool.arch) _M="Unsupported architecture: %s" ;;
         ci.install_tool.unknown) _M="Unknown tool: %s" ;;

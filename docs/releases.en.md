@@ -155,6 +155,21 @@ Stable versions follow a regular pace: `develop` accumulates, one delivery per w
 
 The project CI must run on pushes to `develop`: its checks apply to the head commit, and therefore to the delivery PR.
 
+### Release notes
+
+Written by the bot, with nothing to fill in and nothing made up. At the top, an introduction whose parts only appear when they have content:
+
+| Part | Content | Source |
+|---|---|---|
+| **In short** | the delivered tickets: features, then fixes, then the rest | `Ticket : #N` in the commits (the PR description, when squashed); ticket title and `type:` label, read with `gh` |
+| **To do** | what the user has to do | `BREAKING CHANGE: …` and `To do: …` lines in the commits (write "To do: …" in the PR description) |
+| **Update** | the update command | `releaseUpdate` in `.repowarden.conf` |
+| **Delivered tickets** | `#12, #13…` | the same `Ticket : #N` |
+
+The commits by type follow (breaking, features, fixes, maintenance). A clear ticket title therefore reads directly as an "In short" line.
+
+**Review before publishing**: the notes show in the delivery PR. Whatever is corrected there before approval is published as is: the release takes the description of the merged delivery PR (without its header sentence or footer), and only recomputes the notes if it cannot find it.
+
 ## develop → main cycle with version files (cycle mode)
 
 !!! warning "Not recommended: prefer tag mode"

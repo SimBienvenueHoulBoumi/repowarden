@@ -601,7 +601,9 @@ jobs:
             echo "::error::$tag refusée : aucune préversion $tag-$ID.N publiée depuis $INTEGRATION. Livrer depuis $INTEGRATION (préversion testée), ou désactiver preversion-obligatoire."
             exit 1
           fi
-          bash .repowarden-ci/ci/version.sh notes HEAD >"$RUNNER_TEMP/notes.md"
+          # Notes de la PR de livraison mergée : ce que l'approbateur a relu,
+          # corrections comprises ; sinon recalculées
+          bash .repowarden-ci/ci/version.sh notes-livraison HEAD >"$RUNNER_TEMP/notes.md"
           gh release create "$tag" --target "$GITHUB_SHA" --title "$tag" --notes-file "$RUNNER_TEMP/notes.md"
           # Ses préversions ont servi : retirées de GitHub (releases et tags) ;
           # sur npm elles restent (une version publiée ne se retire pas)
