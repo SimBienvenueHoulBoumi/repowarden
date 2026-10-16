@@ -5,16 +5,16 @@
 # de confiance, OIDC) et joint la provenance au paquet.
 #
 #   bin/npm-publication [--repo propriétaire/nom] [--workflow release.yml]
-#                       [--environnement NOM]
+#                       [--environnement NOM] [--dry-run]
 #
 # 1. connexion npm (npm login si besoin) ;
 # 2. paquet absent de npm (la publication de confiance exige un paquet
-#    existant) : jeton npm temporaire (7 jours, limité au scope du paquet)
-#    créé et rangé directement en secret NPM_TOKEN, sans être affiché ;
-#    variable REPOWARDEN_NPM=true ; la pipeline publie la dernière release
-#    (lancée par la commande), ou la prochaine s'il n'y en a pas encore ;
-# 3. publication de confiance (npm trust github), puis jeton révoqué et
-#    secret supprimé. Interrompue, la commande reprend où elle en était.
+#    existant) : la dernière release est publiée d'ici, par npm publish lancé
+#    dans le terminal (npm conduit sa validation : navigateur ou code) ;
+#    aucune release : rien n'est publié, relancer après la première ;
+# 3. publication de confiance (npm trust github), variable REPOWARDEN_NPM ;
+#    un ancien secret NPM_TOKEN et d'anciens jetons temporaires sont retirés.
+#    Interrompue, la commande reprend où elle en était.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
@@ -48,8 +48,7 @@ cd "$GIT_TOPLEVEL"
 [ -f package.json ] || { err_t npm.no_package; exit 1; }
 [ -n "$REPO" ] || REPO="$(gh repo view --json nameWithOwner -q .nameWithOwner)"
 name="$(node -p 'require("./package.json").name')"
-# Préfixe des jetons temporaires : nom unique à chaque création (npm refuse
-# les doublons, y compris celui d'une tentative interrompue) ; tous révoqués à la fin
+# Préfixe des jetons temporaires de l'ancien parcours, révoqués à la fin
 TOKEN_PREFIX="repowarden-ci-${REPO##*/}"
 
 # Vérifie si une relation de confiance correspond aux paramètres attendus.
@@ -119,8 +118,8 @@ brand "npm · $name · $REPO"
 step_t npm.step_login
 npm whoami >/dev/null 2>&1 || npm login
 ok_t npm.logged "$(npm whoami)"
-# Créer un jeton et configurer la publication de confiance exigent la 2FA du
-# compte (les codes envoyés par e-mail ne sont qu'une vérification de connexion)
+# Configurer la publication de confiance exige la 2FA du compte (les codes
+# envoyés par e-mail ne sont qu'une vérification de connexion)
 if [ "$(npm profile get --json 2>/dev/null | node -e 'try{const p=JSON.parse(require("fs").readFileSync(0,"utf8"));process.stdout.write(p.tfa&&p.tfa.mode?"1":"")}catch{}')" != 1 ]; then
     err_t npm.no_2fa
     dim_t npm.hint_2fa "$(npm whoami)"
@@ -129,69 +128,40 @@ fi
 
 publie() { [ -n "$(npm view "$name" name 2>/dev/null || true)" ]; }
 
-# 2. Première publication, faite par la pipeline avec un jeton temporaire
+# 2. Première publication, faite ici depuis la dernière release : npm conduit
+# lui-même sa validation (navigateur ou code), dans le terminal. Aucun jeton
+# créé ni stocké, aucun mot de passe saisi par repowarden
 if ! publie; then
-    step_t npm.step_token
-    if grep -q '^NPM_TOKEN' <<<"$(gh secret list --repo "$REPO")"; then
-        ok_t npm.token_exists
-    else
-        # npm écrit ses questions et le jeton au même endroit : les questions
-        # sont posées ici (saisie masquée) et le jeton va droit au secret
-        if [[ "$name" == @*/* ]]; then portee=(--scopes "${name%%/*}"); else portee=(--packages-all); fi
-        t npm.ask_password
-        read -r -s -p "  $REPLY" mdp
-        echo
-        otp="" sortie=""
-        for essai in 1 2 3 4; do
-            # Sortie texte, pas --json : npm y masque le jeton (« npm_*** »)
-            if sortie="$(npm_config_password="$mdp" npm_config_otp="$otp" npm token create \
-                --name "$TOKEN_PREFIX-$(date +%Y%m%d%H%M%S)" --expires 7 "${portee[@]}" \
-                --packages-and-scopes-permission read-write --bypass-2fa </dev/null 2>&1)"; then
-                break
-            fi
-            # Code à usage unique (application ou e-mail) demandé : on le pose
-            if [ "$essai" -lt 4 ] && grep -qiE 'otp|one-time|two-factor' <<<"$sortie"; then
-                t npm.ask_otp
-                read -r -p "  $REPLY" otp
-                continue
-            fi
-            sed -E 's/npm_[A-Za-z0-9]+/npm_***/g' <<<"$sortie" >&2
-            mdp=""
-            err_t npm.token_failed
-            exit 1
-        done
-        mdp=""
-        jeton="$(grep -oE 'npm_[A-Za-z0-9]+' <<<"$sortie" | sed -n 1p || true)"
-        sortie=""
-        [ -n "$jeton" ] || { err_t npm.token_failed; exit 1; }
-        printf '%s' "$jeton" | gh secret set NPM_TOKEN --repo "$REPO"
-        jeton=""
-        ok_t npm.token_stored
+    step_t npm.step_first
+    tag="$(gh release view --repo "$REPO" --json tagName -q .tagName 2>/dev/null || true)"
+    if [ -z "$tag" ]; then
+        attention_t npm.no_release "$name"
+        exit 0
     fi
-    gh variable set REPOWARDEN_NPM --repo "$REPO" --body true
-
-    # Release déjà publiée : la pipeline est lancée tout de suite (elle publie
-    # la dernière release absente de npm) ; sinon, la prochaine release publie
-    if [ -n "$(git ls-remote --tags origin 'v[0-9]*')" ]; then
-        branche="$(gh repo view "$REPO" --json defaultBranchRef -q .defaultBranchRef.name)"
-        gh workflow run "$WORKFLOW" --repo "$REPO" --ref "$branche"
-        info_t npm.dispatched "$WORKFLOW"
-    else
-        info_t npm.waiting "$name"
+    version="${tag#v}"
+    if [ "$DRY_RUN" = true ]; then
+        info_t npm.would_publish "$name" "$version" "$tag"
+        exit 0
     fi
-    for i in $(seq 1 360); do
-        publie && break
-        [ $((i % 10)) -ne 0 ] || dim_t npm.still_waiting "$((i / 2))"
-        sleep 30
-    done
-    publie || { attention_t npm.not_yet; exit 0; }
-    ok_t npm.first_published "$name" "$(npm view "$name" version)"
+    clone="$(mktemp -d "${TMPDIR:-/tmp}/repowarden-npm.XXXXXX")"
+    trap 'rm -rf "$clone"' EXIT
+    gh repo clone "$REPO" "$clone/src" -- -q --depth 1 --branch "$tag"
+    info_t npm.publishing "$name" "$version" "$tag"
+    # Sortie non capturée, entrée héritée : npm pose ses questions lui-même
+    if ! (cd "$clone/src" && npm pkg set "version=$version" && npm publish --access public); then
+        err_t npm.publish_failed "$name"
+        exit 1
+    fi
+    rm -rf "$clone"
+    trap - EXIT
+    ok_t npm.first_published "$name" "$version"
 fi
 
 # 3. Publication de confiance, puis plus aucun jeton
 step_t npm.step_trust
-verifier_trust
-cas=$?
+# Pas de relation (1) ou relation différente (2) : ne doit pas arrêter le script (set -e)
+cas=0
+verifier_trust || cas=$?
 if [ "$cas" = 0 ]; then
     ok_t npm.trust_exists
 elif [ "$cas" = 1 ]; then

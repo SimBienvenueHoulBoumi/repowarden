@@ -237,16 +237,16 @@ Requirements:
 
 A Node project can publish its package on every release, **without a token**: npm checks that the publication comes from the repository and its `release.yml` (trusted publishing) and shows the package provenance. yarn, pnpm and bun install from the same registry. repowarden itself is published this way (`repowarden`).
 
-One-command setup, from the project repository. Everything is published by the pipeline, the first version included:
+One-command setup, from the project repository. The first version is published from your machine, the following ones by the pipeline:
 
 1. **npm login**, if needed.
 2. **Package not on npm yet** (npm only accepts trusted publishing on an existing package):
-   - a temporary npm token is created, valid for 7 days and limited to the package scope;
-   - it goes straight into the `NPM_TOKEN` secret and is never displayed; the password and 2FA code are asked as hidden input;
-   - the `REPOWARDEN_NPM` variable enables the job, then the command waits for the next release to publish the package.
-3. **Trusted publishing**: configured with `npm trust github`, no form to fill in. The secret is then deleted and the token revoked. The following releases publish without a token.
+   - the latest release of the repository (its tag) is cloned into a temporary folder and published at its version by `npm publish`, run in the terminal: npm drives its own validation (browser or code);
+   - no token is created or stored, no password is asked by repowarden;
+   - no release yet: nothing is published, run the command again after the first release; publication failed: the command stops without configuring anything.
+3. **Trusted publishing**: configured with `npm trust github`, no form to fill in, then the `REPOWARDEN_NPM` variable enables the job. A former `NPM_TOKEN` secret and former temporary tokens (previous flow) are removed. The following releases publish without a token.
 
-If interrupted (Ctrl+C), the command resumes where it left off when run again.
+If interrupted (Ctrl+C), the command resumes where it left off when run again. `--dry-run` shows what would be done without publishing anything.
 
 ```bash
 repowarden npm-publication
@@ -265,7 +265,7 @@ Then, in `.github/workflows/release.yml`:
       # environment: production     # approval before publishing (human validation)
       # directory: packages/ui      # package outside the root
     secrets:
-      npm-token: ${{ secrets.NPM_TOKEN }}   # first publication only
+      npm-token: ${{ secrets.NPM_TOKEN }}   # optional: former token flow
 ```
 
 Running the `release` workflow manually (Run workflow) publishes the latest release if it is missing from npm. The package is published at the tag version (tag mode included, without a version file). An already published version is skipped: re-running the workflow breaks nothing.
