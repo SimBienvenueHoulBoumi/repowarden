@@ -31,27 +31,56 @@ accepter() {
         -q '.[] | [.number, .headRefName, .headRefOid, .baseRefName, .isDraft] | @tsv')
 }
 
+# Ticket ouvert par un mainteneur (droits d'écriture) : c'est déjà sa
+# décision, validé d'office. Vérifié par tout événement du ticket (idempotent) :
+# GitHub ne garde qu'un run en attente par groupe de concurrence, le run
+# « opened » peut être annulé par ceux des étiquettes posées à la création.
+# Non si déjà validé, ou (hors ouverture) rangé au-delà de « à valider »
+# (« validé » retiré à la main : décision respectée). Test seul : appelé dans un « if », où set -e
+# ne s'applique pas.
+a_valider_d_office() {
+    local labels l
+    [ "${AUTO_VALIDATE:-maintainers}" = maintainers ] || return 1
+    est_mainteneur "${ISSUE_ASSOCIATION:-}" || return 1
+    [ "${ISSUE_STATE:-open}" = open ] || return 1
+    labels="$(etiquettes "$ISSUE")"
+    ! grep -qxF "$VALIDE" <<<"$labels" || return 1
+    [ "$ACTION" != opened ] || return 0
+    while IFS= read -r l; do
+        [[ "$l" == "statut: "* && "$l" != "$S_AVALIDER" ]] && return 1
+    done <<<"$labels"
+    return 0
+}
+
+valider_d_office() {
+    gh issue edit "$ISSUE" --add-label "$VALIDE" >/dev/null
+    statut "$ISSUE" "$S_AVALIDER"
+    accepter "$ISSUE"
+}
+
 cmd_issue() {
     local pr sha head body
     case "$ACTION" in
         opened)
             est_valide "$ISSUE" && return 0
-            # Ouvert par un mainteneur (droits d'écriture) : c'est déjà sa
-            # décision, validé d'office ; sinon, un mainteneur pose « validé »
-            if [ "${AUTO_VALIDATE:-maintainers}" = maintainers ] &&
-                est_mainteneur "${ISSUE_ASSOCIATION:-}"; then
-                gh issue edit "$ISSUE" --add-label "$VALIDE" >/dev/null
-                statut "$ISSUE" "$S_AVALIDER"
-                accepter "$ISSUE"
+            # Validé d'office, sinon un mainteneur pose « validé »
+            if a_valider_d_office; then
+                valider_d_office
             else
                 statut "$ISSUE" "$S_AVALIDER"
             fi
             ;;
         labeled)
-            [ "${LABEL:-}" = "$VALIDE" ] || return 0
-            accepter "$ISSUE"
+            if [ "${LABEL:-}" = "$VALIDE" ]; then
+                accepter "$ISSUE"
+            elif a_valider_d_office; then
+                valider_d_office
+            fi
             ;;
         assigned)
+            if a_valider_d_office; then
+                valider_d_office
+            fi
             # Pris en charge : sa branche (s'il est validé), en cours s'il est
             # validé ET assigné (quelle que soit la présence du label backlog,
             # pour gérer la race validation+assignation quasi simultanée).

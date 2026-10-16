@@ -284,7 +284,10 @@ _msg_en() {
         ci.proteger.reviews_invalid) _M="--relecteurs: a number from 0 to 9 is expected." ;;
         ci.proteger.codeowners_invalid) _M="codeOwnerReview: true or false." ;;
         ci.proteger.delivery_deploy) _M="  delivery into main: approval of the \"%s\" deployment (Approve and deploy), then merged by the GitHub App; auto-merge of work PRs into develop: %s" ;;
-        ci.proteger.delivery_invalid) _M="deliveryApproval: deployment or review." ;;
+        ci.proteger.delivery_invalid) _M="deliveryApproval: deployment, review or auto." ;;
+        ci.proteger.auto_needs_automerge) _M="deliveryApproval = auto needs the repository's auto-merge: remove autoMergeWork = false from .repowarden.conf, or choose deliveryApproval = deployment or review." ;;
+        ci.proteger.no_delivery_auto) _M="deliveryApproval = auto, but no workflow calls release-auto.yml with delivery-auto: true: nothing will arm the delivery merge, which will be done by hand (see docs/releases.md, automatic delivery)." ;;
+        ci.proteger.delivery_auto) _M="  delivery into main: automatic (the GitHub App merges it as soon as the required checks are green; %s approval(s) required)" ;;
         ci.proteger.automerge_invalid) _M="autoMergeWork: true or false." ;;
         ci.proteger.unattributed_invalid) _M="unattributedApproval: true or false." ;;
         ci.proteger.no_branch) _M="None of the branches \"%s\" exists on %s." ;;
@@ -393,19 +396,14 @@ _msg_en() {
         npm.old_npm) _M="npm %s is too old: 11.15 or later required (npm install -g npm@11)." ;;
         npm.step_login) _M="1/3 npm account" ;;
         npm.logged) _M="Logged in to npm: %s" ;;
-        npm.no_2fa) _M="Two-factor authentication (2FA) is not enabled on the npm account: npm requires it to create the token and configure tokenless publishing." ;;
+        npm.no_2fa) _M="Two-factor authentication (2FA) is not enabled on the npm account: npm requires it to configure tokenless publishing." ;;
         npm.hint_2fa) _M="Enable it: npm profile enable-2fa auth-and-writes (QR code for an authenticator app), or https://www.npmjs.com/settings/%s/tfa; then run this command again." ;;
-        npm.step_token) _M="2/3 First publication, by the pipeline (temporary token)" ;;
-        npm.token_exists) _M="NPM_TOKEN secret already present: reused." ;;
-        npm.ask_password) _M="npm password (hidden input, sent to npm only): " ;;
-        npm.ask_otp) _M="One-time code (authenticator app or npm email): " ;;
-        npm.token_failed) _M="Could not create the npm token (see above): nothing was stored." ;;
-        npm.token_stored) _M="Temporary token (7 days) created and stored as the NPM_TOKEN secret, never displayed." ;;
-        npm.dispatched) _M="Pipeline started (%s): it publishes the latest release to npm. Waiting… (Ctrl+C: run the command again later, it resumes)" ;;
-        npm.waiting) _M="The next release publishes %s: merge a PR (or let the bot merge the release PR). Waiting… (Ctrl+C: run the command again later, it resumes)" ;;
-        npm.still_waiting) _M="still waiting (%s min)…" ;;
-        npm.not_yet) _M="Not published yet: run this command again after the next release." ;;
-        npm.first_published) _M="%s@%s published by the pipeline." ;;
+        npm.step_first) _M="2/3 First publication, from this machine (latest release)" ;;
+        npm.no_release) _M="No release yet: nothing is published. Run this command again after the first release of %s." ;;
+        npm.would_publish) _M="[dry-run] %s@%s would be published from release %s (npm publish, in this terminal)" ;;
+        npm.publishing) _M="Publishing %s@%s (release %s): npm may ask for a validation (browser or code)." ;;
+        npm.publish_failed) _M="Publication of %s refused (see above): nothing else was configured. Run this command again." ;;
+        npm.first_published) _M="%s@%s published." ;;
         npm.step_trust) _M="3/3 Tokenless publishing (trusted publishing)" ;;
         npm.trust_exists) _M="Trusted publishing already configured." ;;
         npm.trust_mismatch) _M="Existing trust relationship does not match expected parameters:" ;;
@@ -467,7 +465,10 @@ _msg_en() {
         app.step_install) _M="Installing on the repository" ;;
         app.installed) _M="App %s installed on %s." ;;
         app.not_installed) _M="App %s not installed on %s yet: run repowarden app init again once installed." ;;
-        app.check_in_ci) _M="Installation checked by the first ticket tracking run (\"Jeton de l'App\" step); to install it: %s" ;;
+        app.not_verified) _M="Installation of App %s on %s not verified: the private key is not on this machine (only the App can list its installations). If it is not installed, workflows will fail at the \"Jeton de l'App\" step. To install it: %s" ;;
+        app.name_taken) _M="A GitHub App named %s already exists (often an orphan App from an interrupted attempt: created on GitHub, credentials never stored)." ;;
+        app.name_taken_fix) _M="Either run again with --nom <other name>, or delete the orphan App (Settings → Developer settings → GitHub Apps → the App → Advanced → Delete): %s" ;;
+        app.name_hint) _M="If GitHub refuses the name %s (already taken): Ctrl+C, then run again with --nom <other name>, or delete the orphan App: %s" ;;
         app.done) _M="repowarden workflows now use the App: what they do triggers the other workflows." ;;
         app.next) _M="Without the App (variable and secret missing), they fall back to the Actions token." ;;
         app.bot_all_repos) _M="Organization bot: when installing, choose \"All repositories\" (new repositories are covered automatically; only those with a .repowarden.conf are managed)." ;;
@@ -581,6 +582,7 @@ _msg_en() {
         tk.init_auto_create_on) _M="Auto ticket creation: ENABLED (ticketAutoCreate = true)" ;;
         tk.init_auto_create_off) _M="Auto ticket creation: DISABLED (default). To enable: git config repowarden.ticketAutoCreate true" ;;
         tk.init_next) _M="Next: commit these files; require the \"ticket\" check (repowarden proteger --checks \"…,ticket\"); in release.yml, wire the tickets job (see the Tickets docs)." ;;
+        tk.init_next_wired) _M="Next: commit these files; require the \"ticket\" check (repowarden proteger --checks \"…,ticket\"). The tickets job of release.yml is already wired." ;;
         tk.prerelease) _M="Available in pre-release **%s**: to be tested before production." ;;
         tk.released) _M="Released in **%s**." ;;
         # Ticket comment

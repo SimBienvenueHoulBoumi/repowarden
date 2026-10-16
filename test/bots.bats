@@ -230,3 +230,32 @@ lancer() { run bash -c "\"$BOTS\" <\"$F/reponses\""; }
     REPOWARDEN_INTERACTIF="" run bash -c "\"$INSTALL\" </dev/null"
     [[ "$output" != *"Bots du dépôt"* ]]
 }
+
+@test "bots : release.yml avec le job tickets (needs release, tag, App si presente)" {
+    # flux main : global, flux 1, ci (non), release, tickets, app (non), protection (non), confirmation
+    repondre o 1 n o o n n o
+    lancer
+    [ "$status" -eq 0 ]
+    f=.github/workflows/release.yml
+    grep -q '^  tickets:$' "$f"
+    grep -q '^    needs: release$' "$f"
+    grep -qF "if: needs.release.outputs.release_created == 'true' || needs.release.outputs.prerelease_created == 'true'" "$f"
+    grep -q '^    uses: simdevWarden/repowarden/.github/workflows/tickets.yml@v4$' "$f"
+    grep -q 'permissions: { contents: write, issues: write, pull-requests: write, statuses: write }' "$f"
+    grep -qF 'tag: ${{ needs.release.outputs.tag_name || needs.release.outputs.prerelease_tag }}' "$f"
+    ! grep -q 'app-client-id' "$f"
+    if command -v actionlint >/dev/null; then actionlint "$f"; fi
+    rm -rf .github .repowarden.conf
+    # flux develop, App déjà là : global, flux 2, ci (non), release, nettoyage (non), tickets, protection (non), confirmation
+    repondre o 2 n o n o n o
+    GH_DEVELOP=1 GH_APP=1 lancer
+    [ "$status" -eq 0 ]
+    [ "$(grep -c 'app-client-id: ${{ vars.REPOWARDEN_APP_CLIENT_ID }}' "$f")" -eq 2 ]
+    sed -n '/^  tickets:$/,$p' "$f" | grep -qF 'app-key: ${{ secrets.REPOWARDEN_APP_KEY }}'
+    if command -v actionlint >/dev/null; then actionlint "$f"; fi
+    rm -rf .github .repowarden.conf
+    # sans suivi des tickets : pas de job tickets (il échouerait sans les étiquettes)
+    repondre o 1 n o n n n o
+    lancer
+    ! grep -q 'tickets.yml@' "$f"
+}

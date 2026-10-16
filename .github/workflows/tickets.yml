@@ -20,7 +20,7 @@
 #       needs: release
 #       if: needs.release.outputs.release_created == 'true' || needs.release.outputs.prerelease_created == 'true'
 #       uses: simdevWarden/repowarden/.github/workflows/tickets.yml@v4
-#       permissions: { issues: write, pull-requests: write, statuses: write }
+#       permissions: { contents: write, issues: write, pull-requests: write, statuses: write }
 #       with:
 #         tag: ${{ needs.release.outputs.tag_name || needs.release.outputs.prerelease_tag }}
 #
@@ -125,6 +125,16 @@ jobs:
           permission-issues: write
           permission-pull-requests: write
           permission-statuses: write
+      # Jeton refusé alors que la clé est fournie : le plus souvent l'App n'est
+      # pas installée sur ce dépôt ; le suivi continue avec le jeton des Actions
+      - name: App non installée ?
+        if: steps.app.outcome == 'failure'
+        env:
+          AVEC_CLE: ${{ secrets.app-key != '' }}
+          SLUG: ${{ vars.REPOWARDEN_APP_SLUG }}
+        run: |
+          [ "$AVEC_CLE" = true ] || exit 0
+          echo "::warning title=Jeton de l'App refusé::L'App n'est sans doute pas installée sur $GITHUB_REPOSITORY (suivi fait avec le jeton des Actions : ses actions ne déclenchent pas les autres workflows). L'installer : https://github.com/apps/${SLUG:-<slug>}/installations/new ; si elle l'est, vérifier REPOWARDEN_APP_CLIENT_ID et REPOWARDEN_APP_KEY (repowarden app init)."
       - name: Tickets
         env:
           GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
@@ -143,6 +153,7 @@ jobs:
           AUTHOR: ${{ github.event.pull_request.user.login }}
           ISSUE: ${{ github.event.issue.number }}
           ISSUE_ASSOCIATION: ${{ github.event.issue.author_association }}
+          ISSUE_STATE: ${{ github.event.issue.state }}
           AUTO_VALIDATE: ${{ inputs.auto-validate }}
           AUTO_MERGE: ${{ inputs.auto-merge }}
           REQUIRE_DESIGN: ${{ inputs.require-design }}

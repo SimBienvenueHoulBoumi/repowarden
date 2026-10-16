@@ -60,7 +60,7 @@ A machine without hooks blocks no one: CI runs every check again and is authorit
 
 ## 4. Adopting repowarden in a project
 
-**On GitHub**: `repowarden bots`, run by someone with admin rights (also offered by `repowarden install`). It asks for the flow (`main` only, or `develop` → `main`, creating `develop` after consent), then one consent per bot: CI (`repowarden.yml`, with the tooling of the languages detected at the root — Python, Node, Java Maven / Gradle, Go — pinned, and `strict: true` when formatting and tests have their tools; language not recognized: generic template to complete), releases (`release.yml`), cleanup (`nettoyage.yml`, develop flow), tickets (`repowarden tickets init`), GitHub App (`repowarden app init`), protection (`repowarden proteger`), npm (`repowarden npm-publication`, public package only). It then shows the preview (files created, existing files kept with their difference from the template, settings changed) and waits for confirmation. The written files are then to be committed through a PR. Without a terminal, a logged-in `gh` or admin rights, nothing is offered: one line says why. `repowarden install --sans-bots`: never offered again.
+**On GitHub**: `repowarden bots`, run by someone with admin rights (also offered by `repowarden install`). It asks for the flow (`main` only, or `develop` → `main`, creating `develop` after consent), then one consent per bot: CI (`repowarden.yml`, with the tooling of the languages detected at the root — Python, Node, Java Maven / Gradle, Go — pinned, and `strict: true` when formatting and tests have their tools; language not recognized: generic template to complete), releases (`release.yml`, with the `tickets` job when ticket tracking is chosen or already set up), cleanup (`nettoyage.yml`, develop flow), tickets (`repowarden tickets init`), GitHub App (`repowarden app init`), protection (`repowarden proteger`), npm (`repowarden npm-publication`, public package only). It then shows the preview (files created, existing files kept with their difference from the template, settings changed) and waits for confirmation. The written files are then to be committed through a PR. Without a terminal, a logged-in `gh` or admin rights, nothing is offered: one line says why. `repowarden install --sans-bots`: never offered again.
 
 **By hand**, copy from `templates/project/`:
 
@@ -132,6 +132,10 @@ repowarden app init --administration # + administration right (configuration app
 ```
 
 The command opens GitHub's creation page, prefilled: minimal permissions (contents, PRs, issues, statuses), no webhook. It stores the identifier (variable `REPOWARDEN_APP_CLIENT_ID`) and the private key (secret `REPOWARDEN_APP_KEY`) without displaying them, then opens the installation page. Workflows then get a one-hour token on each run; without the App, they fall back to the Actions token. The App follows the same rules as everyone: no exception in the rulesets.
+
+- **Run again**: an App already set up is not recreated. Its installation is then **not verifiable** (only the App's private key, not on the machine, can list its installations): the command reports it "not verified", with the installation link `https://github.com/apps/<slug>/installations/new`, and no success message.
+- **App not installed**: the workflows' "Jeton de l'App" step fails (`Not Found - get-a-repository-installation…`); an annotation says so, with the installation link (`release-auto`: error; ticket tracking: warning, it goes on with the Actions token).
+- **Name already taken** (often an orphan App from an interrupted attempt: created on GitHub, credentials never stored): the command stops before creating anything. Run again with `--nom <other name>`, or delete the orphan App (Settings → Developer settings → GitHub Apps).
 
 ### Organization bot
 

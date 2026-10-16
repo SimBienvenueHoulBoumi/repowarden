@@ -17,7 +17,7 @@ Ticket fermé comme **abandonné** (*not planned*) : sa PR est fermée et sa bra
 
 Ticket **terminé** (passé en `done` à la release, ou fermé à la main) dont la branche existe encore, parce que le travail est passé par une autre branche : elle est supprimée si elle n'a aucun commit absent de `develop` et qu'aucune PR ouverte n'en part. Sinon elle est gardée et le ticket le signale : rien n'est jamais perdu.
 
-Tout est automatique, sauf la validation : c'est la seule décision humaine, et GitHub ne laisse poser l'étiquette `validé` qu'aux personnes ayant les droits sur le dépôt. Un ticket **ouvert par un mainteneur** (droits d'écriture : propriétaire, membre, collaborateur) est **validé d'office** : l'ouvrir est déjà sa décision. Seuls les tickets de la communauté attendent l'étiquette. Pour une validation toujours séparée : entrée `auto-validate: never` du workflow `tickets.yml`. Le type de la branche vient de l'étiquette `type: …` du ticket (`feat` par défaut), son nom du titre (minuscules, sans accents).
+Tout est automatique, sauf la validation : c'est la seule décision humaine, et GitHub ne laisse poser l'étiquette `validé` qu'aux personnes ayant les droits sur le dépôt. Un ticket **ouvert par un mainteneur** (droits d'écriture : propriétaire, membre, collaborateur) est **validé d'office** : l'ouvrir est déjà sa décision ; chaque événement du ticket (étiquette, assignation) rattrape cette validation si le run de l'ouverture a été annulé. Seuls les tickets de la communauté attendent l'étiquette. Pour une validation toujours séparée : entrée `auto-validate: never` du workflow `tickets.yml`. Le type de la branche vient de l'étiquette `type: …` du ticket (`feat` par défaut), son nom du titre (minuscules, sans accents).
 
 ## Sur le poste
 
@@ -60,7 +60,7 @@ Sur un dépôt qui a déjà des tickets, `tickets init` les reprend (relançable
 - **branches des PR** ouvertes et mergées : inscrites sur les tickets qu'elles citent, pour savoir quel ticket a géré quelle branche, même supprimée ;
 - aucune branche créée en masse : elle naît quand le ticket est pris (`repowarden ticket N`).
 
-Dans `.github/workflows/release.yml`, les tickets passent en préprod à chaque préversion et en done à chaque release :
+Dans `.github/workflows/release.yml`, les tickets passent en préprod à chaque préversion et en done à chaque release (job écrit par `repowarden bots` avec le suivi des tickets, avec l'App si elle est configurée ; à ajouter à la main dans un `release.yml` existant) :
 
 ```yaml
   tickets:
