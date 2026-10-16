@@ -237,16 +237,16 @@ Prérequis :
 
 Un projet Node peut publier son paquet à chaque release, **sans jeton** : npm vérifie que la publication vient bien du dépôt et de son `release.yml` (publication de confiance) et affiche la provenance du paquet. yarn, pnpm et bun installent depuis le même registre. repowarden lui-même est publié ainsi (`repowarden`).
 
-Mise en place en une commande, depuis le dépôt du projet. Tout est publié par la pipeline, la première version comprise :
+Mise en place en une commande, depuis le dépôt du projet. La première version est publiée depuis ton poste, les suivantes par la pipeline :
 
 1. **Connexion à npm** : `npm login` si besoin.
 2. **Paquet pas encore sur npm** (npm n'accepte la publication de confiance que sur un paquet existant) :
-   - un jeton npm temporaire est créé, valable 7 jours et limité au scope du paquet ;
-   - il va directement dans le secret `NPM_TOKEN`, sans jamais s'afficher ; le mot de passe et le code 2FA sont demandés en saisie masquée ;
-   - la variable `REPOWARDEN_NPM` active le job, puis la commande attend que la prochaine release publie le paquet.
-3. **Publication de confiance** : configurée avec `npm trust github`, sans formulaire. Le secret est ensuite supprimé et le jeton révoqué. Les releases suivantes publient sans jeton.
+   - la dernière release du dépôt (son tag) est clonée dans un dossier temporaire et publiée à sa version par `npm publish`, lancé dans le terminal : npm conduit lui-même sa validation (navigateur ou code) ;
+   - aucun jeton n'est créé ni stocké, aucun mot de passe n'est demandé par repowarden ;
+   - aucune release encore : rien n'est publié, relancer la commande après la première release ; échec de la publication : la commande s'arrête sans rien configurer.
+3. **Publication de confiance** : configurée avec `npm trust github`, sans formulaire, puis la variable `REPOWARDEN_NPM` active le job. Un ancien secret `NPM_TOKEN` et d'anciens jetons temporaires (parcours précédent) sont retirés. Les releases suivantes publient sans jeton.
 
-Interrompue (Ctrl+C), la commande reprend où elle en était quand on la relance.
+Interrompue (Ctrl+C), la commande reprend où elle en était quand on la relance. `--dry-run` montre ce qui serait fait sans rien publier.
 
 ```bash
 repowarden npm-publication
@@ -265,7 +265,7 @@ Puis, dans `.github/workflows/release.yml` :
       # environment: production     # approbation avant publication (validation humaine)
       # directory: packages/ui      # paquet hors de la racine
     secrets:
-      npm-token: ${{ secrets.NPM_TOKEN }}   # première publication seulement
+      npm-token: ${{ secrets.NPM_TOKEN }}   # facultatif : ancien parcours par jeton
 ```
 
 Lancer le workflow `release` à la main (Run workflow) publie la dernière release si elle manque sur npm. Le paquet est publié à la version du tag (y compris en mode tag, sans fichier de version). Une version déjà publiée est ignorée : relancer le run ne casse rien.
