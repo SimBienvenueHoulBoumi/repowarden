@@ -133,6 +133,8 @@ repowarden app init --administration # + administration right (configuration app
 
 The command opens GitHub's creation page, prefilled: minimal permissions (contents, PRs, issues, statuses), no webhook. It stores the identifier (variable `REPOWARDEN_APP_CLIENT_ID`) and the private key (secret `REPOWARDEN_APP_KEY`) without displaying them, then opens the installation page. Workflows then get a one-hour token on each run; without the App, they fall back to the Actions token. The App follows the same rules as everyone: no exception in the rulesets.
 
+**In a container** (devcontainer without port forwarding, e.g. `docker run` or `make shell`), the local creation page (`127.0.0.1`) and GitHub's redirect cannot be reached from the host's browser: the command detects it, stops **without creating anything** and shows the command to run on the host (`npx repowarden app init --repo owner/name`). VS Code Dev Containers and Codespaces forward ports themselves: normal creation. If your browser reaches the container's `127.0.0.1` (host network), `REPOWARDEN_CONTENEUR=0` overrides the check. A page not visited within 3 minutes (`REPOWARDEN_APP_DELAI`, in seconds) also stops the command cleanly.
+
 ### Organization bot
 
 The bot keeps **every project** of an organization up to date, from a **control repository**. Every night, it goes through each repository where its App is installed:

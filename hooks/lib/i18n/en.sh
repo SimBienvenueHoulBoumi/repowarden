@@ -463,6 +463,10 @@ _msg_en() {
         app.server_failed) _M="Local page did not start." ;;
         app.open) _M="Open %s then click GitHub's green button." ;;
         app.no_code) _M="No answer from GitHub (creation cancelled, or 15 min timeout)." ;;
+        app.container) _M="Container detected: the local creation page (127.0.0.1) would not be reachable from the host's browser. Nothing was created." ;;
+        app.howto) _M="Run the command on the host: %s (or here with REPOWARDEN_CONTENEUR=0 if your browser reaches this container's 127.0.0.1: host network, forwarded port)." ;;
+        app.page_timeout) _M="Local page not visited within %s s: stopped, nothing was created." ;;
+        app.orphan) _M="If you clicked \"Create\", the App exists without retrieved credentials: delete it (GitHub settings → Developer settings → GitHub Apps) before running again." ;;
         app.created) _M="App %s created; credentials stored (variable %s, secret %s)." ;;
         app.step_install) _M="Installing on the repository" ;;
         app.installed) _M="App %s installed on %s." ;;
