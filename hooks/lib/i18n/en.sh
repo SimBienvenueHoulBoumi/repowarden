@@ -467,7 +467,10 @@ _msg_en() {
         app.step_install) _M="Installing on the repository" ;;
         app.installed) _M="App %s installed on %s." ;;
         app.not_installed) _M="App %s not installed on %s yet: run repowarden app init again once installed." ;;
-        app.check_in_ci) _M="Installation checked by the first ticket tracking run (\"Jeton de l'App\" step); to install it: %s" ;;
+        app.not_verified) _M="Installation of App %s on %s not verified: the private key is not on this machine (only the App can list its installations). If it is not installed, workflows will fail at the \"Jeton de l'App\" step. To install it: %s" ;;
+        app.name_taken) _M="A GitHub App named %s already exists (often an orphan App from an interrupted attempt: created on GitHub, credentials never stored)." ;;
+        app.name_taken_fix) _M="Either run again with --nom <other name>, or delete the orphan App (Settings → Developer settings → GitHub Apps → the App → Advanced → Delete): %s" ;;
+        app.name_hint) _M="If GitHub refuses the name %s (already taken): Ctrl+C, then run again with --nom <other name>, or delete the orphan App: %s" ;;
         app.done) _M="repowarden workflows now use the App: what they do triggers the other workflows." ;;
         app.next) _M="Without the App (variable and secret missing), they fall back to the Actions token." ;;
         app.bot_all_repos) _M="Organization bot: when installing, choose \"All repositories\" (new repositories are covered automatically; only those with a .repowarden.conf are managed)." ;;
@@ -579,6 +582,7 @@ _msg_en() {
         tk.init_auto_create_on) _M="Auto ticket creation: ENABLED (ticketAutoCreate = true)" ;;
         tk.init_auto_create_off) _M="Auto ticket creation: DISABLED (default). To enable: git config repowarden.ticketAutoCreate true" ;;
         tk.init_next) _M="Next: commit these files; require the \"ticket\" check (repowarden proteger --checks \"…,ticket\"); in release.yml, wire the tickets job (see the Tickets docs)." ;;
+        tk.init_next_wired) _M="Next: commit these files; require the \"ticket\" check (repowarden proteger --checks \"…,ticket\"). The tickets job of release.yml is already wired." ;;
         tk.prerelease) _M="Available in pre-release **%s**: to be tested before production." ;;
         tk.released) _M="Released in **%s**." ;;
         # Ticket comment

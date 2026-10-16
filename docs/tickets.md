@@ -60,7 +60,7 @@ Sur un dépôt qui a déjà des tickets, `tickets init` les reprend (relançable
 - **branches des PR** ouvertes et mergées : inscrites sur les tickets qu'elles citent, pour savoir quel ticket a géré quelle branche, même supprimée ;
 - aucune branche créée en masse : elle naît quand le ticket est pris (`repowarden ticket N`).
 
-Dans `.github/workflows/release.yml`, les tickets passent en préprod à chaque préversion et en done à chaque release :
+Dans `.github/workflows/release.yml`, les tickets passent en préprod à chaque préversion et en done à chaque release (job écrit par `repowarden bots` avec le suivi des tickets, avec l'App si elle est configurée ; à ajouter à la main dans un `release.yml` existant) :
 
 ```yaml
   tickets:

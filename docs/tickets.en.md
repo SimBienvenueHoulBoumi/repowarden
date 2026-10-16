@@ -60,7 +60,7 @@ On a repository that already has tickets, `tickets init` takes them over (re-run
 - **branches of open and merged PRs**: registered on the tickets they reference, to know which ticket handled which branch, even deleted;
 - no mass branch creation: the branch is born when the ticket is taken (`repowarden ticket N`).
 
-In `.github/workflows/release.yml`, tickets move to pre-production on each pre-release and to done on each release:
+In `.github/workflows/release.yml`, tickets move to pre-production on each pre-release and to done on each release (job written by `repowarden bots` with ticket tracking, with the App when it is set up; add it by hand to an existing `release.yml`):
 
 ```yaml
   tickets:

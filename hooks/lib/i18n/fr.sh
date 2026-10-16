@@ -467,7 +467,10 @@ _msg_fr() {
         app.step_install) _M="Installation sur le dépôt" ;;
         app.installed) _M="App %s installée sur %s." ;;
         app.not_installed) _M="App %s pas encore installée sur %s : relance repowarden app init une fois installée." ;;
-        app.check_in_ci) _M="Installation vérifiée au premier run du suivi des tickets (étape « Jeton de l'App ») ; pour l'installer : %s" ;;
+        app.not_verified) _M="Installation de l'App %s sur %s non vérifiée : la clé privée n'est pas sur ce poste (seule l'App peut lister ses installations). Si elle n'est pas installée, les workflows échoueront à l'étape « Jeton de l'App ». L'installer : %s" ;;
+        app.name_taken) _M="Une GitHub App s'appelle déjà %s (souvent une App orpheline d'un essai interrompu : créée sur GitHub, identifiants jamais rangés)." ;;
+        app.name_taken_fix) _M="Au choix : relancer avec --nom <autre nom>, ou supprimer l'App orpheline (Settings → Developer settings → GitHub Apps → l'App → Advanced → Delete) : %s" ;;
+        app.name_hint) _M="Si GitHub refuse le nom %s (déjà utilisé) : Ctrl+C, puis relancer avec --nom <autre nom>, ou supprimer l'App orpheline : %s" ;;
         app.done) _M="Les workflows repowarden utilisent désormais l'App : ce qu'ils font déclenche les autres workflows." ;;
         app.next) _M="Sans l'App (variable et secret absents), ils reprennent le jeton des Actions." ;;
         app.bot_all_repos) _M="Bot d'organisation : à l'installation, choisir « All repositories » (les nouveaux dépôts seront couverts d'office ; seuls ceux avec un .repowarden.conf sont gérés)." ;;
@@ -579,6 +582,7 @@ _msg_fr() {
         tk.init_auto_create_on) _M="Création auto de ticket : ACTIVÉE (ticketAutoCreate = true)" ;;
         tk.init_auto_create_off) _M="Création auto de ticket : DÉSACTIVÉE (défaut). Pour l'activer : git config repowarden.ticketAutoCreate true" ;;
         tk.init_next) _M="Ensuite : committer ces fichiers ; exiger la vérification « ticket » (repowarden proteger --checks \"…,ticket\") ; dans release.yml, brancher le job tickets (voir la doc Tickets)." ;;
+        tk.init_next_wired) _M="Ensuite : committer ces fichiers ; exiger la vérification « ticket » (repowarden proteger --checks \"…,ticket\"). Le job tickets de release.yml est déjà branché." ;;
         tk.prerelease) _M="Disponible en préversion **%s** : à tester avant la production." ;;
         tk.released) _M="Publié dans **%s**." ;;
         # Ticket comment
