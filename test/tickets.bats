@@ -56,7 +56,11 @@ case "$1 $2" in
     "api repos/o/r") echo R_1 ;;
     "api repos/o/r/git/ref/heads/develop") echo sha0 ;;
     "api repos/o/r/compare/"*)
-        case "$*" in *commits*) cat "$F/commits" 2>/dev/null || true ;; *) echo "${FAKE_AHEAD:-1}" ;; esac ;;
+        case "$*" in
+            *"commits[0]"*) cat "$F/premier" 2>/dev/null || true ;;
+            *commits*) cat "$F/commits" 2>/dev/null || true ;;
+            *) echo "${FAKE_AHEAD:-1}" ;;
+        esac ;;
     "issue create")
         n=42
         while [ $# -gt 0 ]; do [ "$1" = --label ] && echo "$2" >>"$F/issues/$n.labels"; shift; done
@@ -287,6 +291,41 @@ EOF
     [ "$REPLY" -le 72 ]
     [[ "$t" != *" " ]]
     [[ " un titre vraiment très long qui doit être coupé sur un mot entier " == *" ${t##* } "* ]]
+}
+
+@test "tickets : titre de PR brouillon = en-tete du premier commit, (#N) retire" {
+    N=12 ticket "validé" "statut: backlog" "type: feat"
+    echo "Tickets : ajoute le panier" >"$F/issues/12.title"
+    printf 'fix(panier): total du README (#12)\ncorps du commit\n' >"$F/premier"
+    PUSH_BRANCH=feat/12-panier SHA=def PUSHER=dev run "$TICKETS" push
+    [ "$status" -eq 0 ]
+    [ "$(cat "$F/pr_title")" = "fix(panier): total du README" ]
+    # en-tete non conforme -> repli sur le titre du ticket, sigle conserve
+    printf 'WIP panier\n' >"$F/premier"
+    echo "Tickets : README et messages" >"$F/issues/12.title"
+    PUSH_BRANCH=feat/12-panier SHA=def PUSHER=dev run "$TICKETS" push
+    [ "$status" -eq 0 ]
+    [ "$(cat "$F/pr_title")" = "feat(tickets): README et messages" ]
+}
+
+@test "tickets : titre de PR depuis le ticket, sigle conserve, aucun mot coupe" {
+    source "$TICKETS"
+    ticket_pr_title_r fix "GitHub facultatif : README et messages de démarrage"
+    [ "$REPLY" = "fix(github-facultatif): README et messages de démarrage" ]
+    ticket_pr_title_r feat "IA locale"
+    [ "$REPLY" = "feat: IA locale" ]
+    ticket_pr_title_r feat "Ajoute le panier"
+    [ "$REPLY" = "feat: ajoute le panier" ]
+    s="assistants IA et Kubernetes désactivés par défaut au premier démarrage du conteneur"
+    ticket_pr_title_r feat "Modules à la demande : $s"
+    t="$REPLY"
+    authored_length "$t"
+    [ "$REPLY" -le 72 ]
+    [[ "$t" == "feat(modules-a-la-demande): assistants IA "* ]]
+    [[ " $s " == *" ${t##* } "* ]]
+    # un seul mot trop long : jamais tronque au caractere, titre vide (repli)
+    ticket_pr_title_r feat "Tickets : $(printf 'mot%.0s' {1..30})"
+    [ -z "$REPLY" ]
 }
 
 @test "tickets : assigne -> en cours ; corrections demandees -> en cours" {
