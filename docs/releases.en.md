@@ -180,7 +180,17 @@ In both modes, the delivery is requested at the chosen **pace**: on every merged
       app-key: ${{ secrets.REPOWARDEN_APP_KEY }}
 ```
 
-Then `deliveryApproval = auto` in `.repowarden.conf` and `repowarden proteger`. `delivery-auto` together with `delivery-environment` is refused (two exclusive modes); an environment without approvers is still refused by the approved mode. Back to approval: remove `delivery-auto`, restore `delivery-environment` and `deliveryApproval = deployment`, run `repowarden proteger` again.
+Then `deliveryApproval = auto` in `.repowarden.conf` and `repowarden proteger`.
+
+**With `repowarden bots`** (`develop` → `main` flow, “Releases” bot): three questions, default in brackets, written into the generated `release.yml` and into `.repowarden.conf`. The default answers give the usual `release.yml` (approval, grouped).
+
+| Question | Default | Other answer |
+|---|---|---|
+| Automatic delivery? | no: human approval | `delivery-auto: true` and `deliveryApproval = auto`; without a GitHub App (neither present nor chosen), a warning: the delivery PR has to be merged by hand |
+| On every ticket? | no: grouped (evening prerelease, Friday window) | `preversion-on-push: true` and `delivery-on-push: true`, no scheduled trigger |
+| Prerelease required before a stable version? | yes | `preversion-obligatoire: false` |
+
+The preview announces these choices before the confirmation; an existing `release.yml` is never rewritten (its difference from the template is shown). `delivery-auto` together with `delivery-environment` is refused (two exclusive modes); an environment without approvers is still refused by the approved mode. Back to approval: remove `delivery-auto`, restore `delivery-environment` and `deliveryApproval = deployment`, run `repowarden proteger` again.
 
 !!! note "Once armed"
     Auto-merge stays armed on the delivery PR until it is merged: if a check fails, the delivery goes out as soon as it turns green again, with whatever `develop` then contains.

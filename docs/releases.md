@@ -180,7 +180,17 @@ La livraison est demandée selon le **rythme** choisi, dans les deux modes : à 
       app-key: ${{ secrets.REPOWARDEN_APP_KEY }}
 ```
 
-Puis `deliveryApproval = auto` dans `.repowarden.conf` et `repowarden proteger`. `delivery-auto` et `delivery-environment` ensemble sont refusés (deux modes exclusifs) ; un environnement sans approbateur reste refusé par le mode approuvé. Retour à l'approbation : retirer `delivery-auto`, remettre `delivery-environment` et `deliveryApproval = deployment`, relancer `repowarden proteger`.
+Puis `deliveryApproval = auto` dans `.repowarden.conf` et `repowarden proteger`.
+
+**Avec `repowarden bots`** (flux `develop` → `main`, bot « Releases ») : trois questions, défaut entre crochets, écrites dans le `release.yml` généré et dans `.repowarden.conf`. Les réponses par défaut donnent le `release.yml` habituel (approbation, regroupé).
+
+| Question | Défaut | Autre réponse |
+|---|---|---|
+| Livraison automatique ? | non : approbation humaine | `delivery-auto: true` et `deliveryApproval = auto` ; sans GitHub App (ni présente ni choisie), un avertissement : la PR de livraison reste à merger à la main |
+| À chaque ticket ? | non : regroupé (préversion le soir, fenêtre du vendredi) | `preversion-on-push: true` et `delivery-on-push: true`, sans déclenchement planifié |
+| Préversion obligatoire avant une version stable ? | oui | `preversion-obligatoire: false` |
+
+L'aperçu annonce ces choix avant la confirmation ; un `release.yml` existant n'est jamais réécrit (son écart avec le modèle est affiché). `delivery-auto` et `delivery-environment` ensemble sont refusés (deux modes exclusifs) ; un environnement sans approbateur reste refusé par le mode approuvé. Retour à l'approbation : retirer `delivery-auto`, remettre `delivery-environment` et `deliveryApproval = deployment`, relancer `repowarden proteger`.
 
 !!! note "Une fois armé"
     Le merge automatique reste armé sur la PR de livraison jusqu'à son merge : si une vérification échoue, la livraison part dès qu'elle repasse au vert, avec ce que `develop` contient alors.
