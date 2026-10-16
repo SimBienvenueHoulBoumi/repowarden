@@ -153,6 +153,7 @@ jobs:
           AUTHOR: ${{ github.event.pull_request.user.login }}
           ISSUE: ${{ github.event.issue.number }}
           ISSUE_ASSOCIATION: ${{ github.event.issue.author_association }}
+          ISSUE_STATE: ${{ github.event.issue.state }}
           AUTO_VALIDATE: ${{ inputs.auto-validate }}
           AUTO_MERGE: ${{ inputs.auto-merge }}
           REQUIRE_DESIGN: ${{ inputs.require-design }}
