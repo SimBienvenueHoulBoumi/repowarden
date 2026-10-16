@@ -204,6 +204,14 @@ jobs:
           permission-contents: write
           permission-pull-requests: write
           permission-statuses: write
+      # Jeton refusé : le plus souvent l'App n'est pas installée sur ce dépôt
+      # (Not Found - get-a-repository-installation…) ; le dire avec le lien
+      - name: App non installée ?
+        if: failure() && steps.app.outcome == 'failure'
+        env:
+          SLUG: ${{ vars.REPOWARDEN_APP_SLUG }}
+        run: |
+          echo "::error title=Jeton de l'App refusé::L'App n'est sans doute pas installée sur $GITHUB_REPOSITORY : l'installer (https://github.com/apps/${SLUG:-<slug>}/installations/new, dépôt $GITHUB_REPOSITORY), puis relancer ce run. Si elle l'est, vérifier la variable REPOWARDEN_APP_CLIENT_ID et le secret REPOWARDEN_APP_KEY (repowarden app init)."
       # Aucun code du projet n'est exécuté : seuls les scripts de repowarden, à
       # la version repowarden-ref (validation et merge des PR : ci/merger-pr.sh)
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -434,6 +442,14 @@ jobs:
           permission-contents: write
           permission-pull-requests: write
           permission-statuses: write
+      # Jeton refusé : le plus souvent l'App n'est pas installée sur ce dépôt
+      # (Not Found - get-a-repository-installation…) ; le dire avec le lien
+      - name: App non installée ?
+        if: failure() && steps.app.outcome == 'failure'
+        env:
+          SLUG: ${{ vars.REPOWARDEN_APP_SLUG }}
+        run: |
+          echo "::error title=Jeton de l'App refusé::L'App n'est sans doute pas installée sur $GITHUB_REPOSITORY : l'installer (https://github.com/apps/${SLUG:-<slug>}/installations/new, dépôt $GITHUB_REPOSITORY), puis relancer ce run. Si elle l'est, vérifier la variable REPOWARDEN_APP_CLIENT_ID et le secret REPOWARDEN_APP_KEY (repowarden app init)."
 
       - name: PR de livraison
         id: livraison
@@ -717,6 +733,14 @@ jobs:
           private-key: ${{ secrets.app-key }}
           permission-contents: write
           permission-pull-requests: write
+      # Jeton refusé : le plus souvent l'App n'est pas installée sur ce dépôt
+      # (Not Found - get-a-repository-installation…) ; le dire avec le lien
+      - name: App non installée ?
+        if: failure() && steps.app.outcome == 'failure'
+        env:
+          SLUG: ${{ vars.REPOWARDEN_APP_SLUG }}
+        run: |
+          echo "::error title=Jeton de l'App refusé::L'App n'est sans doute pas installée sur $GITHUB_REPOSITORY : l'installer (https://github.com/apps/${SLUG:-<slug>}/installations/new, dépôt $GITHUB_REPOSITORY), puis relancer ce run. Si elle l'est, vérifier la variable REPOWARDEN_APP_CLIENT_ID et le secret REPOWARDEN_APP_KEY (repowarden app init)."
       - name: Merge de la livraison approuvée
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
