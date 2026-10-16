@@ -284,7 +284,10 @@ _msg_fr() {
         ci.proteger.reviews_invalid) _M="--relecteurs : nombre de 0 à 9 attendu." ;;
         ci.proteger.codeowners_invalid) _M="codeOwnerReview : true ou false." ;;
         ci.proteger.delivery_deploy) _M="  livraison vers main : approbation du déploiement « %s » (Approve and deploy), puis merge par la GitHub App ; merge automatique des PR de travail vers develop : %s" ;;
-        ci.proteger.delivery_invalid) _M="deliveryApproval : deployment ou review." ;;
+        ci.proteger.delivery_invalid) _M="deliveryApproval : deployment, review ou auto." ;;
+        ci.proteger.auto_needs_automerge) _M="deliveryApproval = auto demande le merge automatique du dépôt : retirer autoMergeWork = false de .repowarden.conf, ou choisir deliveryApproval = deployment ou review." ;;
+        ci.proteger.no_delivery_auto) _M="deliveryApproval = auto, mais aucun workflow n'appelle release-auto.yml avec delivery-auto: true : rien n'armera le merge de la livraison, qui se fera à la main (voir docs/releases.md, livraison automatique)." ;;
+        ci.proteger.delivery_auto) _M="  livraison vers main : automatique (la GitHub App la merge dès que les vérifications exigées sont vertes ; %s approbation(s) exigée(s))" ;;
         ci.proteger.automerge_invalid) _M="autoMergeWork : true ou false." ;;
         ci.proteger.unattributed_invalid) _M="unattributedApproval : true ou false." ;;
         ci.proteger.no_branch) _M="Aucune des branches « %s » n'existe sur %s." ;;

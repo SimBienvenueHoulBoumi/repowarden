@@ -22,7 +22,7 @@ The risk is not the machine. It is human approval that is too light. This page d
 | Review code before it gets in | required approvals; approval dismissed by a new commit; the last pusher cannot approve their own push (except in a solo repository: a single person with write access, no rule requires another person) | `repowarden proteger --relecteurs N` |
 | Have sensitive areas reviewed by their owners | `CODEOWNERS` file + required code owner review | `repowarden proteger --codeowners` |
 | Decide to publish | deployment environment: the job waits for approval from a designated person | `repowarden proteger --environnement production` |
-| Decide to deliver (`develop` flow) | one **"Approve and deploy"** click on the `production` environment (notification, mobile app, run page); the GitHub App then merges the `develop` → `main` delivery PR. `main` requires this successful deployment: nothing enters it without this approval | `tag` mode, `deliveryApproval = deployment` (default; `review`: PR review instead) |
+| Decide to deliver (`develop` flow) | one **"Approve and deploy"** click on the `production` environment (notification, mobile app, run page); the GitHub App then merges the `develop` → `main` delivery PR. `main` requires this successful deployment: nothing enters it without this approval. **Or, if the project chooses so, automatic delivery**: human validation is merging each ticket; the GitHub App merges the delivery as soon as the checks required on `main` are green ([comparison of both modes](releases.md#approved-or-automatic-delivery)) | `tag` mode, `deliveryApproval = deployment` (default; `review`: PR review instead; `auto`: automatic delivery, `delivery-auto: true` input) |
 | Keep control over the release PR (`pr` mode) | human merge | `release-auto` with `merge-auto: false` |
 
 With a required review, the release PR is never merged by the bot. The bot prepares it and has CI validate it, then it waits for human approval. Merging it publishes the release.
@@ -36,7 +36,7 @@ Settings versioned in `.repowarden.conf`, applied by `repowarden proteger` (can 
     requiredReviews = 1              # approvals per PR
     codeOwnerReview = true           # CODEOWNERS review on their files
     unattributedApproval = false     # extra approval for unattributed changes (default false)
-    deliveryApproval = deployment    # delivery validated by "Approve and deploy" (review: PR review)
+    deliveryApproval = deployment    # delivery validated by "Approve and deploy" (review: PR review; auto: automatic)
     environment = production         # deployments subject to approval
     environmentReviewers = alice @acme/release  # accounts or teams; default: the current gh user
 ```

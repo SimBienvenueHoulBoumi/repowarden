@@ -155,6 +155,36 @@ Stable versions follow a regular pace: `develop` accumulates, one delivery per w
 
 The project CI must run on pushes to `develop`: its checks apply to the head commit, and therefore to the delivery PR.
 
+### Approved or automatic delivery
+
+The delivery mode is **the project's choice**. Human approval remains the default.
+
+| | Approved (default) | Automatic |
+|---|---|---|
+| Setting | `deliveryApproval = deployment` (or `review`); `delivery-environment: production` input | `deliveryApproval = auto`; `delivery-auto: true` input (without `delivery-environment`) |
+| Human validation | one "Approve and deploy" click (or a review of the delivery PR) on each delivery | merging each ticket into `develop`; nothing to do at delivery time |
+| When the delivery goes out | after approval, on the `livraison/vX.Y.Z` snapshot | as soon as the checks required on `main` are green (`repowarden`, `livraison`), once the delivery is requested |
+| `main` rules (`repowarden proteger`) | required checks + successful deployment (or PR approval) | required checks (and `requiredReviews` if configured); no deployment rule, no environment created by default |
+| Requirement | GitHub App (otherwise manual merge) | GitHub App; without it, a warning and a manual merge |
+
+In both modes, the delivery is requested at the chosen **pace**: on every merged ticket with `delivery-on-push: true` (and `preversion-on-push: true`, so the required pre-release is published right away), or grouped (default) in the `delivery-schedule` window, by hand, or after a merge labelled `urgent`.
+
+```yaml title=".github/workflows/release.yml (automatic delivery, on every ticket)"
+    with:
+      mode: tag
+      delivery-auto: true          # the GitHub App merges the delivery once checks are green
+      delivery-on-push: true       # on every merged ticket (otherwise: delivery-schedule window)
+      preversion-on-push: true     # pre-release published right away (preversion-obligatoire)
+      app-client-id: ${{ vars.REPOWARDEN_APP_CLIENT_ID }}
+    secrets:
+      app-key: ${{ secrets.REPOWARDEN_APP_KEY }}
+```
+
+Then `deliveryApproval = auto` in `.repowarden.conf` and `repowarden proteger`. `delivery-auto` together with `delivery-environment` is refused (two exclusive modes); an environment without approvers is still refused by the approved mode. Back to approval: remove `delivery-auto`, restore `delivery-environment` and `deliveryApproval = deployment`, run `repowarden proteger` again.
+
+!!! note "Once armed"
+    Auto-merge stays armed on the delivery PR until it is merged: if a check fails, the delivery goes out as soon as it turns green again, with whatever `develop` then contains.
+
 ### Delivery safeguard
 
 On every run on `develop`, `release-auto` sets the **`livraison`** status on its head commit (and therefore on the delivery PR); `repowarden proteger` requires it on `main`. It fails as long as the delivery could not succeed:
@@ -286,7 +316,7 @@ Running the `release` workflow manually (Run workflow) publishes the latest rele
 !!! warning "Workflows that deploy"
     A workflow that deploys when it is not triggered by a PR (site, environment) would be run on the release branch: list the CI workflows explicitly with `workflows:`.
 
-Outputs: `release_created`, `tag_name`, `version`, `major`, `sha`, to chain the project's own publishing:
+Outputs: `release_created`, `tag_name`, `version`, `major`, `sha` (tag mode: also `prerelease_*` and `delivery_pr`, the delivery PR number), to chain the project's own publishing:
 
 ```yaml
   publier:
