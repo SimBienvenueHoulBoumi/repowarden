@@ -284,7 +284,10 @@ _msg_en() {
         ci.proteger.reviews_invalid) _M="--relecteurs: a number from 0 to 9 is expected." ;;
         ci.proteger.codeowners_invalid) _M="codeOwnerReview: true or false." ;;
         ci.proteger.delivery_deploy) _M="  delivery into main: approval of the \"%s\" deployment (Approve and deploy), then merged by the GitHub App; auto-merge of work PRs into develop: %s" ;;
-        ci.proteger.delivery_invalid) _M="deliveryApproval: deployment or review." ;;
+        ci.proteger.delivery_invalid) _M="deliveryApproval: deployment, review or auto." ;;
+        ci.proteger.auto_needs_automerge) _M="deliveryApproval = auto needs the repository's auto-merge: remove autoMergeWork = false from .repowarden.conf, or choose deliveryApproval = deployment or review." ;;
+        ci.proteger.no_delivery_auto) _M="deliveryApproval = auto, but no workflow calls release-auto.yml with delivery-auto: true: nothing will arm the delivery merge, which will be done by hand (see docs/releases.md, automatic delivery)." ;;
+        ci.proteger.delivery_auto) _M="  delivery into main: automatic (the GitHub App merges it as soon as the required checks are green; %s approval(s) required)" ;;
         ci.proteger.automerge_invalid) _M="autoMergeWork: true or false." ;;
         ci.proteger.unattributed_invalid) _M="unattributedApproval: true or false." ;;
         ci.proteger.no_branch) _M="None of the branches \"%s\" exists on %s." ;;

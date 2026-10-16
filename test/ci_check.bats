@@ -683,6 +683,63 @@ ancien_ruleset() {
     [[ "$output" != *"déploiement que rien ne crée"* ]]
 }
 
+@test "proteger : livraison automatique -> verifications exigees gardees, ni deploiement ni environnement" {
+    require python3
+    fake_gh_repo
+    git config repowarden.integrationBranch develop
+    git config repowarden.protectedBranches "main develop"
+    git config repowarden.deliveryApproval auto
+    mkdir -p .github/workflows
+    printf 'jobs:\n  r:\n    uses: o/r/.github/workflows/release-auto.yml@v4\n    with:\n      delivery-auto: true\n' >.github/workflows/release.yml
+    GH_BRANCHES="main develop" run "$PROTEGER" --dry-run
+    [ "$status" -eq 0 ] || { echo "$output"; return 1; }
+    python3 -c 'import json,sys; r=json.loads(sys.argv[1]); m=r[0]; \
+        assert m["conditions"]["ref_name"]["include"]==["refs/heads/main"]; \
+        assert [c["context"] for c in m["rules"][3]["parameters"]["required_status_checks"]]==["repowarden","livraison"]; \
+        assert m["rules"][2]["parameters"]["allowed_merge_methods"]==["merge"]; \
+        assert m["rules"][2]["parameters"]["required_approving_review_count"]==0; \
+        assert len(m["rules"])==4 and {x["type"] for x in m["rules"]}>={"deletion","non_fast_forward"}; \
+        assert not any("reviewers" in x for x in r)' "$(rulesets_json "$output")"
+    [[ "$output" == *"livraison vers main : automatique"* ]]
+    [[ "$output" != *"déploiement que rien ne crée"* ]]
+    [[ "$output" != *"delivery-auto: true"* ]]
+    # relectures configurees : gardees sur main
+    GH_BRANCHES="main develop" run "$PROTEGER" --dry-run --relecteurs 1
+    python3 -c 'import json,sys; m=json.loads(sys.argv[1])[0]; \
+        assert m["rules"][2]["parameters"]["required_approving_review_count"]==1' "$(rulesets_json "$output")"
+    # aucun workflow avec delivery-auto : avertissement (merge a la main)
+    rm -rf .github
+    GH_BRANCHES="main develop" run "$PROTEGER" --dry-run
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"delivery-auto: true"* ]]
+    # merge automatique coupe : incompatible, refuse
+    git config repowarden.autoMergeWork false
+    GH_BRANCHES="main develop" run "$PROTEGER" --dry-run
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"autoMergeWork"* ]]
+}
+
+@test "release-auto : livraison automatique armee par l'App, sortie delivery_pr exposee" {
+    local wf="$BATS_TEST_DIRNAME/../.github/workflows/release-auto.yml"
+    # entree, defaut false (l'approbation humaine reste le defaut)
+    grep -A10 '^      delivery-auto:$' "$wf" | grep -m1 'default:' | grep -q 'default: false'
+    # sortie du workflow
+    grep -q 'delivery_pr:$' "$wf"
+    grep -q 'value: ${{ jobs.tag.outputs.delivery_pr }}' "$wf"
+    # etape d'armement : jeton de l'App seulement, merge commit automatique
+    local etape
+    etape="$(awk '/- name: Livraison automatique$/ { j = 1 } j && /- name: / && !/Livraison automatique$/ { j = 0 } j' "$wf")"
+    [ -n "$etape" ]
+    [[ "$etape" == *"inputs.delivery-auto"* ]]
+    [[ "$etape" == *'GH_TOKEN: ${{ steps.app.outputs.token }}'* ]]
+    [[ "$etape" != *"github.token"* ]]
+    [[ "$etape" == *'gh pr merge "$PR" --auto --merge'* ]]
+    [[ "$etape" == *"::warning::"* ]]
+    # deux modes exclusifs : erreur explicite ; job livraison (approbation) inchange
+    grep -q 'delivery-auto et delivery-environment' "$wf"
+    grep -q 'Approbation humaine' "$wf"
+}
+
 @test "proteger : approbation des changements non attribues posee explicitement (false par defaut, reglable)" {
     require python3
     fake_gh_repo

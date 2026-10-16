@@ -155,6 +155,36 @@ Le rythme des versions stables est régulier : `develop` accumule, une livraison
 
 La CI du projet doit tourner sur les pushs vers `develop` : ses vérifications portent sur le commit de tête, et valent donc pour la PR de livraison.
 
+### Livraison approuvée ou automatique
+
+Le mode de livraison est un **choix du projet**. L'approbation humaine reste le défaut.
+
+| | Approuvée (défaut) | Automatique |
+|---|---|---|
+| Réglage | `deliveryApproval = deployment` (ou `review`) ; entrée `delivery-environment: production` | `deliveryApproval = auto` ; entrée `delivery-auto: true` (sans `delivery-environment`) |
+| Validation humaine | un clic « Approve and deploy » (ou une revue de la PR de livraison) à chaque livraison | le merge de chaque ticket dans `develop` ; aucun geste à la livraison |
+| Quand la livraison part | après l'approbation, sur l'instantané `livraison/vX.Y.Z` | dès que les vérifications exigées sur `main` sont vertes (`repowarden`, `livraison`), une fois la livraison demandée |
+| Règles de `main` (`repowarden proteger`) | vérifications exigées + déploiement réussi (ou approbation de PR) | vérifications exigées (et `requiredReviews` s'il est configuré) ; ni déploiement ni environnement créé d'office |
+| Prérequis | GitHub App (sinon merge à la main) | GitHub App ; sans elle, un avertissement et merge à la main |
+
+La livraison est demandée selon le **rythme** choisi, dans les deux modes : à chaque ticket mergé avec `delivery-on-push: true` (et `preversion-on-push: true`, pour que la préversion exigée soit publiée tout de suite), ou regroupée (défaut) dans la fenêtre `delivery-schedule`, à la main, ou après un merge étiqueté `urgent`.
+
+```yaml title=".github/workflows/release.yml (livraison automatique, à chaque ticket)"
+    with:
+      mode: tag
+      delivery-auto: true          # la GitHub App merge la livraison, vérifications vertes
+      delivery-on-push: true       # à chaque ticket mergé (sinon : fenêtre delivery-schedule)
+      preversion-on-push: true     # préversion publiée aussitôt (preversion-obligatoire)
+      app-client-id: ${{ vars.REPOWARDEN_APP_CLIENT_ID }}
+    secrets:
+      app-key: ${{ secrets.REPOWARDEN_APP_KEY }}
+```
+
+Puis `deliveryApproval = auto` dans `.repowarden.conf` et `repowarden proteger`. `delivery-auto` et `delivery-environment` ensemble sont refusés (deux modes exclusifs) ; un environnement sans approbateur reste refusé par le mode approuvé. Retour à l'approbation : retirer `delivery-auto`, remettre `delivery-environment` et `deliveryApproval = deployment`, relancer `repowarden proteger`.
+
+!!! note "Une fois armé"
+    Le merge automatique reste armé sur la PR de livraison jusqu'à son merge : si une vérification échoue, la livraison part dès qu'elle repasse au vert, avec ce que `develop` contient alors.
+
 ### Garde-fou de livraison
 
 À chaque passage sur `develop`, `release-auto` pose sur son commit de tête (donc sur la PR de livraison) le statut **`livraison`**, exigé sur `main` par `repowarden proteger`. Il est en échec tant que la livraison ne pourrait pas aboutir :
@@ -286,7 +316,7 @@ Lancer le workflow `release` à la main (Run workflow) publie la dernière relea
 !!! warning "Workflows qui déploient"
     Un workflow qui déploie quand il n'est pas lancé par une PR (site, environnement) serait lancé sur la branche de release : lister explicitement les workflows de CI avec `workflows:`.
 
-Sorties : `release_created`, `tag_name`, `version`, `major`, `sha`, pour enchaîner la publication propre au projet :
+Sorties : `release_created`, `tag_name`, `version`, `major`, `sha` (mode tag : aussi `prerelease_*` et `delivery_pr`, numéro de la PR de livraison), pour enchaîner la publication propre au projet :
 
 ```yaml
   publier:

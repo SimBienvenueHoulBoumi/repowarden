@@ -16,7 +16,9 @@
 # GitHub). Sur la branche d'intégration : préversion vX.Y.Z-next.N et PR de
 # livraison develop → main tenues à jour ; la merger (humain) publie sur main
 # le tag vX.Y.Z et la release. Un correctif urgent mergé sur main revient seul
-# dans la branche d'intégration.
+# dans la branche d'intégration. Livraison approuvée par un humain (défaut :
+# delivery-environment ou revue de PR) ou automatique (delivery-auto, choix du
+# projet : la GitHub App la merge dès que les vérifications exigées sont vertes).
 # Mode « cycle » (flux develop → main avec fichiers de version) : le travail
 # s'intègre dans develop, une PR de livraison develop → main est tenue à jour ;
 # la merger (humain, merge commit) déclenche sur main la release du mode pr
@@ -118,6 +120,16 @@ on:
           de livraison. Vide : la livraison se merge à la main (revue de PR).
         type: string
         default: ""
+      delivery-auto:
+        description: >-
+          Mode tag : livraison automatique, choix du projet (la validation
+          humaine est le merge de chaque ticket). La GitHub App arme le merge
+          de la PR de livraison quand une livraison est demandée (à chaque
+          merge avec delivery-on-push, sinon fenêtre, manuel, urgence) ; elle
+          part dès que les vérifications exigées sont vertes. Sans App : merge
+          à la main. Exclut delivery-environment. false (défaut) : approbation.
+        type: boolean
+        default: false
       app-client-id:
         description: "GitHub App des workflows (repowarden app init : vars.REPOWARDEN_APP_CLIENT_ID), pour merger la livraison approuvée"
         type: string
@@ -162,6 +174,9 @@ on:
         value: ${{ jobs.tag.outputs.prerelease_tag }}
       prerelease_version:
         value: ${{ jobs.tag.outputs.prerelease_version }}
+      delivery_pr:
+        description: "Mode tag : numéro de la PR de livraison créée ou mise à jour (vide : aucune)"
+        value: ${{ jobs.tag.outputs.delivery_pr }}
 
 permissions: {}
 
@@ -461,6 +476,8 @@ jobs:
           MAIN: ${{ inputs.main-branch }}
           INITIAL_VERSION: ${{ inputs.initial-version }}
           MODE: ${{ inputs.mode }}
+          DELIVERY_AUTO: ${{ inputs.delivery-auto }}
+          DELIVERY_ENV: ${{ inputs.delivery-environment }}
           # Livraison approuvée (environnement) : la PR part d'un instantané de
           # develop, créé seulement à la demande (fenêtre, manuelle, urgence)
           INSTANTANE: ${{ inputs.mode == 'tag' && inputs.delivery-environment != '' }}
@@ -468,6 +485,11 @@ jobs:
             ${{ github.event_name == 'workflow_dispatch' || inputs.delivery-on-push ||
             (github.event_name == 'schedule' && github.event.schedule == inputs.delivery-schedule) }}
         run: |
+          # Deux modes exclusifs : approuvée (environnement) ou automatique
+          if [ "$DELIVERY_AUTO" = true ] && [ -n "$DELIVERY_ENV" ]; then
+            echo "::error::delivery-auto et delivery-environment ensemble : choisir la livraison automatique (retirer delivery-environment) ou approuvée (retirer delivery-auto)."
+            exit 1
+          fi
           if [ "$APP_TOKEN" != true ]; then
             echo "::warning::Pas de GitHub App configurée (entrée app-client-id) : la PR de livraison est créée/mise à jour avec le jeton des Actions. Ce jeton ne déclenche pas les autres workflows (ex. suivi des tickets). Pour activer l'App : repowarden app init."
           fi
@@ -539,8 +561,8 @@ jobs:
       # push en attente d'approbation bloquerait les merges suivants)
       - name: Urgence
         if: >-
-          inputs.mode == 'tag' && inputs.delivery-environment != '' && !inputs.delivery-on-push &&
-          github.event_name == 'push' && github.ref_name == inputs.integration-branch
+          inputs.mode == 'tag' && (inputs.delivery-environment != '' || inputs.delivery-auto) &&
+          !inputs.delivery-on-push && github.event_name == 'push' && github.ref_name == inputs.integration-branch
         env:
           GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
           APP_TOKEN: ${{ steps.app.outputs.token != '' }}
@@ -613,6 +635,30 @@ jobs:
           INITIAL_VERSION: ${{ inputs.initial-version }}
           PREVERSION_CREEE: ${{ steps.preversion.outputs.tag }}
         run: bash .repowarden-ci/ci/livraison.sh poster "$GITHUB_SHA"
+
+      # Livraison automatique (delivery-auto, choix du projet) : la validation
+      # humaine est le merge de chaque ticket. Quand une livraison est demandée,
+      # la GitHub App arme le merge de la PR de livraison, qui part dès que les
+      # vérifications exigées sur la branche principale sont vertes. L'App,
+      # jamais le jeton des Actions : son merge déclenche le tag et la release.
+      - name: Livraison automatique
+        if: >-
+          inputs.mode == 'tag' && inputs.delivery-auto && steps.livraison.outputs.pr != '' &&
+          (github.event_name == 'workflow_dispatch' || inputs.delivery-on-push ||
+          (github.event_name == 'schedule' && github.event.schedule == inputs.delivery-schedule))
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ steps.livraison.outputs.pr }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::warning::Livraison automatique demandée (delivery-auto), mais pas de GitHub App (entrée app-client-id, repowarden app init) : merger la PR #$PR à la main (avec le jeton des Actions, la release ne se lancerait pas)."
+            exit 0
+          fi
+          # Vérifications déjà vertes : GitHub refuse d'armer, merge direct
+          # (les règles de la branche principale s'appliquent de même)
+          gh pr merge "$PR" --auto --merge || gh pr merge "$PR" --merge
+          echo "::notice::Livraison automatique : PR #$PR mergée dès que les vérifications exigées sont vertes, puis tag et release."
 
       - name: Tag et release
         id: publier
