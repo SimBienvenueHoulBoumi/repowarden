@@ -537,6 +537,8 @@ _msg_fr() {
         bots.prev_review) _M=".repowarden.conf : livraison validée par la revue de sa PR (sans GitHub App)" ;;
         bots.prev_kept) _M="%s existe : gardé tel quel (écart avec le modèle : %s ligne(s))" ;;
         bots.prev_file) _M="%s : créé" ;;
+        bots.prev_ci_langs) _M="  outillage de la CI : %s (strict si formatage et tests sont outillés)" ;;
+        bots.prev_ci_generic) _M="  langage non reconnu : modèle générique, outillage du projet à ajouter (setup-*) puis strict: true" ;;
         bots.prev_tickets) _M="tickets : étiquettes et modèle de ticket sur GitHub, workflow tickets.yml" ;;
         bots.prev_app) _M="GitHub App : créée dans le navigateur, identifiants rangés en variable et secret du dépôt" ;;
         bots.prev_proteger) _M="réglages GitHub : rulesets des branches et des tags, modes de merge" ;;
