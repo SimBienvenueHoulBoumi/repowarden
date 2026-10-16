@@ -6,10 +6,11 @@
 #                                ne plus jamais le proposer (repowarden.bots = off)
 # Rien n'est fait sans accord : une question globale (non par défaut), le
 # flux (main seul, ou develop → main), un accord par bot (CI, releases,
-# nettoyage, tickets, App, protection, npm), l'aperçu de ce qui sera créé ou
-# modifié, puis une confirmation finale. Un fichier existant n'est jamais
-# écrasé. Relançable pour compléter. Demande un terminal, gh connecté et les
-# droits d'administration du dépôt.
+# nettoyage, tickets, App, protection, npm), la livraison (flux develop avec
+# releases : automatique ou approuvée, rythme, préversion obligatoire),
+# l'aperçu de ce qui sera créé ou modifié, puis une confirmation finale. Un
+# fichier existant n'est jamais écrasé. Relançable pour compléter. Demande un
+# terminal, gh connecté et les droits d'administration du dépôt.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
@@ -19,7 +20,7 @@ source "$ROOT/hooks/lib/common.sh"
 # shellcheck source=../hooks/lib/lang.sh
 source "$ROOT/hooks/lib/lang.sh"
 
-aide() { sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; }
+aide() { sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; }
 
 # Commandes enchaînées (remplaçables dans les tests)
 BIN="${REPOWARDEN_BIN:-$ROOT/bin}"
@@ -124,6 +125,23 @@ done
 choisi() { [[ " ${BOTS[*]+"${BOTS[*]}"} " == *" $1 "* ]]; }
 AVEC_APP=""
 { [ -n "$APP_PRESENTE" ] || choisi app; } && AVEC_APP=1
+
+# --- Livraison (flux develop, releases) : mode, rythme, préversion -----------
+# Défauts : le release.yml d'aujourd'hui (approbation, regroupé, préversion
+# obligatoire) ; chaque réponse devient une entrée de release-auto.yml
+LIVRAISON_AUTO="" A_CHAQUE_TICKET="" PREVERSION_OBLIGATOIRE=1
+if [ "$FLUX" = develop ] && choisi release; then
+    echo >&2
+    dim_t bots.desc_delivery
+    if demander bots.ask_delivery_auto n; then
+        LIVRAISON_AUTO=1
+        # Le merge automatique passe par la GitHub App (jeton des Actions : pas de release)
+        [ -n "$AVEC_APP" ] || attention_t bots.auto_no_app
+    fi
+    dim_t bots.desc_rythme
+    demander bots.ask_each_ticket n && A_CHAQUE_TICKET=1
+    demander bots.ask_preversion o || PREVERSION_OBLIGATOIRE=""
+fi
 
 # --- Outillage de la CI : langages du projet --------------------------------
 # Même détection que les hooks (marqueurs des plugins, repowarden.skip), à la
@@ -292,7 +310,20 @@ YAML
 
 modele_release() {
     if [ "$FLUX" = develop ]; then
-        cat <<YAML
+        if [ -n "$A_CHAQUE_TICKET" ]; then
+            cat <<YAML
+# Releases, flux $INTEGRATION → $PRINCIPALE (mode tag) : à chaque merge sur
+# $INTEGRATION, préversion vX.Y.Z-next.N et demande de livraison
+# $INTEGRATION → $PRINCIPALE, qui publie le tag vX.Y.Z et la release.
+name: release
+
+on:
+  push:
+    branches: [$PRINCIPALE, $INTEGRATION]
+  workflow_dispatch: # à la main (et urgence) : préversion et demande de livraison
+YAML
+        else
+            cat <<YAML
 # Releases, flux $INTEGRATION → $PRINCIPALE (mode tag) : préversion vX.Y.Z-next.N le
 # soir si $INTEGRATION a changé ; le vendredi matin (ou à la main), une demande
 # de livraison $INTEGRATION → $PRINCIPALE, qui publie le tag vX.Y.Z et la release.
@@ -305,6 +336,9 @@ on:
     - cron: "0 19 * * *" # préversion du soir, si $INTEGRATION a changé
     - cron: "0 7 * * 5" # fenêtre de livraison : le vendredi matin
   workflow_dispatch: # à la main (et urgence) : préversion et demande de livraison
+YAML
+        fi
+        cat <<YAML
 
 # Une file par branche et par déclencheur ; une demande manuelle ou planifiée
 # remplace celle en attente ; un push n'annule jamais un run en cours
@@ -322,14 +356,29 @@ jobs:
       mode: tag
       integration-branch: $INTEGRATION
       main-branch: $PRINCIPALE
-      delivery-schedule: "0 7 * * 5" # même cron que la fenêtre ci-dessus
 YAML
-        if [ -n "$AVEC_APP" ]; then
+        if [ -n "$A_CHAQUE_TICKET" ]; then
             cat <<'YAML'
-      delivery-environment: production # « Approve and deploy » valide la livraison
-      app-client-id: ${{ vars.REPOWARDEN_APP_CLIENT_ID }} # la GitHub App merge la livraison approuvée
+      preversion-on-push: true # préversion à chaque merge
+      delivery-on-push: true # demande de livraison à chaque merge
+YAML
+        else
+            echo '      delivery-schedule: "0 7 * * 5" # même cron que la fenêtre ci-dessus'
+        fi
+        [ -n "$PREVERSION_OBLIGATOIRE" ] ||
+            echo "      preversion-obligatoire: false # version stable possible sans préversion"
+        if [ -n "$LIVRAISON_AUTO" ]; then
+            echo "      delivery-auto: true # la GitHub App merge la livraison, vérifications vertes"
+        elif [ -n "$AVEC_APP" ]; then
+            echo "      delivery-environment: production # « Approve and deploy » valide la livraison"
+        fi
+        if [ -n "$AVEC_APP" ]; then
+            local merge="la GitHub App merge la livraison approuvée"
+            [ -z "$LIVRAISON_AUTO" ] || merge="la GitHub App merge la livraison"
+            cat <<YAML
+      app-client-id: \${{ vars.REPOWARDEN_APP_CLIENT_ID }} # $merge
     secrets:
-      app-key: ${{ secrets.REPOWARDEN_APP_KEY }}
+      app-key: \${{ secrets.REPOWARDEN_APP_KEY }}
 YAML
         fi
     else
@@ -428,7 +477,22 @@ step_t bots.preview
 [ -z "$CREER_DEVELOP" ] || info_t bots.prev_develop "$INTEGRATION" "$PRINCIPALE"
 if [ "$FLUX" = develop ]; then
     info_t bots.prev_conf "$INTEGRATION"
-    [ -n "$AVEC_APP" ] || info_t bots.prev_review
+    if [ -n "$LIVRAISON_AUTO" ]; then
+        info_t bots.prev_conf_auto
+    elif [ -z "$AVEC_APP" ]; then
+        info_t bots.prev_review
+    fi
+fi
+# Choix de livraison écrits dans release.yml (questions posées)
+if [ "$FLUX" = develop ] && choisi release; then
+    if [ -n "$LIVRAISON_AUTO" ]; then
+        info_t bots.prev_delivery_auto
+        [ -n "$AVEC_APP" ] || attention_t bots.auto_no_app
+    else
+        info_t bots.prev_delivery_approval
+    fi
+    if [ -n "$A_CHAQUE_TICKET" ]; then info_t bots.prev_each_ticket; else info_t bots.prev_grouped; fi
+    if [ -n "$PREVERSION_OBLIGATOIRE" ]; then info_t bots.prev_preversion_on; else info_t bots.prev_preversion_off; fi
 fi
 for bot in ${BOTS[@]+"${BOTS[@]}"}; do
     fichier_du "$bot"
@@ -477,7 +541,11 @@ if [ "$FLUX" = develop ]; then
         git config -f "$conf" repowarden.integrationBranch "$INTEGRATION"
     git config -f "$conf" --get repowarden.protectedBranches >/dev/null ||
         git config -f "$conf" repowarden.protectedBranches "$PRINCIPALE $INTEGRATION"
-    if [ -z "$AVEC_APP" ]; then
+    if [ -n "$LIVRAISON_AUTO" ]; then
+        # Choix explicite : remplace une approbation déjà réglée
+        [ "$(git config -f "$conf" --get repowarden.deliveryApproval || true)" = auto ] ||
+            git config -f "$conf" repowarden.deliveryApproval auto
+    elif [ -z "$AVEC_APP" ]; then
         git config -f "$conf" --get repowarden.deliveryApproval >/dev/null ||
             git config -f "$conf" repowarden.deliveryApproval review
     fi
