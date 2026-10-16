@@ -137,6 +137,8 @@ The command opens GitHub's creation page, prefilled: minimal permissions (conten
 - **App not installed**: the workflows' "Jeton de l'App" step fails (`Not Found - get-a-repository-installation…`); an annotation says so, with the installation link (`release-auto`: error; ticket tracking: warning, it goes on with the Actions token).
 - **Name already taken** (often an orphan App from an interrupted attempt: created on GitHub, credentials never stored): the command stops before creating anything. Run again with `--nom <other name>`, or delete the orphan App (Settings → Developer settings → GitHub Apps).
 
+**In a container** (devcontainer without port forwarding, e.g. `docker run` or `make shell`), the local creation page (`127.0.0.1`) and GitHub's redirect cannot be reached from the host's browser: the command detects it, stops **without creating anything** and shows the command to run on the host (`npx repowarden app init --repo owner/name`). VS Code Dev Containers and Codespaces forward ports themselves: normal creation. If your browser reaches the container's `127.0.0.1` (host network), `REPOWARDEN_CONTENEUR=0` overrides the check. A page not visited within 3 minutes (`REPOWARDEN_APP_DELAI`, in seconds) also stops the command cleanly.
+
 ### Organization bot
 
 The bot keeps **every project** of an organization up to date, from a **control repository**. Every night, it goes through each repository where its App is installed:

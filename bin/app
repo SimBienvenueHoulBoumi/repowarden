@@ -49,6 +49,7 @@ command -v gh >/dev/null || { err_t bot.no_gh; exit 1; }
 command -v node >/dev/null || { err_t app.no_node; exit 1; }
 [ -n "$REPO" ] || REPO="$(gh repo view --json nameWithOwner -q .nameWithOwner)"
 owner="${REPO%%/*}"
+NOM_DEMANDE="$NOM"
 # App du bot : identifiants à part (dépôt de pilotage), droits sur les workflows
 PREFIXE=REPOWARDEN_APP
 if [ -n "$BOT" ]; then
@@ -65,6 +66,25 @@ ouvrir() {
     elif command -v xdg-open >/dev/null; then xdg-open "$1" >/dev/null 2>&1
     elif command -v cmd.exe >/dev/null; then cmd.exe /c start "" "$1"
     fi
+}
+
+# Conteneur dont le navigateur (sur l'hôte) ne joint pas 127.0.0.1 : la page
+# locale et le retour de GitHub y seraient injoignables (App orpheline si
+# « Create » est cliqué). VS Code Dev Containers et Codespaces redirigent les
+# ports d'eux-mêmes. REPOWARDEN_CONTENEUR=0|1 force la réponse.
+conteneur_isole() {
+    case "${REPOWARDEN_CONTENEUR:-}" in 0) return 1 ;; 1) return 0 ;; esac
+    [ -z "${REMOTE_CONTAINERS:-}${CODESPACES:-}${VSCODE_IPC_HOOK_CLI:-}" ] || return 1
+    [ -e /.dockerenv ] || [ -e /run/.containerenv ] ||
+        grep -qE 'docker|kubepods|containerd|lxc|podman' /proc/1/cgroup 2>/dev/null
+}
+
+# Marche à suivre quand la page locale n'est pas joignable : lancer sur l'hôte
+marche_a_suivre() {
+    local cmd="npx repowarden app init --repo $REPO"
+    [ -z "$NOM_DEMANDE" ] || cmd="$cmd --nom $NOM_DEMANDE"
+    if [ -n "$BOT" ]; then cmd="$cmd --bot"; elif [ -n "$ADMIN" ]; then cmd="$cmd --administration"; fi
+    info_t app.howto "$cmd"
 }
 
 # 1. Création, si l'App n'est pas déjà configurée pour ce dépôt
@@ -90,14 +110,23 @@ else
         info_t app.name_taken_fix "$apps"
         exit 1
     fi
+    if conteneur_isole; then
+        err_t app.container
+        marche_a_suivre
+        exit 1
+    fi
     sortie="$(mktemp)"
     trap 'rm -f "$sortie"' EXIT
     # Page locale : envoie la description à GitHub (formulaire POST), puis
     # reçoit le code de retour ; le code est écrit sur la sortie standard
-    NOM="$NOM" REPO="$REPO" ADMIN="$ADMIN" BOT="$BOT" CIBLE="$cible" node -e '
+    delai_page="${REPOWARDEN_APP_DELAI:-180}"
+    NOM="$NOM" REPO="$REPO" ADMIN="$ADMIN" BOT="$BOT" CIBLE="$cible" DELAI_PAGE="$delai_page" node -e '
         const http = require("http"), crypto = require("crypto");
         const etat = crypto.randomBytes(16).toString("hex");
+        // Page jamais consultée (navigateur qui ne joint pas 127.0.0.1) : arrêt
+        const attente = setTimeout(() => { console.log("DELAI_PAGE"); process.exit(1); }, Number(process.env.DELAI_PAGE) * 1000);
         const srv = http.createServer((req, res) => {
+            clearTimeout(attente);
             const u = new URL(req.url, "http://127.0.0.1");
             if (u.pathname === "/fin") {
                 if (u.searchParams.get("state") !== etat) { res.writeHead(400); res.end("état invalide"); return; }
@@ -135,7 +164,18 @@ else
     ouvrir "http://127.0.0.1:$port/"
     wait "$serveur" || true
     code="$(sed -n 's/^CODE //p' "$sortie")"
-    [ -n "$code" ] || { err_t app.no_code; info_t app.name_taken_fix "$apps"; exit 1; }
+    if grep -q '^DELAI_PAGE' "$sortie"; then
+        err_t app.page_timeout "$delai_page"
+        marche_a_suivre
+        exit 1
+    fi
+    if [ -z "$code" ]; then
+        err_t app.no_code
+        attention_t app.orphan
+        info_t app.name_taken_fix "$apps"
+        marche_a_suivre
+        exit 1
+    fi
     # Conversion du code : identifiants de l'App, rangés sans être affichés
     reponse="$(gh api -X POST "app-manifests/$code/conversions")"
     client_id="$(node -p 'JSON.parse(require("fs").readFileSync(0, "utf8")).client_id' <<<"$reponse")"

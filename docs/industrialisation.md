@@ -137,6 +137,8 @@ La commande ouvre la page de création de GitHub, préremplie : permissions mini
 - **App non installée** : l'étape « Jeton de l'App » des workflows échoue (`Not Found - get-a-repository-installation…`) ; une annotation le dit, avec le lien d'installation (`release-auto` : erreur ; suivi des tickets : avertissement, il continue avec le jeton des Actions).
 - **Nom déjà pris** (souvent une App orpheline d'un essai interrompu : créée sur GitHub, identifiants jamais rangés) : la commande s'arrête avant la création. Relancer avec `--nom <autre nom>`, ou supprimer l'App orpheline (Settings → Developer settings → GitHub Apps).
 
+**Dans un conteneur** (devcontainer sans redirection de ports, par exemple `docker run` ou `make shell`), la page locale de création (`127.0.0.1`) et le retour de GitHub ne sont pas joignables depuis le navigateur de l'hôte : la commande le détecte, s'arrête **sans rien créer** et indique la commande à lancer sur l'hôte (`npx repowarden app init --repo propriétaire/nom`). VS Code Dev Containers et Codespaces redirigent les ports d'eux-mêmes : création normale. Si ton navigateur joint le `127.0.0.1` du conteneur (réseau de l'hôte), `REPOWARDEN_CONTENEUR=0` passe outre. Une page non consultée dans les 3 minutes (`REPOWARDEN_APP_DELAI`, en secondes) arrête aussi la commande proprement.
+
 ### Bot d'organisation
 
 Le bot tient à jour **tous les projets** d'une organisation, depuis un **dépôt de pilotage**. Chaque nuit, il passe sur chaque dépôt où son App est installée :

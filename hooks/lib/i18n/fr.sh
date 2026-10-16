@@ -461,6 +461,10 @@ _msg_fr() {
         app.server_failed) _M="Page locale non démarrée." ;;
         app.open) _M="Ouvre %s puis clique sur le bouton vert de GitHub." ;;
         app.no_code) _M="Aucune réponse de GitHub (création annulée, ou délai de 15 min dépassé)." ;;
+        app.container) _M="Conteneur détecté : la page locale de création (127.0.0.1) ne serait pas joignable depuis le navigateur de l'hôte. Rien n'a été créé." ;;
+        app.howto) _M="Lance la commande sur l'hôte : %s (ou ici avec REPOWARDEN_CONTENEUR=0 si ton navigateur joint le 127.0.0.1 de ce conteneur : réseau de l'hôte, port redirigé)." ;;
+        app.page_timeout) _M="Page locale non consultée en %s s : arrêt, rien n'a été créé." ;;
+        app.orphan) _M="Si tu as cliqué « Create », l'App existe sans identifiants récupérés : supprime-la (paramètres GitHub → Developer settings → GitHub Apps) avant de relancer." ;;
         app.created) _M="App %s créée ; identifiants rangés (variable %s, secret %s)." ;;
         app.step_install) _M="Installation sur le dépôt" ;;
         app.installed) _M="App %s installée sur %s." ;;

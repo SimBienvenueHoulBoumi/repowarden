@@ -58,7 +58,8 @@ case "$1" in
 esac
 NAV
     chmod +x "$F/bin/navigateur"
-    export PATH="$F/bin:$PATH" FAKE="$F" REPOWARDEN_OPEN="$F/bin/navigateur"
+    # poste normal, y compris quand les tests tournent dans un conteneur
+    export PATH="$F/bin:$PATH" FAKE="$F" REPOWARDEN_OPEN="$F/bin/navigateur" REPOWARDEN_CONTENEUR=0
 }
 
 @test "app init : App creee (manifest, permissions minimales), identifiants ranges sans etre affiches, installee" {
@@ -119,6 +120,36 @@ NAV
     run "$APP" init
     # le faux etat est ignore ; seul le bon retour est accepte
     [ "$(grep -c "app-manifests" "$F/log")" -eq 1 ]
+}
+
+@test "app init dans un conteneur sans redirection de ports -> marche a suivre, rien d'ouvert ni de cree" {
+    export REPOWARDEN_CONTENEUR=1
+    run "$APP" init --bot
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Conteneur détecté"* ]]
+    [[ "$output" == *"npx repowarden app init --repo moi/projet --bot"* ]]
+    [ ! -e "$F/page" ]
+    ! grep -q "app-manifests" "$F/log"
+    ! ls "$F"/var.* "$F"/secret.* 2>/dev/null
+}
+
+@test "app init dans VS Code Dev Containers (ports rediriges) -> creation normale" {
+    unset REPOWARDEN_CONTENEUR
+    export REMOTE_CONTAINERS=true
+    run "$APP" init
+    [ "$status" -eq 0 ]
+    [ "$(cat "$F/var.REPOWARDEN_APP_CLIENT_ID")" = Iv1.abc ]
+}
+
+@test "app init : page locale jamais consultee -> arret au delai, marche a suivre, rien de cree" {
+    printf '#!/usr/bin/env bash\nexit 0\n' >"$F/bin/navigateur"
+    export REPOWARDEN_APP_DELAI=1
+    run "$APP" init --nom essai
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"non consultée en 1 s"* ]]
+    [[ "$output" == *"npx repowarden app init --repo moi/projet --nom essai"* ]]
+    ! grep -q "app-manifests" "$F/log"
+    ! ls "$F"/var.* "$F"/secret.* 2>/dev/null
 }
 
 @test "app init : relance, App configuree mais desinstallee -> pas de succes annonce, lien d'installation" {
