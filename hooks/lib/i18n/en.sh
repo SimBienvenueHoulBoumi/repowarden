@@ -532,6 +532,8 @@ _msg_en() {
         bots.prev_review) _M=".repowarden.conf: delivery approved by reviewing its PR (no GitHub App)" ;;
         bots.prev_kept) _M="%s exists: kept as is (difference with the template: %s line(s))" ;;
         bots.prev_file) _M="%s: created" ;;
+        bots.prev_ci_langs) _M="  CI tooling: %s (strict when formatting and tests have their tools)" ;;
+        bots.prev_ci_generic) _M="  language not recognized: generic template, add the project tooling (setup-*) then strict: true" ;;
         bots.prev_tickets) _M="tickets: labels and ticket template on GitHub, tickets.yml workflow" ;;
         bots.prev_app) _M="GitHub App: created in the browser, credentials stored as repository variable and secret" ;;
         bots.prev_proteger) _M="GitHub settings: branch and tag rulesets, merge methods" ;;

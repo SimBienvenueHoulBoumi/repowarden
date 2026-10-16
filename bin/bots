@@ -15,6 +15,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 # shellcheck source=../hooks/lib/common.sh
 source "$ROOT/hooks/lib/common.sh"
+# Détection des langages des hooks (marqueurs des plugins) : outillage de la CI
+# shellcheck source=../hooks/lib/lang.sh
+source "$ROOT/hooks/lib/lang.sh"
 
 aide() { sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; }
 
@@ -122,6 +125,96 @@ choisi() { [[ " ${BOTS[*]+"${BOTS[*]}"} " == *" $1 "* ]]; }
 AVEC_APP=""
 { [ -n "$APP_PRESENTE" ] || choisi app; } && AVEC_APP=1
 
+# --- Outillage de la CI : langages du projet --------------------------------
+# Même détection que les hooks (marqueurs des plugins, repowarden.skip), à la
+# racine. strict activé seulement si le formatage et les tests de chaque
+# langage ont leur outil (SANS_STRICT : raison sinon).
+CI_LANGS=""
+SANS_STRICT=""
+sans_strict() { SANS_STRICT="${SANS_STRICT:+$SANS_STRICT, }$1"; }
+active_plugins_init
+for p in python node maven gradle go; do
+    { [[ " $ACTIVE_PLUGINS " == *" $p "* ]] && has_marker . "$p"; } || continue
+    CI_LANGS="$CI_LANGS $p"
+    case "$p" in
+        node) grep -q '"prettier"' package.json || sans_strict "prettier absent de package.json" ;;
+        maven) grep -q spotless pom.xml || sans_strict "Spotless non configuré (pom.xml)" ;;
+        gradle)
+            find . -maxdepth 3 \( -name '*.gradle' -o -name '*.gradle.kts' \) -not -path '*/build/*' -print0 2>/dev/null |
+                xargs -0 grep -qs spotless || sans_strict "Spotless non configuré (Gradle)"
+            ;;
+    esac
+done
+CI_LANGS="${CI_LANGS# }"
+
+# Étapes d'installation de l'outillage des langages détectés (actions figées
+# par SHA, comme les workflows de repowarden)
+outillage_ci() {
+    local p pm java=""
+    for p in $CI_LANGS; do
+        case "$p" in
+            python)
+                cat <<'YAML'
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+YAML
+                [ ! -f requirements.txt ] || echo "      - run: pip install -r requirements.txt"
+                cat <<'YAML'
+      # Formatage, code mort et tests (versions figées)
+      - run: pip install ruff==0.16.10 vulture==2.16 pytest==9.1.1
+YAML
+                ;;
+            node)
+                pm="$(node_pm)"
+                cat <<'YAML'
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+YAML
+                case "$pm" in
+                    pnpm) echo "      - run: corepack enable && pnpm install --frozen-lockfile" ;;
+                    yarn) echo "      - run: corepack enable && yarn install" ;;
+                    *)
+                        if [ -f package-lock.json ]; then
+                            echo "          cache: npm"
+                            echo "      - run: npm ci"
+                        else
+                            echo "      - run: npm install"
+                        fi
+                        ;;
+                esac
+                ;;
+            maven | gradle)
+                if [ -z "$java" ]; then
+                    java=1
+                    cat <<YAML
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: $p
+YAML
+                fi
+                if [ "$p" = gradle ] && [ ! -x gradlew ]; then
+                    cat <<'YAML'
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        with:
+          gradle-version: current
+YAML
+                fi
+                ;;
+            go)
+                cat <<'YAML'
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+YAML
+                ;;
+        esac
+    done
+}
+
 # --- Modèles des workflows -------------------------------------------------
 modele_ci() {
     cat <<'YAML'
@@ -153,27 +246,46 @@ jobs:
   repowarden:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # historique complet : messages de commit, diff depuis la base
+YAML
+    if [ -n "$CI_LANGS" ]; then
+        echo "      # Outillage du projet ($CI_LANGS) : formatage et tests"
+        outillage_ci
+    else
+        cat <<'YAML'
       # Outils du projet nécessaires au formatage et aux tests, par exemple :
-      # - uses: actions/setup-node@v7
+      # - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
       #   with: { node-version: 24, cache: npm }
       # - run: npm ci
-      - uses: simdevWarden/repowarden@v4
 YAML
+    fi
+    echo "      - uses: simdevWarden/repowarden@v4"
+    # strict : actif si l'outillage de chaque langage est installé ci-dessus
+    local actif="" strict="strict: true   # outil absent bloquant, une fois l'outillage installé ci-dessus"
+    if [ -n "$CI_LANGS" ]; then
+        if [ -z "$SANS_STRICT" ]; then
+            actif=1 strict="strict: true # outillage installé ci-dessus : un outil absent fait échouer"
+        else
+            strict="strict: true   # $SANS_STRICT : à activer une fois l'outil en place"
+        fi
+    fi
+    if [ -n "$actif" ]; then
+        echo "        with:"
+        echo "          $strict"
+    elif [ "$FLUX" = develop ]; then
+        echo "        with:"
+        echo "          # $strict"
+    else
+        echo "        # with:"
+        echo "        #   $strict"
+    fi
     if [ "$FLUX" = develop ]; then
         cat <<'YAML'
-        with:
-          # strict: true   # outil absent bloquant, une fois l'outillage installé ci-dessus
           # Seule la branche d'intégration entre dans la principale : une PR
           # de travail mal visée est reciblée avant les vérifications
           fix-pr: "true"
-YAML
-    else
-        cat <<'YAML'
-        # with:
-        #   strict: true   # outil absent bloquant, une fois l'outillage installé ci-dessus
 YAML
     fi
 }
@@ -306,6 +418,12 @@ for bot in ${BOTS[@]+"${BOTS[@]}"}; do
             info_t bots.prev_kept "$f" "$ecart"
         else
             info_t bots.prev_file "$f"
+            # Outillage écrit dans la CI, ou modèle générique faute de langage reconnu
+            if [ "$bot" = ci ] && [ -n "$CI_LANGS" ]; then
+                info_t bots.prev_ci_langs "$CI_LANGS"
+            elif [ "$bot" = ci ]; then
+                info_t bots.prev_ci_generic
+            fi
         fi
     else
         info_t "bots.prev_$bot"

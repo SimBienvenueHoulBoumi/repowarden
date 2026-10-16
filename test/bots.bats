@@ -78,7 +78,60 @@ lancer() { run bash -c "\"$BOTS\" <\"$F/reponses\""; }
     ! grep -q "^app " "$F/log"
     ! git config -f .repowarden.conf --get repowarden.integrationBranch
     [[ "$output" == *"commiter par une PR"* ]]
+    # aucun langage reconnu : modèle générique, strict commenté, et c'est dit
+    [[ "$output" == *"langage non reconnu : modèle générique"* ]]
+    grep -q '^        #   strict: true' .github/workflows/repowarden.yml
+    ! grep -q 'setup-python' .github/workflows/repowarden.yml
     if command -v actionlint >/dev/null; then actionlint .github/workflows/*.yml; fi
+}
+
+@test "bots : CI d'un projet Python -> setup-python, ruff vulture pytest, strict actif" {
+    printf '[project]\nname = "x"\n' >pyproject.toml
+    # global, flux 1, ci, release (non), tickets (non), app (non), protection (non), confirmation
+    repondre o 1 o n n n n o
+    lancer
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"outillage de la CI : python"* ]]
+    w=.github/workflows/repowarden.yml
+    grep -q 'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0' "$w"
+    grep -q 'python-version: "3.12"' "$w"
+    grep -q 'run: pip install ruff==0.16.10 vulture==2.16 pytest==9.1.1' "$w"
+    ! grep -q 'requirements.txt' "$w"
+    grep -q '^          strict: true' "$w"
+    grep -q 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1' "$w"
+    if command -v actionlint >/dev/null; then actionlint "$w"; fi
+}
+
+@test "bots : CI Node, Go, Java -> outillage par langage, strict seulement s'il est complet" {
+    printf '{ "name": "x", "private": true, "devDependencies": { "prettier": "3.6.2" } }\n' >package.json
+    : >package-lock.json
+    printf 'module x\n\ngo 1.24\n' >go.mod
+    printf '<project><build><plugins><plugin>spotless</plugin></plugins></build></project>\n' >pom.xml
+    # global, flux 2 (develop existe), ci, release (non), nettoyage (non), tickets (non), app (non), protection (non), confirmation
+    repondre o 2 o n n n n n o
+    GH_DEVELOP=1 lancer
+    [ "$status" -eq 0 ]
+    w=.github/workflows/repowarden.yml
+    grep -q 'actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0' "$w"
+    grep -q 'cache: npm' "$w" && grep -q 'run: npm ci' "$w"
+    grep -q 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0' "$w"
+    grep -q 'go-version-file: go.mod' "$w"
+    grep -q 'actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1' "$w"
+    grep -q 'cache: maven' "$w"
+    grep -q '^          strict: true' "$w" && grep -q 'fix-pr: "true"' "$w"
+    if command -v actionlint >/dev/null; then actionlint "$w"; fi
+    # prettier absent, Gradle sans wrapper : strict commenté avec la raison
+    rm -rf .github pom.xml go.mod package-lock.json
+    printf '{ "name": "x", "private": true }\n' >package.json
+    : >settings.gradle
+    repondre o 2 o n n n n n o
+    GH_DEVELOP=1 lancer
+    grep -q 'run: npm install' "$w"
+    grep -q 'gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0' "$w"
+    grep -q 'cache: gradle' "$w"
+    grep -q '^          # strict: true   # prettier absent de package.json, Spotless non configuré (Gradle) :' "$w"
+    ! grep -q '^          strict: true' "$w"
+    if command -v actionlint >/dev/null; then actionlint "$w"; fi
 }
 
 @test "bots : flux develop, develop creee avec accord, App deja la -> livraison par l'environnement" {
