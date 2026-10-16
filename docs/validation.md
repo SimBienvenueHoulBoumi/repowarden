@@ -22,7 +22,7 @@ Le risque n'est pas la machine. C'est une validation humaine trop légère. Cett
 | Relire le code avant qu'il n'entre | approbations obligatoires ; approbation annulée par un nouveau commit ; le dernier à pousser ne peut pas approuver son propre push (sauf dépôt solo : une seule personne avec l'écriture, aucune règle n'exige une autre personne) | `repowarden proteger --relecteurs N` |
 | Faire relire les zones sensibles par leurs responsables | fichier `CODEOWNERS` + revue du propriétaire obligatoire | `repowarden proteger --codeowners` |
 | Décider de publier | environnement de déploiement : le job attend l'approbation d'une personne désignée | `repowarden proteger --environnement production` |
-| Décider de livrer (flux `develop`) | un clic **« Approve and deploy »** sur l'environnement `production` (notification, application mobile, page du run) ; la GitHub App merge alors la PR de livraison `develop` → `main`. `main` exige ce déploiement réussi : rien n'y entre sans cette approbation | mode `tag`, `deliveryApproval = deployment` (défaut ; `review` : revue de PR à la place) |
+| Décider de livrer (flux `develop`) | un clic **« Approve and deploy »** sur l'environnement `production` (notification, application mobile, page du run) ; la GitHub App merge alors la PR de livraison `develop` → `main`. `main` exige ce déploiement réussi : rien n'y entre sans cette approbation. **Ou, au choix du projet, livraison automatique** : la validation humaine est le merge de chaque ticket ; la GitHub App merge la livraison dès que les vérifications exigées sur `main` sont vertes ([comparaison des deux modes](releases.md#livraison-approuvee-ou-automatique)) | mode `tag`, `deliveryApproval = deployment` (défaut ; `review` : revue de PR à la place ; `auto` : livraison automatique, entrée `delivery-auto: true`) |
 | Garder la main sur la PR de release (mode `pr`) | merge humain | `release-auto` avec `merge-auto: false` |
 
 Avec une relecture exigée, la PR de release n'est jamais mergée par le bot. Il la prépare et la fait valider par la CI, puis elle attend une approbation humaine. Son merge publie la release.
@@ -36,7 +36,7 @@ Réglages versionnés dans `.repowarden.conf`, appliqués par `repowarden proteg
     requiredReviews = 1              # approbations par PR
     codeOwnerReview = true           # revue des CODEOWNERS sur leurs fichiers
     unattributedApproval = false     # approbation en plus pour les changements non attribués (défaut false)
-    deliveryApproval = deployment    # livraison validée par « Approve and deploy » (review : revue de PR)
+    deliveryApproval = deployment    # livraison validée par « Approve and deploy » (review : revue de PR ; auto : automatique)
     environment = production         # déploiements soumis à approbation
     environmentReviewers = alice @acme/release  # comptes ou équipes ; défaut : l'utilisateur gh courant
 ```

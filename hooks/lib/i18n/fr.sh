@@ -284,7 +284,10 @@ _msg_fr() {
         ci.proteger.reviews_invalid) _M="--relecteurs : nombre de 0 à 9 attendu." ;;
         ci.proteger.codeowners_invalid) _M="codeOwnerReview : true ou false." ;;
         ci.proteger.delivery_deploy) _M="  livraison vers main : approbation du déploiement « %s » (Approve and deploy), puis merge par la GitHub App ; merge automatique des PR de travail vers develop : %s" ;;
-        ci.proteger.delivery_invalid) _M="deliveryApproval : deployment ou review." ;;
+        ci.proteger.delivery_invalid) _M="deliveryApproval : deployment, review ou auto." ;;
+        ci.proteger.auto_needs_automerge) _M="deliveryApproval = auto demande le merge automatique du dépôt : retirer autoMergeWork = false de .repowarden.conf, ou choisir deliveryApproval = deployment ou review." ;;
+        ci.proteger.no_delivery_auto) _M="deliveryApproval = auto, mais aucun workflow n'appelle release-auto.yml avec delivery-auto: true : rien n'armera le merge de la livraison, qui se fera à la main (voir docs/releases.md, livraison automatique)." ;;
+        ci.proteger.delivery_auto) _M="  livraison vers main : automatique (la GitHub App la merge dès que les vérifications exigées sont vertes ; %s approbation(s) exigée(s))" ;;
         ci.proteger.automerge_invalid) _M="autoMergeWork : true ou false." ;;
         ci.proteger.unattributed_invalid) _M="unattributedApproval : true ou false." ;;
         ci.proteger.no_branch) _M="Aucune des branches « %s » n'existe sur %s." ;;
@@ -393,19 +396,14 @@ _msg_fr() {
         npm.old_npm) _M="npm %s trop ancien : 11.15 au minimum (npm install -g npm@11)." ;;
         npm.step_login) _M="1/3 Compte npm" ;;
         npm.logged) _M="Connecté à npm : %s" ;;
-        npm.no_2fa) _M="Double authentification (2FA) non activée sur le compte npm : npm l'exige pour créer le jeton et configurer la publication sans jeton." ;;
+        npm.no_2fa) _M="Double authentification (2FA) non activée sur le compte npm : npm l'exige pour configurer la publication sans jeton." ;;
         npm.hint_2fa) _M="Activer : npm profile enable-2fa auth-and-writes (QR code pour une application d'authentification), ou https://www.npmjs.com/settings/%s/tfa ; puis relancer cette commande." ;;
-        npm.step_token) _M="2/3 Première publication, par la pipeline (jeton temporaire)" ;;
-        npm.token_exists) _M="Secret NPM_TOKEN déjà présent : réutilisé." ;;
-        npm.ask_password) _M="Mot de passe npm (saisie masquée, transmis à npm seulement) : " ;;
-        npm.ask_otp) _M="Code à usage unique (application d'authentification ou e-mail de npm) : " ;;
-        npm.token_failed) _M="Création du jeton npm impossible (voir ci-dessus) : rien n'a été enregistré." ;;
-        npm.token_stored) _M="Jeton temporaire (7 jours) créé et enregistré en secret NPM_TOKEN, sans affichage." ;;
-        npm.dispatched) _M="Pipeline lancée (%s) : elle publie la dernière release sur npm. Attente… (Ctrl+C : relancer la commande plus tard, elle reprendra)" ;;
-        npm.waiting) _M="La prochaine release publie %s : merge une PR (ou laisse le bot merger la PR de release). Attente… (Ctrl+C : relancer la commande plus tard, elle reprendra)" ;;
-        npm.still_waiting) _M="toujours en attente (%s min)…" ;;
-        npm.not_yet) _M="Pas encore publié : relance cette commande après la prochaine release." ;;
-        npm.first_published) _M="%s@%s publié par la pipeline." ;;
+        npm.step_first) _M="2/3 Première publication, depuis ce poste (dernière release)" ;;
+        npm.no_release) _M="Aucune release encore : rien n'est publié. Relance cette commande après la première release de %s." ;;
+        npm.would_publish) _M="[dry-run] %s@%s serait publié depuis la release %s (npm publish, dans ce terminal)" ;;
+        npm.publishing) _M="Publication de %s@%s (release %s) : npm peut demander une validation (navigateur ou code)." ;;
+        npm.publish_failed) _M="Publication de %s refusée (voir ci-dessus) : rien d'autre n'a été configuré. Relance cette commande." ;;
+        npm.first_published) _M="%s@%s publié." ;;
         npm.step_trust) _M="3/3 Publication sans jeton (publication de confiance)" ;;
         npm.trust_exists) _M="Publication de confiance déjà configurée." ;;
         npm.trust_mismatch) _M="Relation de confiance existante mais ne correspond pas aux paramètres attendus :" ;;
@@ -471,7 +469,10 @@ _msg_fr() {
         app.step_install) _M="Installation sur le dépôt" ;;
         app.installed) _M="App %s installée sur %s." ;;
         app.not_installed) _M="App %s pas encore installée sur %s : relance repowarden app init une fois installée." ;;
-        app.check_in_ci) _M="Installation vérifiée au premier run du suivi des tickets (étape « Jeton de l'App ») ; pour l'installer : %s" ;;
+        app.not_verified) _M="Installation de l'App %s sur %s non vérifiée : la clé privée n'est pas sur ce poste (seule l'App peut lister ses installations). Si elle n'est pas installée, les workflows échoueront à l'étape « Jeton de l'App ». L'installer : %s" ;;
+        app.name_taken) _M="Une GitHub App s'appelle déjà %s (souvent une App orpheline d'un essai interrompu : créée sur GitHub, identifiants jamais rangés)." ;;
+        app.name_taken_fix) _M="Au choix : relancer avec --nom <autre nom>, ou supprimer l'App orpheline (Settings → Developer settings → GitHub Apps → l'App → Advanced → Delete) : %s" ;;
+        app.name_hint) _M="Si GitHub refuse le nom %s (déjà utilisé) : Ctrl+C, puis relancer avec --nom <autre nom>, ou supprimer l'App orpheline : %s" ;;
         app.done) _M="Les workflows repowarden utilisent désormais l'App : ce qu'ils font déclenche les autres workflows." ;;
         app.next) _M="Sans l'App (variable et secret absents), ils reprennent le jeton des Actions." ;;
         app.bot_all_repos) _M="Bot d'organisation : à l'installation, choisir « All repositories » (les nouveaux dépôts seront couverts d'office ; seuls ceux avec un .repowarden.conf sont gérés)." ;;
@@ -583,6 +584,7 @@ _msg_fr() {
         tk.init_auto_create_on) _M="Création auto de ticket : ACTIVÉE (ticketAutoCreate = true)" ;;
         tk.init_auto_create_off) _M="Création auto de ticket : DÉSACTIVÉE (défaut). Pour l'activer : git config repowarden.ticketAutoCreate true" ;;
         tk.init_next) _M="Ensuite : committer ces fichiers ; exiger la vérification « ticket » (repowarden proteger --checks \"…,ticket\") ; dans release.yml, brancher le job tickets (voir la doc Tickets)." ;;
+        tk.init_next_wired) _M="Ensuite : committer ces fichiers ; exiger la vérification « ticket » (repowarden proteger --checks \"…,ticket\"). Le job tickets de release.yml est déjà branché." ;;
         tk.prerelease) _M="Disponible en préversion **%s** : à tester avant la production." ;;
         tk.released) _M="Publié dans **%s**." ;;
         # Ticket comment

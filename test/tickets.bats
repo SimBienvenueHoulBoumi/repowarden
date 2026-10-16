@@ -182,6 +182,40 @@ ticket() { printf '%s\n' "$@" >"$F/issues/$N.labels"; }
     done
 }
 
+@test "tickets : run opened annule -> labeled ou assigned rattrape la validation d'office" {
+    # Ticket créé avec ses étiquettes : le run « opened » attendait et a été
+    # annulé par GitHub (un seul run en attente par groupe de concurrence)
+    N=72 ticket "statut: à valider" "type: feat"
+    ISSUE=72 ACTION=labeled LABEL="type: feat" ISSUE_ASSOCIATION=OWNER run "$TICKETS" issue
+    [ "$status" -eq 0 ]
+    grep -qxF "validé" "$F/issues/72.labels"
+    [ "$(labels 72 | grep statut)" = "statut: backlog" ]
+    # run « opened » tardif, puis autre étiquette : rien n'est refait
+    : >"$F/events"
+    ISSUE=72 ACTION=opened ISSUE_ASSOCIATION=OWNER run "$TICKETS" issue
+    ISSUE=72 ACTION=labeled LABEL="statut: à valider" ISSUE_ASSOCIATION=OWNER run "$TICKETS" issue
+    [ "$(grep -cxF "validé" "$F/issues/72.labels")" -eq 1 ]
+    ! grep -q "commentaire 72" "$F/events"
+    # assigné avant tout autre run : validé, branche, en cours
+    N=73 ticket "type: fix"
+    echo moi >"$F/issues/73.assignees"
+    ISSUE=73 ACTION=assigned ISSUE_ASSOCIATION=MEMBER run "$TICKETS" issue
+    grep -qxF "validé" "$F/issues/73.labels"
+    grep -q "branche-creee fix/73-" "$F/events"
+    [ "$(labels 73 | grep statut)" = "statut: en cours" ]
+    # pas de rattrapage : contributeur externe, auto-validate never, ticket
+    # fermé, ou « validé » retiré à la main d'un ticket déjà rangé
+    for cas in "ISSUE_ASSOCIATION=NONE" "ISSUE_ASSOCIATION=OWNER AUTO_VALIDATE=never" \
+        "ISSUE_ASSOCIATION=OWNER ISSUE_STATE=closed"; do
+        N=74 ticket "statut: à valider" "type: feat"
+        env $cas ISSUE=74 ACTION=labeled LABEL="type: feat" "$TICKETS" issue
+        ! grep -qxF "validé" "$F/issues/74.labels"
+    done
+    N=75 ticket "statut: backlog" "type: feat"
+    ISSUE=75 ACTION=labeled LABEL="type: feat" ISSUE_ASSOCIATION=OWNER run "$TICKETS" issue
+    ! grep -qxF "validé" "$F/issues/75.labels"
+}
+
 @test "tickets : PR mergee -> preprod ; release -> done et ferme ; preversion -> commentaire" {
     N=12 ticket "validé" "statut: en relecture"
     printf 'Ticket : #12' >"$F/pr_body"

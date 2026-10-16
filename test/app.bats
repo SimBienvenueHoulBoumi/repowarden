@@ -27,6 +27,8 @@ case "$1 $2" in
     "api -X")
         [ "$4" = "app-manifests/c0de/conversions" ] || exit 1
         cat "$FAKE/conversion.json" ;;
+    # App existante sous ce nom (orpheline d'un essai interrompu)
+    "api apps/"*) [ "$(cat "$FAKE/app_existe" 2>/dev/null)" = "${2#apps/}" ] && echo "${2#apps/}" ;;
     "api repos/moi/projet/installation")
         # au nom de l'App : jeton signé (en-tête.charge.signature), App installée
         [[ "$*" =~ Authorization:\ Bearer\ [A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+ ]] || exit 1
@@ -85,7 +87,7 @@ NAV
     run "$APP" init
     [ "$status" -eq 0 ]
     [[ "$output" == *"déjà configurée"* ]]
-    [[ "$output" == *"premier run du suivi des tickets"* ]]
+    [[ "$output" == *"non vérifiée"* ]]
     ! grep -q "app-manifests" "$F/log"
     rm -f "$F"/var.* "$F"/secret.*
     run "$APP" init --administration
@@ -148,4 +150,32 @@ NAV
     [[ "$output" == *"npx repowarden app init --repo moi/projet --nom essai"* ]]
     ! grep -q "app-manifests" "$F/log"
     ! ls "$F"/var.* "$F"/secret.* 2>/dev/null
+}
+
+@test "app init : relance, App configuree mais desinstallee -> pas de succes annonce, lien d'installation" {
+    run "$APP" init
+    [ "$status" -eq 0 ]
+    # désinstallée du dépôt ; la relance n'a pas la clé privée
+    rm -f "$F/installee"
+    run "$APP" init
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"déjà configurée"* ]]
+    [[ "$output" != *"utilisent désormais l'App"* ]]
+    [[ "$output" != *"installée sur moi/projet"* ]]
+    [[ "$output" == *"non vérifiée"*"https://github.com/apps/repowarden-moi/installations/new"* ]]
+}
+
+@test "app init : nom d'App deja pris -> echec avec la marche a suivre, aucune page ouverte" {
+    echo repowarden-moi >"$F/app_existe"
+    run "$APP" init
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"repowarden-moi"* ]]
+    [[ "$output" == *"--nom"* ]]
+    [[ "$output" == *"https://github.com/settings/apps"* ]]
+    [ ! -e "$F/page" ]
+    ! grep -q "app-manifests" "$F/log"
+    # autre nom : création normale
+    run "$APP" init --nom autre-nom
+    [ "$status" -eq 0 ]
+    grep -q '&quot;name&quot;:&quot;autre-nom&quot;' "$F/page"
 }

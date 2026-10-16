@@ -17,7 +17,7 @@ Ticket closed as **abandoned** (*not planned*): its PR is closed and its branch 
 
 **Finished** ticket (moved to `done` at release, or closed by hand) whose branch still exists, because the work went through another branch: the branch is deleted if it has no commit missing from `develop` and no open PR comes from it. Otherwise it is kept and the ticket says so: nothing is ever lost.
 
-Everything is automatic except validation: it is the only human decision, and GitHub only lets people with rights on the repository add the `validé` label. A ticket **opened by a maintainer** (write access: owner, member, collaborator) is **validated straight away**: opening it is already their decision. Only community tickets wait for the label. To always require a separate validation: `auto-validate: never` input of the `tickets.yml` workflow. The branch type comes from the ticket's `type: …` label (`feat` by default), its name from the title (lowercase, no accents).
+Everything is automatic except validation: it is the only human decision, and GitHub only lets people with rights on the repository add the `validé` label. A ticket **opened by a maintainer** (write access: owner, member, collaborator) is **validated straight away**: opening it is already their decision; every event on the ticket (label, assignment) catches up on this validation if the opening run was cancelled. Only community tickets wait for the label. To always require a separate validation: `auto-validate: never` input of the `tickets.yml` workflow. The branch type comes from the ticket's `type: …` label (`feat` by default), its name from the title (lowercase, no accents).
 
 ## On the developer machine
 
@@ -60,7 +60,7 @@ On a repository that already has tickets, `tickets init` takes them over (re-run
 - **branches of open and merged PRs**: registered on the tickets they reference, to know which ticket handled which branch, even deleted;
 - no mass branch creation: the branch is born when the ticket is taken (`repowarden ticket N`).
 
-In `.github/workflows/release.yml`, tickets move to pre-production on each pre-release and to done on each release:
+In `.github/workflows/release.yml`, tickets move to pre-production on each pre-release and to done on each release (job written by `repowarden bots` with ticket tracking, with the App when it is set up; add it by hand to an existing `release.yml`):
 
 ```yaml
   tickets:

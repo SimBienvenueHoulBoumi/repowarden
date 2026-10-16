@@ -15,7 +15,7 @@
 #    --administration, pour appliquer la configuration depuis la CI) ;
 # 2. identifiants rangés sans être affichés : variable REPOWARDEN_APP_CLIENT_ID,
 #    secret REPOWARDEN_APP_KEY (clé privée) ;
-# 3. installation sur le dépôt : tu cliques sur « Install ».
+# 3. installation sur le dépôt : « Install » (vérifiée avec la clé ; relance : « non vérifiée »).
 # Relançable : une App déjà configurée n'est pas recréée. Demande gh et node.
 set -euo pipefail
 
@@ -95,9 +95,20 @@ if [ -n "$client_id" ] && grep -q "^${PREFIXE}_KEY" <<<"$(gh secret list --repo 
     slug="$(gh variable get "${PREFIXE}_SLUG" --repo "$REPO" 2>/dev/null || true)"
 else
     if [ "$(gh api "users/$owner" -q .type)" = Organization ]; then
-        cible="https://github.com/organizations/$owner/settings/apps/new"
+        apps="https://github.com/organizations/$owner/settings/apps"
     else
-        cible="https://github.com/settings/apps/new"
+        apps="https://github.com/settings/apps"
+    fi
+    cible="$apps/new"
+    # Nom déjà pris (souvent une App orpheline d'un essai interrompu) : GitHub
+    # refuserait la création ; arrêt avec la marche à suivre. Slug : nom en
+    # minuscules, autres caractères en tirets ; une App privée d'un autre
+    # compte reste invisible (rappel à l'ouverture de la page)
+    slug_voulu="$(printf '%s' "$NOM" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g')"
+    if [ "$(gh api "apps/$slug_voulu" -q .slug 2>/dev/null || true)" = "$slug_voulu" ]; then
+        err_t app.name_taken "$NOM"
+        info_t app.name_taken_fix "$apps"
+        exit 1
     fi
     if conteneur_isole; then
         err_t app.container
@@ -149,6 +160,7 @@ else
     port="$(sed -n 's/^PORT //p' "$sortie")"
     [ -n "$port" ] || { err_t app.server_failed; exit 1; }
     info_t app.open "http://127.0.0.1:$port/"
+    dim_t app.name_hint "$NOM" "$apps"
     ouvrir "http://127.0.0.1:$port/"
     wait "$serveur" || true
     code="$(sed -n 's/^CODE //p' "$sortie")"
@@ -160,6 +172,7 @@ else
     if [ -z "$code" ]; then
         err_t app.no_code
         attention_t app.orphan
+        info_t app.name_taken_fix "$apps"
         marche_a_suivre
         exit 1
     fi
@@ -192,10 +205,10 @@ installee() {
 }
 cle="${cle:-}"
 if [ -z "$cle" ]; then
-    # Relance (clé non disponible ici) : vérifiée au premier run du suivi des tickets
-    info_t app.check_in_ci "https://github.com/apps/$slug/installations/new"
-    echo
-    ok_t app.done
+    # Relance : la clé privée n'est pas ici, et le jeton de gh ne peut pas
+    # lister les installations d'une App (user/installations : 403) ; état
+    # « non vérifié » plutôt qu'un succès non constaté
+    attention_t app.not_verified "${slug:-?}" "$REPO" "https://github.com/apps/${slug:-<slug>}/installations/new"
     exit 0
 fi
 if [ -n "$slug" ] && ! installee; then
