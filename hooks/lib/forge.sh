@@ -37,3 +37,11 @@ forge_init() {
 }
 
 forge_init
+
+# Dépôt GitHub $1 sans rulesets ni protection de branches (dépôt privé d'une
+# offre gratuite : GitHub les refuse en 403, « Upgrade to GitHub Pro or make
+# this repository public ») ; le merge automatique y est aussi ignoré
+github_sans_rulesets() {
+    local reponse
+    ! reponse="$(gh api "repos/$1/rulesets" 2>&1)" && [[ "$reponse" == *"403"* ]]
+}

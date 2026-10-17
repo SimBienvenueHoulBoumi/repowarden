@@ -404,6 +404,17 @@ case "$*" in
     "api user --jq .login") echo moi ;;
     "api repos/moi/projet --jq .owner.type") echo "${GH_OWNER_TYPE:-User}" ;;
     "api repos/moi/projet --jq .default_branch") echo "${GH_DEFAULT_BRANCH:-main}" ;;
+    # merge automatique relu après le PATCH : ignoré par GitHub si $GH_AUTO_MERGE=false
+    "api repos/moi/projet --jq .allow_auto_merge") echo "${GH_AUTO_MERGE:-true}" ;;
+    # réglages du dépôt : réglages du squash avec le squash désactivé refusés
+    # (422, comme GitHub sur le dépôt d'essai), ou tout refus si $GH_REFUSE_PATCH
+    "api -X PATCH repos/moi/projet "*)
+        if [ -n "${GH_REFUSE_PATCH:-}" ] ||
+            [[ "$*" == *"allow_squash_merge=false"*"squash_merge_commit_title"* ]]; then
+            echo '{"message":"Validation Failed","status":"422"}'
+            echo "gh: Validation Failed (HTTP 422)" >&2
+            exit 1
+        fi ;;
     # création / mise à jour : ruleset reçu journalisé ; refusé (422) si son
     # nom est $GH_REFUSE, avec la réponse de GitHub sur la sortie standard
     "api -X POST repos/moi/projet/rulesets"* | "api -X PUT repos/moi/projet/rulesets/"*)
@@ -620,10 +631,46 @@ ancien_ruleset() {
     [ "$status" -eq 0 ]
     [[ "$output" == *"squash désactivé (merge commit seul)"* ]]
     grep -q "allow_squash_merge=false" "$GH_LOG"
+    # squash désactivé : ni titre ni corps du squash (sinon PATCH refusé en 422)
+    ! grep -q "squash_merge_commit" "$GH_LOG"
+    [[ "$output" != *"Validation Failed"* ]]
     # avec rulesets : squash gardé (imposé par branche)
     : >"$GH_LOG"
     GH_BRANCHES="main develop" run "$PROTEGER"
-    grep -q "allow_squash_merge=true" "$GH_LOG"
+    grep -q "allow_squash_merge=true .*squash_merge_commit_title=PR_TITLE" "$GH_LOG"
+}
+
+@test "proteger : reglages du depot refuses -> detail de GitHub, le reste applique, echec" {
+    fake_gh_repo
+    GH_REFUSE_PATCH=1 GH_BRANCHES="main" run "$PROTEGER"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"Réglages du dépôt (modes de merge, branche par défaut) : refusé par GitHub : Validation Failed"* ]]
+    [[ "$output" == *"Protection incomplète"* ]]
+    grep -q "^api -X PUT repos/moi/projet/actions/permissions/workflow" "$GH_LOG"
+    grep -q "^api -X POST repos/moi/projet/rulesets" "$GH_LOG"
+}
+
+@test "proteger : merge automatique ignore par GitHub (prive, compte gratuit) -> signale" {
+    fake_gh_repo
+    # annoncé dès l'aperçu
+    GH_RULESETS_403=1 GH_BRANCHES="main" run "$PROTEGER" --dry-run
+    [[ "$output" == *"Merge automatique indisponible sur ce dépôt"* ]]
+    # PATCH accepté mais allow_auto_merge resté faux : relu et signalé
+    GH_RULESETS_403=1 GH_AUTO_MERGE=false GH_BRANCHES="main" run "$PROTEGER"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Merge automatique demandé mais resté désactivé sur moi/projet"*"GitHub Pro / Team"* ]]
+    grep -q "^api repos/moi/projet --jq .allow_auto_merge" "$GH_LOG"
+    # livraison automatique : impossible, échec
+    git config repowarden.integrationBranch develop
+    git config repowarden.protectedBranches "main develop"
+    git config repowarden.deliveryApproval auto
+    GH_RULESETS_403=1 GH_AUTO_MERGE=false GH_BRANCHES="main develop" run "$PROTEGER"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"deliveryApproval = auto ne peut pas fonctionner sans merge automatique"* ]]
+    [[ "$output" != *"Validation Failed"* ]]
+    # merge automatique bien pris en compte : rien à signaler
+    GH_BRANCHES="main develop" run "$PROTEGER"
+    [[ "$output" != *"resté désactivé"* ]]
 }
 
 @test "proteger : tags refuses dans une organisation -> regle des comptes personnels, avertissement" {

@@ -279,11 +279,11 @@ Un projet Node peut publier son paquet à chaque release, **sans jeton** : npm v
 
 Mise en place en une commande, depuis le dépôt du projet. La première version est publiée depuis ton poste, les suivantes par la pipeline :
 
-1. **Connexion à npm** : `npm login` si besoin.
+1. **Connexion à npm** : `npm login` si besoin. Avant cela, `--repo` est vérifié (forme `propriétaire/nom`, dépôt accessible par `gh repo view`) : sinon la commande s'arrête sans rien faire.
 2. **Paquet pas encore sur npm** (npm n'accepte la publication de confiance que sur un paquet existant) :
    - la dernière release du dépôt (son tag) est clonée dans un dossier temporaire et publiée à sa version par `npm publish`, lancé dans le terminal : npm conduit lui-même sa validation (navigateur ou code) ;
    - aucun jeton n'est créé ni stocké, aucun mot de passe n'est demandé par repowarden ;
-   - aucune release encore : rien n'est publié, relancer la commande après la première release ; échec de la publication : la commande s'arrête sans rien configurer.
+   - aucune release encore : rien n'est publié, relancer la commande après la première release ; autre erreur de `gh` (réseau, droits) : son message est affiché et la commande s'arrête sans rien publier ni configurer ; échec de la publication : la commande s'arrête sans rien configurer.
 3. **Publication de confiance** : configurée avec `npm trust github`, sans formulaire, puis la variable `REPOWARDEN_NPM` active le job. Un ancien secret `NPM_TOKEN` et d'anciens jetons temporaires (parcours précédent) sont retirés. Les releases suivantes publient sans jeton.
 
 Interrompue (Ctrl+C), la commande reprend où elle en était quand on la relance. `--dry-run` montre ce qui serait fait sans rien publier.

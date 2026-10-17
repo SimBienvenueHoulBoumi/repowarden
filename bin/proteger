@@ -404,9 +404,7 @@ erreur_github() {
 # en 403) : les réglages du dépôt restent appliqués, les rulesets sautés avec
 # un message clair au lieu d'un arrêt sans explication
 RULESETS_OK=1
-if ! reponse="$(gh api "repos/$REPO/rulesets" 2>&1)" && [[ "$reponse" == *"403"* ]]; then
-    RULESETS_OK=""
-fi
+! github_sans_rulesets "$REPO" || RULESETS_OK=""
 ANCIENS=""
 [ -z "$RULESETS_OK" ] || anciens_rulesets
 
@@ -459,7 +457,11 @@ if [ -n "$integration" ] && ! gh api "repos/$REPO/labels/urgent" --silent 2>/dev
 fi
 
 if [ -n "$DRY_RUN" ]; then
-    [ -n "$RULESETS_OK" ] || attention_t ci.proteger.rulesets_unavailable "$REPO"
+    if [ -z "$RULESETS_OK" ]; then
+        attention_t ci.proteger.rulesets_unavailable "$REPO"
+        # Même offre : merge automatique ignoré par GitHub (PATCH accepté)
+        [ "$auto_merge" = false ] || attention_t ci.proteger.automerge_unavailable
+    fi
     printf '%s\n' "${rulesets[@]}"
     [ -z "$env_json" ] || printf '%s\n' "$env_json"
     exit 0
@@ -472,15 +474,42 @@ if [ -z "$RULESETS_OK" ] && [ -n "$integration" ]; then
     squash=false
     attention_t ci.proteger.no_squash
 fi
-settings=(-F allow_squash_merge="$squash" -F allow_merge_commit="$merge_commit" -F allow_rebase_merge=false
-    -F delete_branch_on_merge="$delete_on_merge" -F allow_auto_merge="$auto_merge"
-    -f squash_merge_commit_title=PR_TITLE -f squash_merge_commit_message=PR_BODY)
-[ -z "$integration" ] || settings+=(-f default_branch="$integration")
-gh api -X PATCH "repos/$REPO" --silent "${settings[@]}"
-gh api -X PUT "repos/$REPO/actions/permissions/workflow" --silent \
-    -f default_workflow_permissions=read -F can_approve_pull_request_reviews=true
-
 echecs=0
+# Appel de l'API dont le refus n'arrête pas le reste : $1 clé i18n de ce qui
+# est réglé, puis la commande ; refus affiché avec le détail de GitHub (sans
+# --silent, gh garde la réponse) et compté comme échec
+appliquer() {
+    local quoi="$1" reponse detail
+    shift
+    reponse="$("$@" 2>&1)" && return 0
+    erreur_github "$reponse"
+    detail="$REPLY"
+    t "$quoi"
+    err_t ci.proteger.settings_error "$REPLY" "$detail"
+    echecs=$((echecs + 1))
+    return 1
+}
+settings=(-F allow_squash_merge="$squash" -F allow_merge_commit="$merge_commit" -F allow_rebase_merge=false
+    -F delete_branch_on_merge="$delete_on_merge" -F allow_auto_merge="$auto_merge")
+# Titre et corps du squash seulement si le squash est autorisé : envoyés avec
+# allow_squash_merge=false (dépôt sans rulesets, flux develop), GitHub refuse
+# tout le PATCH en 422 « Validation Failed »
+[ "$squash" = false ] || settings+=(-f squash_merge_commit_title=PR_TITLE -f squash_merge_commit_message=PR_BODY)
+[ -z "$integration" ] || settings+=(-f default_branch="$integration")
+if appliquer ci.proteger.what_repo gh api -X PATCH "repos/$REPO" "${settings[@]}" &&
+    [ "$auto_merge" = true ] &&
+    [ "$(gh api "repos/$REPO" --jq .allow_auto_merge 2>/dev/null || true)" != true ]; then
+    # Merge automatique demandé mais resté désactivé : GitHub l'ignore sans
+    # erreur (dépôt privé d'une offre gratuite)
+    attention_t ci.proteger.automerge_ignored "$REPO"
+    if [ -n "$integration" ] && [ "$DELIVERY" = auto ]; then
+        err_t ci.proteger.automerge_delivery
+        echecs=$((echecs + 1))
+    fi
+fi
+appliquer ci.proteger.what_workflow gh api -X PUT "repos/$REPO/actions/permissions/workflow" \
+    -f default_workflow_permissions=read -F can_approve_pull_request_reviews=true || true
+
 [ -n "$RULESETS_OK" ] || { attention_t ci.proteger.rulesets_unavailable "$REPO"; rulesets=(); }
 for ruleset in ${rulesets[@]+"${rulesets[@]}"}; do
     name="$(sed -n 's/^  "name": "\(.*\)",$/\1/p' <<<"$ruleset")"
@@ -535,7 +564,9 @@ while IFS=$'\t' read -r id name _; do
     echecs=$((echecs + 1))
 done <<<"$ANCIENS"
 if [ -n "$env_json" ]; then
-    gh api -X PUT "repos/$REPO/environments/$ENVIRONMENT" --input - --silent <<<"$env_json"
+    appliquer ci.proteger.what_environment gh api -X PUT "repos/$REPO/environments/$ENVIRONMENT" --input - <<<"$env_json" || env_json=""
+fi
+if [ -n "$env_json" ]; then
     policies="$(gh api "repos/$REPO/environments/$ENVIRONMENT/deployment-branch-policies" \
         --jq '.branch_policies[] | "\(.type):\(.name)"')"
     for policy in $(for b in $existing; do echo "branch:$b"; done) "tag:v*"; do
