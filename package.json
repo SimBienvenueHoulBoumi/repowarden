@@ -16,7 +16,7 @@
     "type": "git",
     "url": "git+https://github.com/simdevWarden/repowarden.git"
   },
-  "license": "GPL-3.0-or-later",
+  "license": "GPL-3.0-only",
   "author": "SimBienvenueHoulBoumi (https://github.com/SimBienvenueHoulBoumi)",
   "bin": {
     "repowarden": "bin/repowarden",

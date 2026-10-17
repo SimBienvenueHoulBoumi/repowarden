@@ -6,7 +6,7 @@
 [![npm](https://img.shields.io/npm/v/repowarden)](https://www.npmjs.com/package/repowarden)
 [![Documentation](https://img.shields.io/badge/docs-site-indigo)](https://simdevwarden.github.io/repowarden/)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/simdevWarden/repowarden/badge)](https://scorecard.dev/viewer/?uri=github.com/simdevWarden/repowarden)
-[![Licence GPL-3.0-or-later](https://img.shields.io/badge/licence-GPL--3.0--or--later-blue)](LICENSE)
+[![Licence GPL-3.0-only](https://img.shields.io/badge/licence-GPL--3.0--only-blue)](LICENSE)
 
 **repowarden** garde l'entrée de vos dépôts Git : messages de commit, nommage des branches, secrets, formatage et tests, **quel que soit le langage** — sur les postes (hooks), en CI (GitHub, GitLab) et côté serveur.
 
@@ -166,4 +166,4 @@ Les PR visent `develop` ; `main` ne reçoit que les livraisons, qui déclenchent
 
 [Démarrage rapide](https://simdevwarden.github.io/repowarden/demarrage/) · [Hooks et règles](https://simdevwarden.github.io/repowarden/hooks/) · [Technologies](https://simdevwarden.github.io/repowarden/technologies/) · [Configuration](https://simdevwarden.github.io/repowarden/configuration/) · [CI](https://simdevwarden.github.io/repowarden/ci/) · [Versions et releases](https://simdevwarden.github.io/repowarden/releases/) · [Validation humaine](https://simdevwarden.github.io/repowarden/validation/) · [Code mort](https://simdevwarden.github.io/repowarden/code-mort/) · [En organisation](https://simdevwarden.github.io/repowarden/industrialisation/) · [Sources internes (Nexus, Artifactory)](https://simdevwarden.github.io/repowarden/industrialisation/#8-sources-internes-reseau-ferme-nexus-artifactory) · [Désinstallation](https://simdevwarden.github.io/repowarden/desinstallation/) · [Sécurité](SECURITY.md) · [Contribuer](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
 
-Licence [GPL-3.0-or-later](LICENSE) : GNU General Public License version 3, ou (au choix) toute version ultérieure.
+Licence [GPL-3.0-only](LICENSE) : GNU General Public License version 3.
