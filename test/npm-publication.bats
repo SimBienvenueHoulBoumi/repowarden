@@ -47,13 +47,16 @@ EOF
 echo "gh $*" >>"$CALLS"
 case "$1 $2" in
     "release view")
+        [ -z "${GH_RELEASE_ERR:-}" ] || { echo "$GH_RELEASE_ERR" >&2; exit 1; }
         [ -n "${GH_RELEASE:-}" ] || { echo "release not found" >&2; exit 1; }
         echo "$GH_RELEASE" ;;
     "repo clone")
         mkdir -p "$4"
         printf '{\n  "name": "@own/paquet",\n  "version": "0.0.0-dev"\n}\n' >"$4/package.json" ;;
     "secret list") ;;
-    "repo view") echo main ;;
+    "repo view")
+        [ -z "${GH_REPO_ABSENT:-}" ] || { echo "GraphQL: Could not resolve to a Repository" >&2; exit 1; }
+        echo main ;;
 esac
 exit 0
 EOF
@@ -128,4 +131,36 @@ absent() { ! grep -q "$1" "$CALLS"; }
     absent '^npm publish'
     grep -q '^npm trust github @own/paquet' "$CALLS"
     grep -q '^gh variable set REPOWARDEN_NPM' "$CALLS"
+}
+
+@test "npm-publication : depot mal forme, erreur avant toute action" {
+    export GH_RELEASE=v1.2.3
+    npm_publication --repo "own/paquet,"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"own/paquet,"* ]]
+    [[ "$output" == *"propri"* ]]
+    absent '^npm '
+    absent '^gh '
+}
+
+@test "npm-publication : depot inaccessible, erreur avant toute action" {
+    export GH_RELEASE=v1.2.3 GH_REPO_ABSENT=1
+    npm_publication
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Could not resolve to a Repository"* ]]
+    [[ "$output" == *"own/paquet"* ]]
+    absent '^npm '
+    absent '^gh release'
+}
+
+@test "npm-publication : erreur de gh release view, pas prise pour aucune release" {
+    export GH_RELEASE_ERR="error connecting to api.github.com"
+    npm_publication
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"error connecting to api.github.com"* ]]
+    [[ "$output" != *"Aucune release"* ]]
+    absent '^npm publish'
+    absent '^gh repo clone'
+    absent '^gh variable set'
+    absent '^npm trust github'
 }

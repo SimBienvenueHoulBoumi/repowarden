@@ -46,7 +46,14 @@ if ! node -e 'const [a,b]=process.argv[1].split(".").map(Number);process.exit(a>
 fi
 cd "$GIT_TOPLEVEL"
 [ -f package.json ] || { err_t npm.no_package; exit 1; }
-[ -n "$REPO" ] || REPO="$(gh repo view --json nameWithOwner -q .nameWithOwner)"
+if [ -z "$REPO" ]; then
+    REPO="$(gh repo view --json nameWithOwner -q .nameWithOwner)"
+else
+    # Dépôt vérifié avant toute action : une faute de frappe (« own/nom, »)
+    # serait sinon prise plus loin pour un dépôt sans release
+    [[ "$REPO" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] || { err_t npm.bad_repo "$REPO"; exit 1; }
+    gh repo view "$REPO" --json nameWithOwner >/dev/null || { err_t npm.repo_unreachable "$REPO"; exit 1; }
+fi
 name="$(node -p 'require("./package.json").name')"
 # Préfixe des jetons temporaires de l'ancien parcours, révoqués à la fin
 TOKEN_PREFIX="repowarden-ci-${REPO##*/}"
@@ -133,8 +140,17 @@ publie() { [ -n "$(npm view "$name" name 2>/dev/null || true)" ]; }
 # créé ni stocké, aucun mot de passe saisi par repowarden
 if ! publie; then
     step_t npm.step_first
-    tag="$(gh release view --repo "$REPO" --json tagName -q .tagName 2>/dev/null || true)"
+    # Seul « release not found » signifie « aucune release » ; toute autre
+    # erreur de gh (réseau, droits) est rapportée telle quelle
+    gh_err="$(mktemp "${TMPDIR:-/tmp}/repowarden-gh.XXXXXX")"
+    tag="$(gh release view --repo "$REPO" --json tagName -q .tagName 2>"$gh_err")" || tag=""
+    msg="$(cat "$gh_err")"
+    rm -f "$gh_err"
     if [ -z "$tag" ]; then
+        if [ -n "$msg" ] && ! grep -qi 'release not found' <<<"$msg"; then
+            err_t npm.release_error "$REPO" "$msg"
+            exit 1
+        fi
         attention_t npm.no_release "$name"
         exit 0
     fi
