@@ -7,7 +7,9 @@
 #   - tags v* : créés, déplacés ou supprimés uniquement par les workflows ;
 #   - GitHub Actions autorisé à créer des PR (releases automatiques) ;
 #   - validation humaine (optionnelle) : approbations obligatoires, revue des
-#     CODEOWNERS, environnement de déploiement approuvé par des personnes.
+#     CODEOWNERS, environnement de déploiement approuvé par des personnes ;
+#     livraison approuvée (deliveryApproval deployment ou review, défaut) ou
+#     automatique (auto : vérifications exigées gardées).
 #
 #   bin/proteger [--repo propriétaire/nom] [--checks "repowarden,tests (ubuntu-latest)"] [--relecteurs N]
 #                [--codeowners] [--environnement NOM] [--approbateurs "login …"]
@@ -54,7 +56,7 @@ while [ $# -gt 0 ]; do
         --sans-tags) NO_TAGS=1 ;;
         --dry-run) DRY_RUN=1 ;;
         --verifier) VERIFY=1 ;;
-        -h | --help) sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h | --help) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) err_t install.unknown_arg "$1"; exit 1 ;;
     esac
     shift
@@ -84,6 +86,16 @@ for b in $protected; do
     [ "$(gh api "repos/$REPO/branches/$b" --jq .name 2>/dev/null)" = "$b" ] && existing="$existing $b"
 done
 [ -n "$existing" ] || { err_t ci.proteger.no_branch "$protected" "$REPO"; exit 1; }
+# Branche d'intégration absente : arrêt avant toute modification (GitHub
+# refuserait une branche par défaut inexistante, réglages posés à moitié)
+if [ -n "$integration" ] &&
+    [ "$(gh api "repos/$REPO/branches/$integration" --jq .name 2>/dev/null)" != "$integration" ]; then
+    principale=main
+    for b in $existing; do [ "$b" = "$integration" ] || { principale="$b"; break; }; done
+    err_t ci.proteger.no_integration "$integration" "$REPO"
+    dim_t ci.proteger.no_integration_hint "$principale" "$integration"
+    exit 1
+fi
 
 # Vérifications séparées par des virgules : un nom de job peut contenir des
 # espaces (« tests (ubuntu-latest) »)
@@ -179,14 +191,21 @@ if [ -n "$integration" ]; then
     # l'approbation de l'environnement de livraison (« Approve and deploy »),
     # exigée par une règle de main (déploiement réussi) ; la revue de PR n'est
     # plus nécessaire (relectures configurées : gardées). review : revue de PR.
+    # auto : choix du projet, la validation humaine est le merge de chaque
+    # ticket ; la GitHub App arme le merge de la livraison (release-auto,
+    # delivery-auto), qui part quand les vérifications exigées sont vertes.
+    # Ni règle de déploiement ni environnement créé d'office ; vérifications
+    # et relectures configurées gardées.
     cfg_r deliveryApproval deployment
     DELIVERY="$REPLY"
-    [[ "$DELIVERY" =~ ^(deployment|review)$ ]] || { err_t ci.proteger.delivery_invalid; exit 1; }
+    [[ "$DELIVERY" =~ ^(deployment|review|auto)$ ]] || { err_t ci.proteger.delivery_invalid; exit 1; }
     deploiement=""
     if [ "$DELIVERY" = deployment ]; then
         ENVIRONMENT="${ENVIRONMENT:-production}"
         livraison="$REVIEWS"
         deploiement="{\"type\": \"required_deployments\", \"parameters\": {\"required_deployment_environments\": [\"$ENVIRONMENT\"]}}"
+    elif [ "$DELIVERY" = auto ]; then
+        livraison="$REVIEWS"
     fi
     # PR à jour non exigée non plus : le merge commit d'une livraison n'existe
     # que sur main ; strict, la livraison suivante serait bloquée tant que
@@ -218,6 +237,11 @@ if [ -n "$integration" ]; then
     cfg_r autoMergeWork true
     auto_merge="$REPLY"
     [[ "$auto_merge" =~ ^(true|false)$ ]] || { err_t ci.proteger.automerge_invalid; exit 1; }
+    # Livraison automatique : merge automatique du dépôt indispensable
+    if [ "$DELIVERY" = auto ] && [ "$auto_merge" = false ]; then
+        err_t ci.proteger.auto_needs_automerge
+        exit 1
+    fi
     # Sans ce workflow, les branches mergées ne seraient plus supprimées
     if ! grep -qs "nettoyage-branches.yml" "$GIT_TOPLEVEL"/.github/workflows/*.y*ml; then
         attention_t ci.proteger.no_cleanup
@@ -227,6 +251,11 @@ if [ -n "$integration" ]; then
     if [ "$DELIVERY" = deployment ] &&
         ! grep -qs "delivery-environment:" "$GIT_TOPLEVEL"/.github/workflows/*.y*ml; then
         attention_t ci.proteger.no_delivery_env "$ENVIRONMENT"
+    fi
+    # Livraison automatique que rien n'arme : la PR se mergera à la main
+    if [ "$DELIVERY" = auto ] &&
+        ! grep -qsE "^[[:space:]]*delivery-auto:[[:space:]]*true" "$GIT_TOPLEVEL"/.github/workflows/*.y*ml; then
+        attention_t ci.proteger.no_delivery_auto
     fi
     # Demande de livraison (manuelle, planifiée) qui ne remplace pas celle en
     # attente : une demande oubliée bloquerait en silence les suivantes
@@ -266,6 +295,8 @@ echo_t ci.proteger.3 "$CHECKS"
 echo_t ci.proteger.4 "$methods" "$delete_on_merge"
 if [ -n "$integration" ] && [ "$DELIVERY" = deployment ]; then
     echo_t ci.proteger.delivery_deploy "$ENVIRONMENT" "$auto_merge"
+elif [ -n "$integration" ] && [ "$DELIVERY" = auto ]; then
+    echo_t ci.proteger.delivery_auto "$livraison"
 elif [ -n "$integration" ]; then
     echo_t ci.proteger.delivery "$livraison" "$auto_merge"
 fi

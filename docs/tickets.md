@@ -8,7 +8,7 @@ Chaque changement part d'un **ticket** (issue GitHub) : **la branche découle du
 |---|---|---|
 | `statut: à valider` | ticket créé (à la main, ou `repowarden ticket nouveau`) | — |
 | `statut: backlog` | un mainteneur pose l'étiquette **`validé`**, ou ouvre lui-même le ticket (validé d'office) | ticket prêt à être pris ; commentaire avec la commande pour le prendre |
-| `statut: en cours` | quelqu'un s'assigne le ticket (ou `repowarden ticket N`), ou pousse un premier commit sur sa branche | à l'assignation : **branche `<type>/<n°>-<titre>` créée** depuis `develop` et **liée au ticket** (panneau *Development*), un ticket validé pour plus tard n'a donc pas de branche qui vieillit ; au premier push : **PR en brouillon** ouverte vers `develop`, au **titre et à la description repris du ticket** (portée du préfixe du titre, critères en cases à cocher, liste des commits, `Ticket : #n`), assignée ; **actualisée à chaque push** tant qu'elle est en brouillon |
+| `statut: en cours` | quelqu'un s'assigne le ticket (ou `repowarden ticket N`), ou pousse un premier commit sur sa branche | à l'assignation : **branche `<type>/<n°>-<titre>` créée** depuis `develop` et **liée au ticket** (panneau *Development*), un ticket validé pour plus tard n'a donc pas de branche qui vieillit ; au premier push : **PR en brouillon** ouverte vers `develop`, titrée par l'**en-tête du premier commit** de la branche, `(#n)` final retiré (il devient le commit de squash ; s'il n'est pas conforme : titre du ticket, portée tirée de son préfixe, sigles gardés, aucun mot coupé), à la **description reprise du ticket** (critères en cases à cocher, liste des commits, `Ticket : #n`), assignée ; **actualisée à chaque push** tant qu'elle est en brouillon |
 | `statut: en relecture` | PR « Ready for review » | la CI tourne ; une revue « Request changes » ramène le ticket en cours |
 | `statut: préprod` | PR mergée dans `develop` | branche supprimée ; commentaire à chaque préversion `vX.Y.Z-next.N` |
 | `statut: done` | release sur `main` | ticket **fermé**, avec la version |
@@ -17,7 +17,7 @@ Ticket fermé comme **abandonné** (*not planned*) : sa PR est fermée et sa bra
 
 Ticket **terminé** (passé en `done` à la release, ou fermé à la main) dont la branche existe encore, parce que le travail est passé par une autre branche : elle est supprimée si elle n'a aucun commit absent de `develop` et qu'aucune PR ouverte n'en part. Sinon elle est gardée et le ticket le signale : rien n'est jamais perdu.
 
-Tout est automatique, sauf la validation : c'est la seule décision humaine, et GitHub ne laisse poser l'étiquette `validé` qu'aux personnes ayant les droits sur le dépôt. Un ticket **ouvert par un mainteneur** (droits d'écriture : propriétaire, membre, collaborateur) est **validé d'office** : l'ouvrir est déjà sa décision. Seuls les tickets de la communauté attendent l'étiquette. Pour une validation toujours séparée : entrée `auto-validate: never` du workflow `tickets.yml`. Le type de la branche vient de l'étiquette `type: …` du ticket (`feat` par défaut), son nom du titre (minuscules, sans accents).
+Tout est automatique, sauf la validation : c'est la seule décision humaine, et GitHub ne laisse poser l'étiquette `validé` qu'aux personnes ayant les droits sur le dépôt. Un ticket **ouvert par un mainteneur** (droits d'écriture : propriétaire, membre, collaborateur) est **validé d'office** : l'ouvrir est déjà sa décision ; chaque événement du ticket (étiquette, assignation) rattrape cette validation si le run de l'ouverture a été annulé. Seuls les tickets de la communauté attendent l'étiquette. Pour une validation toujours séparée : entrée `auto-validate: never` du workflow `tickets.yml`. Le type de la branche vient de l'étiquette `type: …` du ticket (`feat` par défaut), son nom du titre (minuscules, sans accents).
 
 ## Sur le poste
 
@@ -60,7 +60,7 @@ Sur un dépôt qui a déjà des tickets, `tickets init` les reprend (relançable
 - **branches des PR** ouvertes et mergées : inscrites sur les tickets qu'elles citent, pour savoir quel ticket a géré quelle branche, même supprimée ;
 - aucune branche créée en masse : elle naît quand le ticket est pris (`repowarden ticket N`).
 
-Dans `.github/workflows/release.yml`, les tickets passent en préprod à chaque préversion et en done à chaque release :
+Dans `.github/workflows/release.yml`, les tickets passent en préprod à chaque préversion et en done à chaque release (job écrit par `repowarden bots` avec le suivi des tickets, avec l'App si elle est configurée ; à ajouter à la main dans un `release.yml` existant) :
 
 ```yaml
   tickets:

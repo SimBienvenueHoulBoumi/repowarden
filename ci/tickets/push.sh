@@ -34,11 +34,32 @@ commit_impact_r() {
     REPLY="$meilleur"
 }
 
-# REPLY = titre de la PR brouillon du ticket $1 (branche $2) : « type(portée):
-# sujet » depuis le ticket, sinon le commit conforme de plus fort impact de la
-# branche, sinon le titre déduit de la branche
+# REPLY = en-tête du premier commit de la branche $1 par rapport à la branche
+# d'intégration, sans « (#N) » final ; vide s'il n'est pas utilisable (aucun
+# commit, non conforme, plus de 72 caractères). Lu par l'API : le checkout du
+# workflow est celui de repowarden, pas l'historique du projet.
+premier_commit_r() {
+    local s
+    s="$(gh api "repos/$GH_REPO/compare/$INTEGRATION...$1" \
+        -q '.commits[0].commit.message // "" | split("\n")[0] // ""' 2>/dev/null || true)"
+    s="${s%%$'\n'*}"
+    s="${s%$'\r'}"
+    [[ "$s" =~ ^(.*[^[:space:]])[[:space:]]+\(#[0-9]+\)$ ]] && s="${BASH_REMATCH[1]}"
+    REPLY=""
+    [[ "$s" =~ $CC_PATTERN ]] || return 0
+    authored_length "$s"
+    [ "$REPLY" -le 72 ] || { REPLY=""; return 0; }
+    REPLY="$s"
+}
+
+# REPLY = titre de la PR brouillon du ticket $1 (branche $2) : en-tête du
+# premier commit de la branche (déjà validé par les hooks, il devient le commit
+# de squash), sinon « type(portée): sujet » depuis le ticket, sinon le commit
+# conforme de plus fort impact, sinon le titre déduit de la branche
 titre_pr_brouillon_r() {
     local n="$1" branche="$2" type
+    premier_commit_r "$branche"
+    [ -z "$REPLY" ] || return 0
     ticket_type_r "$(etiquettes "$n")"
     type="$REPLY"
     ticket_pr_title_r "$type" "$(gh issue view "$n" --json title -q .title)"
@@ -82,7 +103,8 @@ description_pr_brouillon_r() {
 }
 
 # Premier push sur la branche d'un ticket : PR brouillon vers la branche
-# d'intégration, au titre et à la description repris du ticket, citant le
+# d'intégration, titrée par le premier commit (repli : le ticket), à la
+# description reprise du ticket, citant le
 # ticket, assignée à l'auteur du push ; ticket en cours. Ouverte par le jeton
 # des Actions, elle ne lance pas la CI : elle tourne au push suivant, ou au
 # passage « prête pour revue ». Tant qu'elle est en brouillon, chaque push met

@@ -6,17 +6,21 @@
 #                                ne plus jamais le proposer (repowarden.bots = off)
 # Rien n'est fait sans accord : une question globale (non par défaut), le
 # flux (main seul, ou develop → main), un accord par bot (CI, releases,
-# nettoyage, tickets, App, protection, npm), l'aperçu de ce qui sera créé ou
-# modifié, puis une confirmation finale. Un fichier existant n'est jamais
-# écrasé. Relançable pour compléter. Demande un terminal, gh connecté et les
-# droits d'administration du dépôt.
+# nettoyage, tickets, App, protection, npm), la livraison (flux develop avec
+# releases : automatique ou approuvée, rythme, préversion obligatoire),
+# l'aperçu de ce qui sera créé ou modifié, puis une confirmation finale. Un
+# fichier existant n'est jamais écrasé. Relançable pour compléter. Demande un
+# terminal, gh connecté et les droits d'administration du dépôt.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 # shellcheck source=../hooks/lib/common.sh
 source "$ROOT/hooks/lib/common.sh"
+# Détection des langages des hooks (marqueurs des plugins) : outillage de la CI
+# shellcheck source=../hooks/lib/lang.sh
+source "$ROOT/hooks/lib/lang.sh"
 
-aide() { sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; }
+aide() { sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; }
 
 # Commandes enchaînées (remplaçables dans les tests)
 BIN="${REPOWARDEN_BIN:-$ROOT/bin}"
@@ -80,7 +84,7 @@ t bots.flow_question
 printf '%s\n' "$REPLY" >&2
 t bots.flow_main "$PRINCIPALE"
 printf '  1) %s\n' "$REPLY" >&2
-t bots.flow_develop "$PRINCIPALE"
+t bots.flow_develop "$PRINCIPALE" "$PRINCIPALE"
 printf '  2) %s\n' "$REPLY" >&2
 # develop → main par défaut : seul develop entre dans main
 choix_flux=2
@@ -90,8 +94,9 @@ case "${reponse:-$choix_flux}" in
     *) FLUX=main; INTEGRATION="" ;;
 esac
 CREER_DEVELOP=""
+# Nom renvoyé comparé : sur une 404, gh écrit le corps de l'erreur sur stdout
 if [ "$FLUX" = develop ] &&
-    [ -z "$(gh api "repos/$REPO/branches/$INTEGRATION" --jq .name 2>/dev/null || true)" ]; then
+    [ "$(gh api "repos/$REPO/branches/$INTEGRATION" --jq .name 2>/dev/null || true)" != "$INTEGRATION" ]; then
     if demander bots.ask_create_develop o; then
         CREER_DEVELOP=1
     else
@@ -120,6 +125,113 @@ done
 choisi() { [[ " ${BOTS[*]+"${BOTS[*]}"} " == *" $1 "* ]]; }
 AVEC_APP=""
 { [ -n "$APP_PRESENTE" ] || choisi app; } && AVEC_APP=1
+
+# --- Livraison (flux develop, releases) : mode, rythme, préversion -----------
+# Défauts : le release.yml d'aujourd'hui (approbation, regroupé, préversion
+# obligatoire) ; chaque réponse devient une entrée de release-auto.yml
+LIVRAISON_AUTO="" A_CHAQUE_TICKET="" PREVERSION_OBLIGATOIRE=1
+if [ "$FLUX" = develop ] && choisi release; then
+    echo >&2
+    dim_t bots.desc_delivery
+    if demander bots.ask_delivery_auto n; then
+        LIVRAISON_AUTO=1
+        # Le merge automatique passe par la GitHub App (jeton des Actions : pas de release)
+        [ -n "$AVEC_APP" ] || attention_t bots.auto_no_app
+    fi
+    dim_t bots.desc_rythme
+    demander bots.ask_each_ticket n && A_CHAQUE_TICKET=1
+    demander bots.ask_preversion o || PREVERSION_OBLIGATOIRE=""
+fi
+
+# --- Outillage de la CI : langages du projet --------------------------------
+# Même détection que les hooks (marqueurs des plugins, repowarden.skip), à la
+# racine. strict activé seulement si le formatage et les tests de chaque
+# langage ont leur outil (SANS_STRICT : raison sinon).
+CI_LANGS=""
+SANS_STRICT=""
+sans_strict() { SANS_STRICT="${SANS_STRICT:+$SANS_STRICT, }$1"; }
+active_plugins_init
+for p in python node maven gradle go; do
+    { [[ " $ACTIVE_PLUGINS " == *" $p "* ]] && has_marker . "$p"; } || continue
+    CI_LANGS="$CI_LANGS $p"
+    case "$p" in
+        node) grep -q '"prettier"' package.json || sans_strict "prettier absent de package.json" ;;
+        maven) grep -q spotless pom.xml || sans_strict "Spotless non configuré (pom.xml)" ;;
+        gradle)
+            find . -maxdepth 3 \( -name '*.gradle' -o -name '*.gradle.kts' \) -not -path '*/build/*' -print0 2>/dev/null |
+                xargs -0 grep -qs spotless || sans_strict "Spotless non configuré (Gradle)"
+            ;;
+    esac
+done
+CI_LANGS="${CI_LANGS# }"
+
+# Étapes d'installation de l'outillage des langages détectés (actions figées
+# par SHA, comme les workflows de repowarden)
+outillage_ci() {
+    local p pm java=""
+    for p in $CI_LANGS; do
+        case "$p" in
+            python)
+                cat <<'YAML'
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+YAML
+                [ ! -f requirements.txt ] || echo "      - run: pip install -r requirements.txt"
+                cat <<'YAML'
+      # Formatage, code mort et tests (versions figées)
+      - run: pip install ruff==0.16.10 vulture==2.16 pytest==9.1.1
+YAML
+                ;;
+            node)
+                pm="$(node_pm)"
+                cat <<'YAML'
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+YAML
+                case "$pm" in
+                    pnpm) echo "      - run: corepack enable && pnpm install --frozen-lockfile" ;;
+                    yarn) echo "      - run: corepack enable && yarn install" ;;
+                    *)
+                        if [ -f package-lock.json ]; then
+                            echo "          cache: npm"
+                            echo "      - run: npm ci"
+                        else
+                            echo "      - run: npm install"
+                        fi
+                        ;;
+                esac
+                ;;
+            maven | gradle)
+                if [ -z "$java" ]; then
+                    java=1
+                    cat <<YAML
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: $p
+YAML
+                fi
+                if [ "$p" = gradle ] && [ ! -x gradlew ]; then
+                    cat <<'YAML'
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        with:
+          gradle-version: current
+YAML
+                fi
+                ;;
+            go)
+                cat <<'YAML'
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+YAML
+                ;;
+        esac
+    done
+}
 
 # --- Modèles des workflows -------------------------------------------------
 modele_ci() {
@@ -152,34 +264,66 @@ jobs:
   repowarden:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # historique complet : messages de commit, diff depuis la base
+YAML
+    if [ -n "$CI_LANGS" ]; then
+        echo "      # Outillage du projet ($CI_LANGS) : formatage et tests"
+        outillage_ci
+    else
+        cat <<'YAML'
       # Outils du projet nécessaires au formatage et aux tests, par exemple :
-      # - uses: actions/setup-node@v7
+      # - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
       #   with: { node-version: 24, cache: npm }
       # - run: npm ci
-      - uses: simdevWarden/repowarden@v4
 YAML
+    fi
+    echo "      - uses: simdevWarden/repowarden@v4"
+    # strict : actif si l'outillage de chaque langage est installé ci-dessus
+    local actif="" strict="strict: true   # outil absent bloquant, une fois l'outillage installé ci-dessus"
+    if [ -n "$CI_LANGS" ]; then
+        if [ -z "$SANS_STRICT" ]; then
+            actif=1 strict="strict: true # outillage installé ci-dessus : un outil absent fait échouer"
+        else
+            strict="strict: true   # $SANS_STRICT : à activer une fois l'outil en place"
+        fi
+    fi
+    if [ -n "$actif" ]; then
+        echo "        with:"
+        echo "          $strict"
+    elif [ "$FLUX" = develop ]; then
+        echo "        with:"
+        echo "          # $strict"
+    else
+        echo "        # with:"
+        echo "        #   $strict"
+    fi
     if [ "$FLUX" = develop ]; then
         cat <<'YAML'
-        with:
-          # strict: true   # outil absent bloquant, une fois l'outillage installé ci-dessus
           # Seule la branche d'intégration entre dans la principale : une PR
           # de travail mal visée est reciblée avant les vérifications
           fix-pr: "true"
-YAML
-    else
-        cat <<'YAML'
-        # with:
-        #   strict: true   # outil absent bloquant, une fois l'outillage installé ci-dessus
 YAML
     fi
 }
 
 modele_release() {
     if [ "$FLUX" = develop ]; then
-        cat <<YAML
+        if [ -n "$A_CHAQUE_TICKET" ]; then
+            cat <<YAML
+# Releases, flux $INTEGRATION → $PRINCIPALE (mode tag) : à chaque merge sur
+# $INTEGRATION, préversion vX.Y.Z-next.N et demande de livraison
+# $INTEGRATION → $PRINCIPALE, qui publie le tag vX.Y.Z et la release.
+name: release
+
+on:
+  push:
+    branches: [$PRINCIPALE, $INTEGRATION]
+  workflow_dispatch: # à la main (et urgence) : préversion et demande de livraison
+YAML
+        else
+            cat <<YAML
 # Releases, flux $INTEGRATION → $PRINCIPALE (mode tag) : préversion vX.Y.Z-next.N le
 # soir si $INTEGRATION a changé ; le vendredi matin (ou à la main), une demande
 # de livraison $INTEGRATION → $PRINCIPALE, qui publie le tag vX.Y.Z et la release.
@@ -192,6 +336,9 @@ on:
     - cron: "0 19 * * *" # préversion du soir, si $INTEGRATION a changé
     - cron: "0 7 * * 5" # fenêtre de livraison : le vendredi matin
   workflow_dispatch: # à la main (et urgence) : préversion et demande de livraison
+YAML
+        fi
+        cat <<YAML
 
 # Une file par branche et par déclencheur ; une demande manuelle ou planifiée
 # remplace celle en attente ; un push n'annule jamais un run en cours
@@ -209,14 +356,29 @@ jobs:
       mode: tag
       integration-branch: $INTEGRATION
       main-branch: $PRINCIPALE
-      delivery-schedule: "0 7 * * 5" # même cron que la fenêtre ci-dessus
 YAML
-        if [ -n "$AVEC_APP" ]; then
+        if [ -n "$A_CHAQUE_TICKET" ]; then
             cat <<'YAML'
-      delivery-environment: production # « Approve and deploy » valide la livraison
-      app-client-id: ${{ vars.REPOWARDEN_APP_CLIENT_ID }} # la GitHub App merge la livraison approuvée
+      preversion-on-push: true # préversion à chaque merge
+      delivery-on-push: true # demande de livraison à chaque merge
+YAML
+        else
+            echo '      delivery-schedule: "0 7 * * 5" # même cron que la fenêtre ci-dessus'
+        fi
+        [ -n "$PREVERSION_OBLIGATOIRE" ] ||
+            echo "      preversion-obligatoire: false # version stable possible sans préversion"
+        if [ -n "$LIVRAISON_AUTO" ]; then
+            echo "      delivery-auto: true # la GitHub App merge la livraison, vérifications vertes"
+        elif [ -n "$AVEC_APP" ]; then
+            echo "      delivery-environment: production # « Approve and deploy » valide la livraison"
+        fi
+        if [ -n "$AVEC_APP" ]; then
+            local merge="la GitHub App merge la livraison approuvée"
+            [ -z "$LIVRAISON_AUTO" ] || merge="la GitHub App merge la livraison"
+            cat <<YAML
+      app-client-id: \${{ vars.REPOWARDEN_APP_CLIENT_ID }} # $merge
     secrets:
-      app-key: ${{ secrets.REPOWARDEN_APP_KEY }}
+      app-key: \${{ secrets.REPOWARDEN_APP_KEY }}
 YAML
         fi
     else
@@ -248,6 +410,27 @@ YAML
         if [ -n "$AVEC_APP" ]; then
             cat <<'YAML'
     with:
+      app-client-id: ${{ vars.REPOWARDEN_APP_CLIENT_ID }}
+    secrets:
+      app-key: ${{ secrets.REPOWARDEN_APP_KEY }}
+YAML
+        fi
+    fi
+    # Tickets livrés : statut done et fermeture à la release, préprod à la
+    # préversion ; seulement avec le suivi des tickets (sinon le job échoue)
+    if choisi tickets || [ -e .github/workflows/tickets.yml ]; then
+        cat <<'YAML'
+
+  tickets:
+    needs: release
+    if: needs.release.outputs.release_created == 'true' || needs.release.outputs.prerelease_created == 'true'
+    uses: simdevWarden/repowarden/.github/workflows/tickets.yml@v4
+    permissions: { contents: write, issues: write, pull-requests: write, statuses: write }
+    with:
+      tag: ${{ needs.release.outputs.tag_name || needs.release.outputs.prerelease_tag }}
+YAML
+        if [ -n "$AVEC_APP" ]; then
+            cat <<'YAML'
       app-client-id: ${{ vars.REPOWARDEN_APP_CLIENT_ID }}
     secrets:
       app-key: ${{ secrets.REPOWARDEN_APP_KEY }}
@@ -294,7 +477,22 @@ step_t bots.preview
 [ -z "$CREER_DEVELOP" ] || info_t bots.prev_develop "$INTEGRATION" "$PRINCIPALE"
 if [ "$FLUX" = develop ]; then
     info_t bots.prev_conf "$INTEGRATION"
-    [ -n "$AVEC_APP" ] || info_t bots.prev_review
+    if [ -n "$LIVRAISON_AUTO" ]; then
+        info_t bots.prev_conf_auto
+    elif [ -z "$AVEC_APP" ]; then
+        info_t bots.prev_review
+    fi
+fi
+# Choix de livraison écrits dans release.yml (questions posées)
+if [ "$FLUX" = develop ] && choisi release; then
+    if [ -n "$LIVRAISON_AUTO" ]; then
+        info_t bots.prev_delivery_auto
+        [ -n "$AVEC_APP" ] || attention_t bots.auto_no_app
+    else
+        info_t bots.prev_delivery_approval
+    fi
+    if [ -n "$A_CHAQUE_TICKET" ]; then info_t bots.prev_each_ticket; else info_t bots.prev_grouped; fi
+    if [ -n "$PREVERSION_OBLIGATOIRE" ]; then info_t bots.prev_preversion_on; else info_t bots.prev_preversion_off; fi
 fi
 for bot in ${BOTS[@]+"${BOTS[@]}"}; do
     fichier_du "$bot"
@@ -305,6 +503,12 @@ for bot in ${BOTS[@]+"${BOTS[@]}"}; do
             info_t bots.prev_kept "$f" "$ecart"
         else
             info_t bots.prev_file "$f"
+            # Outillage écrit dans la CI, ou modèle générique faute de langage reconnu
+            if [ "$bot" = ci ] && [ -n "$CI_LANGS" ]; then
+                info_t bots.prev_ci_langs "$CI_LANGS"
+            elif [ "$bot" = ci ]; then
+                info_t bots.prev_ci_generic
+            fi
         fi
     else
         info_t "bots.prev_$bot"
@@ -332,10 +536,16 @@ if [ -n "$CREER_DEVELOP" ]; then
 fi
 if [ "$FLUX" = develop ]; then
     conf="$GIT_TOPLEVEL/.repowarden.conf"
-    git config -f "$conf" repowarden.integrationBranch "$INTEGRATION"
+    # Valeur déjà en place : fichier laissé tel quel (git config le réindenterait)
+    [ "$(git config -f "$conf" --get repowarden.integrationBranch || true)" = "$INTEGRATION" ] ||
+        git config -f "$conf" repowarden.integrationBranch "$INTEGRATION"
     git config -f "$conf" --get repowarden.protectedBranches >/dev/null ||
         git config -f "$conf" repowarden.protectedBranches "$PRINCIPALE $INTEGRATION"
-    if [ -z "$AVEC_APP" ]; then
+    if [ -n "$LIVRAISON_AUTO" ]; then
+        # Choix explicite : remplace une approbation déjà réglée
+        [ "$(git config -f "$conf" --get repowarden.deliveryApproval || true)" = auto ] ||
+            git config -f "$conf" repowarden.deliveryApproval auto
+    elif [ -z "$AVEC_APP" ]; then
         git config -f "$conf" --get repowarden.deliveryApproval >/dev/null ||
             git config -f "$conf" repowarden.deliveryApproval review
     fi

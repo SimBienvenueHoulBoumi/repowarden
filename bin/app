@@ -15,7 +15,7 @@
 #    --administration, pour appliquer la configuration depuis la CI) ;
 # 2. identifiants rangés sans être affichés : variable REPOWARDEN_APP_CLIENT_ID,
 #    secret REPOWARDEN_APP_KEY (clé privée) ;
-# 3. installation sur le dépôt : tu cliques sur « Install ».
+# 3. installation sur le dépôt : « Install » (vérifiée avec la clé ; relance : « non vérifiée »).
 # Relançable : une App déjà configurée n'est pas recréée. Demande gh et node.
 set -euo pipefail
 
@@ -49,6 +49,7 @@ command -v gh >/dev/null || { err_t bot.no_gh; exit 1; }
 command -v node >/dev/null || { err_t app.no_node; exit 1; }
 [ -n "$REPO" ] || REPO="$(gh repo view --json nameWithOwner -q .nameWithOwner)"
 owner="${REPO%%/*}"
+NOM_DEMANDE="$NOM"
 # App du bot : identifiants à part (dépôt de pilotage), droits sur les workflows
 PREFIXE=REPOWARDEN_APP
 if [ -n "$BOT" ]; then
@@ -67,6 +68,25 @@ ouvrir() {
     fi
 }
 
+# Conteneur dont le navigateur (sur l'hôte) ne joint pas 127.0.0.1 : la page
+# locale et le retour de GitHub y seraient injoignables (App orpheline si
+# « Create » est cliqué). VS Code Dev Containers et Codespaces redirigent les
+# ports d'eux-mêmes. REPOWARDEN_CONTENEUR=0|1 force la réponse.
+conteneur_isole() {
+    case "${REPOWARDEN_CONTENEUR:-}" in 0) return 1 ;; 1) return 0 ;; esac
+    [ -z "${REMOTE_CONTAINERS:-}${CODESPACES:-}${VSCODE_IPC_HOOK_CLI:-}" ] || return 1
+    [ -e /.dockerenv ] || [ -e /run/.containerenv ] ||
+        grep -qE 'docker|kubepods|containerd|lxc|podman' /proc/1/cgroup 2>/dev/null
+}
+
+# Marche à suivre quand la page locale n'est pas joignable : lancer sur l'hôte
+marche_a_suivre() {
+    local cmd="npx repowarden app init --repo $REPO"
+    [ -z "$NOM_DEMANDE" ] || cmd="$cmd --nom $NOM_DEMANDE"
+    if [ -n "$BOT" ]; then cmd="$cmd --bot"; elif [ -n "$ADMIN" ]; then cmd="$cmd --administration"; fi
+    info_t app.howto "$cmd"
+}
+
 # 1. Création, si l'App n'est pas déjà configurée pour ce dépôt
 step_t app.step_create
 client_id="$(gh variable get "${PREFIXE}_CLIENT_ID" --repo "$REPO" 2>/dev/null || true)"
@@ -75,18 +95,38 @@ if [ -n "$client_id" ] && grep -q "^${PREFIXE}_KEY" <<<"$(gh secret list --repo 
     slug="$(gh variable get "${PREFIXE}_SLUG" --repo "$REPO" 2>/dev/null || true)"
 else
     if [ "$(gh api "users/$owner" -q .type)" = Organization ]; then
-        cible="https://github.com/organizations/$owner/settings/apps/new"
+        apps="https://github.com/organizations/$owner/settings/apps"
     else
-        cible="https://github.com/settings/apps/new"
+        apps="https://github.com/settings/apps"
+    fi
+    cible="$apps/new"
+    # Nom déjà pris (souvent une App orpheline d'un essai interrompu) : GitHub
+    # refuserait la création ; arrêt avec la marche à suivre. Slug : nom en
+    # minuscules, autres caractères en tirets ; une App privée d'un autre
+    # compte reste invisible (rappel à l'ouverture de la page)
+    slug_voulu="$(printf '%s' "$NOM" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g')"
+    if [ "$(gh api "apps/$slug_voulu" -q .slug 2>/dev/null || true)" = "$slug_voulu" ]; then
+        err_t app.name_taken "$NOM"
+        info_t app.name_taken_fix "$apps"
+        exit 1
+    fi
+    if conteneur_isole; then
+        err_t app.container
+        marche_a_suivre
+        exit 1
     fi
     sortie="$(mktemp)"
     trap 'rm -f "$sortie"' EXIT
     # Page locale : envoie la description à GitHub (formulaire POST), puis
     # reçoit le code de retour ; le code est écrit sur la sortie standard
-    NOM="$NOM" REPO="$REPO" ADMIN="$ADMIN" BOT="$BOT" CIBLE="$cible" node -e '
+    delai_page="${REPOWARDEN_APP_DELAI:-180}"
+    NOM="$NOM" REPO="$REPO" ADMIN="$ADMIN" BOT="$BOT" CIBLE="$cible" DELAI_PAGE="$delai_page" node -e '
         const http = require("http"), crypto = require("crypto");
         const etat = crypto.randomBytes(16).toString("hex");
+        // Page jamais consultée (navigateur qui ne joint pas 127.0.0.1) : arrêt
+        const attente = setTimeout(() => { console.log("DELAI_PAGE"); process.exit(1); }, Number(process.env.DELAI_PAGE) * 1000);
         const srv = http.createServer((req, res) => {
+            clearTimeout(attente);
             const u = new URL(req.url, "http://127.0.0.1");
             if (u.pathname === "/fin") {
                 if (u.searchParams.get("state") !== etat) { res.writeHead(400); res.end("état invalide"); return; }
@@ -120,10 +160,22 @@ else
     port="$(sed -n 's/^PORT //p' "$sortie")"
     [ -n "$port" ] || { err_t app.server_failed; exit 1; }
     info_t app.open "http://127.0.0.1:$port/"
+    dim_t app.name_hint "$NOM" "$apps"
     ouvrir "http://127.0.0.1:$port/"
     wait "$serveur" || true
     code="$(sed -n 's/^CODE //p' "$sortie")"
-    [ -n "$code" ] || { err_t app.no_code; exit 1; }
+    if grep -q '^DELAI_PAGE' "$sortie"; then
+        err_t app.page_timeout "$delai_page"
+        marche_a_suivre
+        exit 1
+    fi
+    if [ -z "$code" ]; then
+        err_t app.no_code
+        attention_t app.orphan
+        info_t app.name_taken_fix "$apps"
+        marche_a_suivre
+        exit 1
+    fi
     # Conversion du code : identifiants de l'App, rangés sans être affichés
     reponse="$(gh api -X POST "app-manifests/$code/conversions")"
     client_id="$(node -p 'JSON.parse(require("fs").readFileSync(0, "utf8")).client_id' <<<"$reponse")"
@@ -153,10 +205,10 @@ installee() {
 }
 cle="${cle:-}"
 if [ -z "$cle" ]; then
-    # Relance (clé non disponible ici) : vérifiée au premier run du suivi des tickets
-    info_t app.check_in_ci "https://github.com/apps/$slug/installations/new"
-    echo
-    ok_t app.done
+    # Relance : la clé privée n'est pas ici, et le jeton de gh ne peut pas
+    # lister les installations d'une App (user/installations : 403) ; état
+    # « non vérifié » plutôt qu'un succès non constaté
+    attention_t app.not_verified "${slug:-?}" "$REPO" "https://github.com/apps/${slug:-<slug>}/installations/new"
     exit 0
 fi
 if [ -n "$slug" ] && ! installee; then

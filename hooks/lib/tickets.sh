@@ -63,8 +63,10 @@ ticket_branch_r() {
 # REPLY = titre de PR d'un ticket : $1 type (« feat » par défaut), $2 titre du
 # ticket → « feat(portée): sujet ». Portée = préfixe du titre avant le premier
 # « : » (« Tickets : … » → « tickets »), 20 caractères au plus, omise si vide ;
-# sujet = le reste, première lettre abaissée. 72 caractères au plus, coupé sur
-# un mot entier. Vide si le titre ne donne rien (l'appelant décide du repli).
+# sujet = le reste, première lettre abaissée sauf sur un sigle (README, IA :
+# initiale suivie d'une majuscule). 72 caractères au plus, coupé à la dernière
+# espace, jamais dans un mot. Vide si le titre ne donne rien (l'appelant décide
+# du repli).
 ticket_pr_title_r() {
     local type="${1:-feat}" titre="$2" portee sujet tete res
     sujet="$titre"
@@ -75,15 +77,17 @@ ticket_pr_title_r() {
         [ "${#portee}" -le 20 ] || portee=""
         sujet="${BASH_REMATCH[2]}"
     fi
-    sujet="$(printf '%s' "${sujet:0:1}" | LC_ALL=C tr '[:upper:]' '[:lower:]')${sujet:1}"
+    [[ "${sujet:1:1}" == [[:upper:]] ]] ||
+        sujet="$(printf '%s' "${sujet:0:1}" | LC_ALL=C tr '[:upper:]' '[:lower:]')${sujet:1}"
     tete="$type${portee:+($portee)}: "
     REPLY=""
     [ -n "$sujet" ] || return 0
     res="$tete$sujet"
-    # 72 caractères au plus, coupé sur un mot entier (authored_length → REPLY)
+    # 72 caractères au plus, coupé sur un mot entier (authored_length → REPLY) ;
+    # un mot seul trop long n'est pas tronqué : titre vide
     authored_length "$res"
     while [ "$REPLY" -gt 72 ] && [ -n "$sujet" ]; do
-        if [[ "$sujet" == *" "* ]]; then sujet="${sujet% *}"; else sujet="${sujet%?}"; fi
+        if [[ "$sujet" == *" "* ]]; then sujet="${sujet% *}"; else sujet=""; fi
         res="$tete$sujet"
         authored_length "$res"
     done

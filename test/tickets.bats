@@ -56,7 +56,11 @@ case "$1 $2" in
     "api repos/o/r") echo R_1 ;;
     "api repos/o/r/git/ref/heads/develop") echo sha0 ;;
     "api repos/o/r/compare/"*)
-        case "$*" in *commits*) cat "$F/commits" 2>/dev/null || true ;; *) echo "${FAKE_AHEAD:-1}" ;; esac ;;
+        case "$*" in
+            *"commits[0]"*) cat "$F/premier" 2>/dev/null || true ;;
+            *commits*) cat "$F/commits" 2>/dev/null || true ;;
+            *) echo "${FAKE_AHEAD:-1}" ;;
+        esac ;;
     "issue create")
         n=42
         while [ $# -gt 0 ]; do [ "$1" = --label ] && echo "$2" >>"$F/issues/$n.labels"; shift; done
@@ -178,6 +182,40 @@ ticket() { printf '%s\n' "$@" >"$F/issues/$N.labels"; }
     done
 }
 
+@test "tickets : run opened annule -> labeled ou assigned rattrape la validation d'office" {
+    # Ticket créé avec ses étiquettes : le run « opened » attendait et a été
+    # annulé par GitHub (un seul run en attente par groupe de concurrence)
+    N=72 ticket "statut: à valider" "type: feat"
+    ISSUE=72 ACTION=labeled LABEL="type: feat" ISSUE_ASSOCIATION=OWNER run "$TICKETS" issue
+    [ "$status" -eq 0 ]
+    grep -qxF "validé" "$F/issues/72.labels"
+    [ "$(labels 72 | grep statut)" = "statut: backlog" ]
+    # run « opened » tardif, puis autre étiquette : rien n'est refait
+    : >"$F/events"
+    ISSUE=72 ACTION=opened ISSUE_ASSOCIATION=OWNER run "$TICKETS" issue
+    ISSUE=72 ACTION=labeled LABEL="statut: à valider" ISSUE_ASSOCIATION=OWNER run "$TICKETS" issue
+    [ "$(grep -cxF "validé" "$F/issues/72.labels")" -eq 1 ]
+    ! grep -q "commentaire 72" "$F/events"
+    # assigné avant tout autre run : validé, branche, en cours
+    N=73 ticket "type: fix"
+    echo moi >"$F/issues/73.assignees"
+    ISSUE=73 ACTION=assigned ISSUE_ASSOCIATION=MEMBER run "$TICKETS" issue
+    grep -qxF "validé" "$F/issues/73.labels"
+    grep -q "branche-creee fix/73-" "$F/events"
+    [ "$(labels 73 | grep statut)" = "statut: en cours" ]
+    # pas de rattrapage : contributeur externe, auto-validate never, ticket
+    # fermé, ou « validé » retiré à la main d'un ticket déjà rangé
+    for cas in "ISSUE_ASSOCIATION=NONE" "ISSUE_ASSOCIATION=OWNER AUTO_VALIDATE=never" \
+        "ISSUE_ASSOCIATION=OWNER ISSUE_STATE=closed"; do
+        N=74 ticket "statut: à valider" "type: feat"
+        env $cas ISSUE=74 ACTION=labeled LABEL="type: feat" "$TICKETS" issue
+        ! grep -qxF "validé" "$F/issues/74.labels"
+    done
+    N=75 ticket "statut: backlog" "type: feat"
+    ISSUE=75 ACTION=labeled LABEL="type: feat" ISSUE_ASSOCIATION=OWNER run "$TICKETS" issue
+    ! grep -qxF "validé" "$F/issues/75.labels"
+}
+
 @test "tickets : PR mergee -> preprod ; release -> done et ferme ; preversion -> commentaire" {
     N=12 ticket "validé" "statut: en relecture"
     printf 'Ticket : #12' >"$F/pr_body"
@@ -287,6 +325,41 @@ EOF
     [ "$REPLY" -le 72 ]
     [[ "$t" != *" " ]]
     [[ " un titre vraiment très long qui doit être coupé sur un mot entier " == *" ${t##* } "* ]]
+}
+
+@test "tickets : titre de PR brouillon = en-tete du premier commit, (#N) retire" {
+    N=12 ticket "validé" "statut: backlog" "type: feat"
+    echo "Tickets : ajoute le panier" >"$F/issues/12.title"
+    printf 'fix(panier): total du README (#12)\ncorps du commit\n' >"$F/premier"
+    PUSH_BRANCH=feat/12-panier SHA=def PUSHER=dev run "$TICKETS" push
+    [ "$status" -eq 0 ]
+    [ "$(cat "$F/pr_title")" = "fix(panier): total du README" ]
+    # en-tete non conforme -> repli sur le titre du ticket, sigle conserve
+    printf 'WIP panier\n' >"$F/premier"
+    echo "Tickets : README et messages" >"$F/issues/12.title"
+    PUSH_BRANCH=feat/12-panier SHA=def PUSHER=dev run "$TICKETS" push
+    [ "$status" -eq 0 ]
+    [ "$(cat "$F/pr_title")" = "feat(tickets): README et messages" ]
+}
+
+@test "tickets : titre de PR depuis le ticket, sigle conserve, aucun mot coupe" {
+    source "$TICKETS"
+    ticket_pr_title_r fix "GitHub facultatif : README et messages de démarrage"
+    [ "$REPLY" = "fix(github-facultatif): README et messages de démarrage" ]
+    ticket_pr_title_r feat "IA locale"
+    [ "$REPLY" = "feat: IA locale" ]
+    ticket_pr_title_r feat "Ajoute le panier"
+    [ "$REPLY" = "feat: ajoute le panier" ]
+    s="assistants IA et Kubernetes désactivés par défaut au premier démarrage du conteneur"
+    ticket_pr_title_r feat "Modules à la demande : $s"
+    t="$REPLY"
+    authored_length "$t"
+    [ "$REPLY" -le 72 ]
+    [[ "$t" == "feat(modules-a-la-demande): assistants IA "* ]]
+    [[ " $s " == *" ${t##* } "* ]]
+    # un seul mot trop long : jamais tronque au caractere, titre vide (repli)
+    ticket_pr_title_r feat "Tickets : $(printf 'mot%.0s' {1..30})"
+    [ -z "$REPLY" ]
 }
 
 @test "tickets : assigne -> en cours ; corrections demandees -> en cours" {

@@ -155,6 +155,46 @@ Le rythme des versions stables est régulier : `develop` accumule, une livraison
 
 La CI du projet doit tourner sur les pushs vers `develop` : ses vérifications portent sur le commit de tête, et valent donc pour la PR de livraison.
 
+### Livraison approuvée ou automatique
+
+Le mode de livraison est un **choix du projet**. L'approbation humaine reste le défaut.
+
+| | Approuvée (défaut) | Automatique |
+|---|---|---|
+| Réglage | `deliveryApproval = deployment` (ou `review`) ; entrée `delivery-environment: production` | `deliveryApproval = auto` ; entrée `delivery-auto: true` (sans `delivery-environment`) |
+| Validation humaine | un clic « Approve and deploy » (ou une revue de la PR de livraison) à chaque livraison | le merge de chaque ticket dans `develop` ; aucun geste à la livraison |
+| Quand la livraison part | après l'approbation, sur l'instantané `livraison/vX.Y.Z` | dès que les vérifications exigées sur `main` sont vertes (`repowarden`, `livraison`), une fois la livraison demandée |
+| Règles de `main` (`repowarden proteger`) | vérifications exigées + déploiement réussi (ou approbation de PR) | vérifications exigées (et `requiredReviews` s'il est configuré) ; ni déploiement ni environnement créé d'office |
+| Prérequis | GitHub App (sinon merge à la main) | GitHub App ; sans elle, un avertissement et merge à la main |
+
+La livraison est demandée selon le **rythme** choisi, dans les deux modes : à chaque ticket mergé avec `delivery-on-push: true` (et `preversion-on-push: true`, pour que la préversion exigée soit publiée tout de suite), ou regroupée (défaut) dans la fenêtre `delivery-schedule`, à la main, ou après un merge étiqueté `urgent`.
+
+```yaml title=".github/workflows/release.yml (livraison automatique, à chaque ticket)"
+    with:
+      mode: tag
+      delivery-auto: true          # la GitHub App merge la livraison, vérifications vertes
+      delivery-on-push: true       # à chaque ticket mergé (sinon : fenêtre delivery-schedule)
+      preversion-on-push: true     # préversion publiée aussitôt (preversion-obligatoire)
+      app-client-id: ${{ vars.REPOWARDEN_APP_CLIENT_ID }}
+    secrets:
+      app-key: ${{ secrets.REPOWARDEN_APP_KEY }}
+```
+
+Puis `deliveryApproval = auto` dans `.repowarden.conf` et `repowarden proteger`.
+
+**Avec `repowarden bots`** (flux `develop` → `main`, bot « Releases ») : trois questions, défaut entre crochets, écrites dans le `release.yml` généré et dans `.repowarden.conf`. Les réponses par défaut donnent le `release.yml` habituel (approbation, regroupé).
+
+| Question | Défaut | Autre réponse |
+|---|---|---|
+| Livraison automatique ? | non : approbation humaine | `delivery-auto: true` et `deliveryApproval = auto` ; sans GitHub App (ni présente ni choisie), un avertissement : la PR de livraison reste à merger à la main |
+| À chaque ticket ? | non : regroupé (préversion le soir, fenêtre du vendredi) | `preversion-on-push: true` et `delivery-on-push: true`, sans déclenchement planifié |
+| Préversion obligatoire avant une version stable ? | oui | `preversion-obligatoire: false` |
+
+L'aperçu annonce ces choix avant la confirmation ; un `release.yml` existant n'est jamais réécrit (son écart avec le modèle est affiché). `delivery-auto` et `delivery-environment` ensemble sont refusés (deux modes exclusifs) ; un environnement sans approbateur reste refusé par le mode approuvé. Retour à l'approbation : retirer `delivery-auto`, remettre `delivery-environment` et `deliveryApproval = deployment`, relancer `repowarden proteger`.
+
+!!! note "Une fois armé"
+    Le merge automatique reste armé sur la PR de livraison jusqu'à son merge : si une vérification échoue, la livraison part dès qu'elle repasse au vert, avec ce que `develop` contient alors.
+
 ### Garde-fou de livraison
 
 À chaque passage sur `develop`, `release-auto` pose sur son commit de tête (donc sur la PR de livraison) le statut **`livraison`**, exigé sur `main` par `repowarden proteger`. Il est en échec tant que la livraison ne pourrait pas aboutir :
@@ -237,16 +277,16 @@ Prérequis :
 
 Un projet Node peut publier son paquet à chaque release, **sans jeton** : npm vérifie que la publication vient bien du dépôt et de son `release.yml` (publication de confiance) et affiche la provenance du paquet. yarn, pnpm et bun installent depuis le même registre. repowarden lui-même est publié ainsi (`repowarden`).
 
-Mise en place en une commande, depuis le dépôt du projet. Tout est publié par la pipeline, la première version comprise :
+Mise en place en une commande, depuis le dépôt du projet. La première version est publiée depuis ton poste, les suivantes par la pipeline :
 
 1. **Connexion à npm** : `npm login` si besoin.
 2. **Paquet pas encore sur npm** (npm n'accepte la publication de confiance que sur un paquet existant) :
-   - un jeton npm temporaire est créé, valable 7 jours et limité au scope du paquet ;
-   - il va directement dans le secret `NPM_TOKEN`, sans jamais s'afficher ; le mot de passe et le code 2FA sont demandés en saisie masquée ;
-   - la variable `REPOWARDEN_NPM` active le job, puis la commande attend que la prochaine release publie le paquet.
-3. **Publication de confiance** : configurée avec `npm trust github`, sans formulaire. Le secret est ensuite supprimé et le jeton révoqué. Les releases suivantes publient sans jeton.
+   - la dernière release du dépôt (son tag) est clonée dans un dossier temporaire et publiée à sa version par `npm publish`, lancé dans le terminal : npm conduit lui-même sa validation (navigateur ou code) ;
+   - aucun jeton n'est créé ni stocké, aucun mot de passe n'est demandé par repowarden ;
+   - aucune release encore : rien n'est publié, relancer la commande après la première release ; échec de la publication : la commande s'arrête sans rien configurer.
+3. **Publication de confiance** : configurée avec `npm trust github`, sans formulaire, puis la variable `REPOWARDEN_NPM` active le job. Un ancien secret `NPM_TOKEN` et d'anciens jetons temporaires (parcours précédent) sont retirés. Les releases suivantes publient sans jeton.
 
-Interrompue (Ctrl+C), la commande reprend où elle en était quand on la relance.
+Interrompue (Ctrl+C), la commande reprend où elle en était quand on la relance. `--dry-run` montre ce qui serait fait sans rien publier.
 
 ```bash
 repowarden npm-publication
@@ -265,7 +305,7 @@ Puis, dans `.github/workflows/release.yml` :
       # environment: production     # approbation avant publication (validation humaine)
       # directory: packages/ui      # paquet hors de la racine
     secrets:
-      npm-token: ${{ secrets.NPM_TOKEN }}   # première publication seulement
+      npm-token: ${{ secrets.NPM_TOKEN }}   # facultatif : ancien parcours par jeton
 ```
 
 Lancer le workflow `release` à la main (Run workflow) publie la dernière release si elle manque sur npm. Le paquet est publié à la version du tag (y compris en mode tag, sans fichier de version). Une version déjà publiée est ignorée : relancer le run ne casse rien.
@@ -286,7 +326,7 @@ Lancer le workflow `release` à la main (Run workflow) publie la dernière relea
 !!! warning "Workflows qui déploient"
     Un workflow qui déploie quand il n'est pas lancé par une PR (site, environnement) serait lancé sur la branche de release : lister explicitement les workflows de CI avec `workflows:`.
 
-Sorties : `release_created`, `tag_name`, `version`, `major`, `sha`, pour enchaîner la publication propre au projet :
+Sorties : `release_created`, `tag_name`, `version`, `major`, `sha` (mode tag : aussi `prerelease_*` et `delivery_pr`, numéro de la PR de livraison), pour enchaîner la publication propre au projet :
 
 ```yaml
   publier:

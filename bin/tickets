@@ -12,7 +12,8 @@
 #     mainteneur → backlog, sinon à valider ; --sans-validation-auto : tous à
 #     valider) ; branches des PR ouvertes et mergées inscrites sur leurs tickets.
 # Ensuite : committer ces fichiers, exiger la vérification « ticket »
-# (repowarden proteger --checks "…,ticket") et brancher le job tickets de release.yml.
+# (repowarden proteger --checks "…,ticket") et, s'il n'y est pas, brancher le
+# job tickets de release.yml (repowarden bots l'y écrit).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
@@ -41,7 +42,7 @@ if [ "$commande" = sync ]; then
     exit 0
 fi
 if [ "$commande" != init ]; then
-    sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'
     [ "$commande" = "" ] || [ "$commande" = -h ] || [ "$commande" = --help ]
     exit
 fi
@@ -149,4 +150,9 @@ esac
 
 echo
 ok_t tk.init_done
-dim_t tk.init_next
+# Job tickets de release.yml déjà branché (modèle de repowarden bots) : rien à ajouter
+if grep -qs 'workflows/tickets\.yml@' .github/workflows/release.yml; then
+    dim_t tk.init_next_wired
+else
+    dim_t tk.init_next
+fi

@@ -21,7 +21,11 @@ case "$*" in
     "repo view"*) echo moi/projet ;;
     "api repos/moi/projet --jq .permissions.admin") echo "${GH_ADMIN:-true}" ;;
     "api repos/moi/projet --jq .default_branch") echo main ;;
-    "api repos/moi/projet/branches/develop"*) [ -n "${GH_DEVELOP:-}" ] && echo develop || exit 1 ;;
+    # absente : comme le vrai gh, corps de la 404 sur la sortie standard
+    "api repos/moi/projet/branches/develop"*)
+        [ -n "${GH_DEVELOP:-}" ] && { echo develop; exit 0; }
+        echo '{"message":"Branch not found","status":"404"}'
+        exit 1 ;;
     "variable get REPOWARDEN_APP_CLIENT_ID"*) [ -n "${GH_APP:-}" ] && echo Iv1.abc || exit 1 ;;
     "api repos/moi/projet/git/ref/heads/main"*) echo abc123 ;;
 esac
@@ -74,14 +78,69 @@ lancer() { run bash -c "\"$BOTS\" <\"$F/reponses\""; }
     ! grep -q "^app " "$F/log"
     ! git config -f .repowarden.conf --get repowarden.integrationBranch
     [[ "$output" == *"commiter par une PR"* ]]
+    # aucun langage reconnu : modèle générique, strict commenté, et c'est dit
+    [[ "$output" == *"langage non reconnu : modèle générique"* ]]
+    grep -q '^        #   strict: true' .github/workflows/repowarden.yml
+    ! grep -q 'setup-python' .github/workflows/repowarden.yml
     if command -v actionlint >/dev/null; then actionlint .github/workflows/*.yml; fi
 }
 
+@test "bots : CI d'un projet Python -> setup-python, ruff vulture pytest, strict actif" {
+    printf '[project]\nname = "x"\n' >pyproject.toml
+    # global, flux 1, ci, release (non), tickets (non), app (non), protection (non), confirmation
+    repondre o 1 o n n n n o
+    lancer
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"outillage de la CI : python"* ]]
+    w=.github/workflows/repowarden.yml
+    grep -q 'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0' "$w"
+    grep -q 'python-version: "3.12"' "$w"
+    grep -q 'run: pip install ruff==0.16.10 vulture==2.16 pytest==9.1.1' "$w"
+    ! grep -q 'requirements.txt' "$w"
+    grep -q '^          strict: true' "$w"
+    grep -q 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1' "$w"
+    if command -v actionlint >/dev/null; then actionlint "$w"; fi
+}
+
+@test "bots : CI Node, Go, Java -> outillage par langage, strict seulement s'il est complet" {
+    printf '{ "name": "x", "private": true, "devDependencies": { "prettier": "3.6.2" } }\n' >package.json
+    : >package-lock.json
+    printf 'module x\n\ngo 1.24\n' >go.mod
+    printf '<project><build><plugins><plugin>spotless</plugin></plugins></build></project>\n' >pom.xml
+    # global, flux 2 (develop existe), ci, release (non), nettoyage (non), tickets (non), app (non), protection (non), confirmation
+    repondre o 2 o n n n n n o
+    GH_DEVELOP=1 lancer
+    [ "$status" -eq 0 ]
+    w=.github/workflows/repowarden.yml
+    grep -q 'actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0' "$w"
+    grep -q 'cache: npm' "$w" && grep -q 'run: npm ci' "$w"
+    grep -q 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0' "$w"
+    grep -q 'go-version-file: go.mod' "$w"
+    grep -q 'actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1' "$w"
+    grep -q 'cache: maven' "$w"
+    grep -q '^          strict: true' "$w" && grep -q 'fix-pr: "true"' "$w"
+    if command -v actionlint >/dev/null; then actionlint "$w"; fi
+    # prettier absent, Gradle sans wrapper : strict commenté avec la raison
+    rm -rf .github pom.xml go.mod package-lock.json
+    printf '{ "name": "x", "private": true }\n' >package.json
+    : >settings.gradle
+    repondre o 2 o n n n n n o
+    GH_DEVELOP=1 lancer
+    grep -q 'run: npm install' "$w"
+    grep -q 'gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0' "$w"
+    grep -q 'cache: gradle' "$w"
+    grep -q '^          # strict: true   # prettier absent de package.json, Spotless non configuré (Gradle) :' "$w"
+    ! grep -q '^          strict: true' "$w"
+    if command -v actionlint >/dev/null; then actionlint "$w"; fi
+}
+
 @test "bots : flux develop, develop creee avec accord, App deja la -> livraison par l'environnement" {
-    # global, flux 2, créer develop, ci, release, nettoyage, tickets (non), protection, confirmation
-    repondre o 2 o o o o n o o
+    # global, flux 2, créer develop, ci, release, nettoyage, tickets (non), protection,
+    # livraison, rythme, préversion (Entrée), confirmation
+    repondre o 2 o o o o n o "" "" "" o
     GH_APP=1 lancer
     [ "$status" -eq 0 ]
+    [[ "$output" == *"seul develop entre dans main (livraison)"* ]]
     [[ "$output" == *"déjà configurée"* ]]
     grep -q "^gh api -X POST repos/moi/projet/git/refs -f ref=refs/heads/develop -f sha=abc123" "$F/log"
     [ "$(git config -f .repowarden.conf repowarden.integrationBranch)" = develop ]
@@ -97,8 +156,9 @@ lancer() { run bash -c "\"$BOTS\" <\"$F/reponses\""; }
 }
 
 @test "bots : flux develop sans App -> livraison validee par revue ; develop refusee -> flux main" {
-    # global, flux 2 (develop existe), ci, release, nettoyage, tickets, app (non), protection, confirmation
-    repondre o 2 o o o n n n o
+    # global, flux 2 (develop existe), ci, release, nettoyage, tickets, app (non), protection,
+    # livraison, rythme, préversion (Entrée), confirmation
+    repondre o 2 o o o n n n "" "" "" o
     GH_DEVELOP=1 lancer
     [ "$status" -eq 0 ]
     [ "$(git config -f .repowarden.conf repowarden.deliveryApproval)" = review ]
@@ -113,9 +173,20 @@ lancer() { run bash -c "\"$BOTS\" <\"$F/reponses\""; }
     [ ! -e .repowarden.conf ]
 }
 
+@test "bots : integrationBranch deja en place -> .repowarden.conf laisse tel quel" {
+    printf '[repowarden]\n    integrationBranch = develop\n    protectedBranches = main develop\n    deliveryApproval = review\n' >.repowarden.conf
+    cp .repowarden.conf "$F/avant"
+    # global, flux 2 (develop existe), ci, release (non), nettoyage (non), tickets (non), app (non), protection (non), confirmation
+    repondre o 2 o n n n n n o
+    GH_DEVELOP=1 lancer
+    [ "$status" -eq 0 ]
+    cmp .repowarden.conf "$F/avant"
+}
+
 @test "bots : flux develop propose par defaut" {
-    # global, flux (Entrée), ci, release, nettoyage, tickets, app, protection, confirmation
-    repondre o "" o o n n n n o
+    # global, flux (Entrée), ci, release, nettoyage, tickets, app, protection,
+    # livraison, rythme, préversion (Entrée), confirmation
+    repondre o "" o o n n n n "" "" "" o
     GH_DEVELOP=1 lancer
     [ "$status" -eq 0 ]
     [ "$(git config -f .repowarden.conf repowarden.integrationBranch)" = develop ]
@@ -161,4 +232,122 @@ lancer() { run bash -c "\"$BOTS\" <\"$F/reponses\""; }
     [ "$(git config --local repowarden.bots)" = off ]
     REPOWARDEN_INTERACTIF="" run bash -c "\"$INSTALL\" </dev/null"
     [[ "$output" != *"Bots du dépôt"* ]]
+}
+
+@test "bots : release.yml avec le job tickets (needs release, tag, App si presente)" {
+    # flux main : global, flux 1, ci (non), release, tickets, app (non), protection (non), confirmation
+    repondre o 1 n o o n n o
+    lancer
+    [ "$status" -eq 0 ]
+    f=.github/workflows/release.yml
+    grep -q '^  tickets:$' "$f"
+    grep -q '^    needs: release$' "$f"
+    grep -qF "if: needs.release.outputs.release_created == 'true' || needs.release.outputs.prerelease_created == 'true'" "$f"
+    grep -q '^    uses: simdevWarden/repowarden/.github/workflows/tickets.yml@v4$' "$f"
+    grep -q 'permissions: { contents: write, issues: write, pull-requests: write, statuses: write }' "$f"
+    grep -qF 'tag: ${{ needs.release.outputs.tag_name || needs.release.outputs.prerelease_tag }}' "$f"
+    ! grep -q 'app-client-id' "$f"
+    if command -v actionlint >/dev/null; then actionlint "$f"; fi
+    rm -rf .github .repowarden.conf
+    # flux develop, App déjà là : global, flux 2, ci (non), release, nettoyage (non), tickets, protection (non),
+    # livraison, rythme, préversion (Entrée), confirmation
+    repondre o 2 n o n o n "" "" "" o
+    GH_DEVELOP=1 GH_APP=1 lancer
+    [ "$status" -eq 0 ]
+    [ "$(grep -c 'app-client-id: ${{ vars.REPOWARDEN_APP_CLIENT_ID }}' "$f")" -eq 2 ]
+    sed -n '/^  tickets:$/,$p' "$f" | grep -qF 'app-key: ${{ secrets.REPOWARDEN_APP_KEY }}'
+    if command -v actionlint >/dev/null; then actionlint "$f"; fi
+    rm -rf .github .repowarden.conf
+    # sans suivi des tickets : pas de job tickets (il échouerait sans les étiquettes)
+    repondre o 1 n o n n n o
+    lancer
+    ! grep -q 'tickets.yml@' "$f"
+}
+
+@test "bots : livraison, reponses par defaut -> release.yml d'aujourd'hui, a l'octet pres" {
+    # flux develop, App déjà là : global, flux 2, ci (non), release, nettoyage (non), tickets (non),
+    # protection (non), livraison, rythme, préversion (Entrée), confirmation
+    repondre o 2 n o n n n "" "" "" o
+    GH_DEVELOP=1 GH_APP=1 lancer
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"livraison approuvée par une personne"* ]]
+    [[ "$output" == *"regroupé, préversion le soir"* && "$output" == *"préversion obligatoire avant"* ]]
+    ! git config -f .repowarden.conf --get repowarden.deliveryApproval
+    cat >"$F/attendu" <<'YAML'
+# Releases, flux develop → main (mode tag) : préversion vX.Y.Z-next.N le
+# soir si develop a changé ; le vendredi matin (ou à la main), une demande
+# de livraison develop → main, qui publie le tag vX.Y.Z et la release.
+name: release
+
+on:
+  push:
+    branches: [main, develop]
+  schedule:
+    - cron: "0 19 * * *" # préversion du soir, si develop a changé
+    - cron: "0 7 * * 5" # fenêtre de livraison : le vendredi matin
+  workflow_dispatch: # à la main (et urgence) : préversion et demande de livraison
+
+# Une file par branche et par déclencheur ; une demande manuelle ou planifiée
+# remplace celle en attente ; un push n'annule jamais un run en cours
+concurrency:
+  group: release-${{ github.ref_name }}-${{ github.event.schedule || github.event_name }}
+  cancel-in-progress: ${{ github.event_name != 'push' }}
+
+permissions: {}
+
+jobs:
+  release:
+    uses: simdevWarden/repowarden/.github/workflows/release-auto.yml@v4
+    permissions: { contents: write, pull-requests: write, actions: write, checks: read, statuses: write, issues: read }
+    with:
+      mode: tag
+      integration-branch: develop
+      main-branch: main
+      delivery-schedule: "0 7 * * 5" # même cron que la fenêtre ci-dessus
+      delivery-environment: production # « Approve and deploy » valide la livraison
+      app-client-id: ${{ vars.REPOWARDEN_APP_CLIENT_ID }} # la GitHub App merge la livraison approuvée
+    secrets:
+      app-key: ${{ secrets.REPOWARDEN_APP_KEY }}
+YAML
+    diff "$F/attendu" .github/workflows/release.yml
+}
+
+@test "bots : livraison automatique, a chaque ticket, preversion facultative -> entrees et deliveryApproval auto" {
+    # flux develop, App déjà là : global, flux 2, ci (non), release, nettoyage (non), tickets (non),
+    # protection (non), livraison auto, à chaque ticket, préversion (non), confirmation
+    repondre o 2 n o n n n o o n o
+    GH_DEVELOP=1 GH_APP=1 lancer
+    [ "$status" -eq 0 ]
+    f=.github/workflows/release.yml
+    grep -q '^      delivery-auto: true' "$f"
+    grep -q '^      preversion-on-push: true' "$f"
+    grep -q '^      delivery-on-push: true' "$f"
+    grep -q '^      preversion-obligatoire: false' "$f"
+    grep -q 'app-client-id: ${{ vars.REPOWARDEN_APP_CLIENT_ID }}' "$f"
+    # modes exclusifs ; plus de fenêtre de livraison ni de préversion du soir
+    ! grep -q 'delivery-environment' "$f"
+    ! grep -q 'delivery-schedule' "$f"
+    ! grep -q 'cron:' "$f"
+    [ "$(git config -f .repowarden.conf repowarden.deliveryApproval)" = auto ]
+    [[ "$output" == *"deliveryApproval = auto"* && "$output" == *"livraison automatique (delivery-auto)"* ]]
+    [[ "$output" == *"à chaque ticket, préversion et demande de livraison"* ]]
+    [[ "$output" == *"version stable possible sans préversion"* ]]
+    [[ "$output" != *"exige l'App"* ]]
+    if command -v actionlint >/dev/null; then actionlint "$f"; fi
+}
+
+@test "bots : livraison automatique sans GitHub App -> avertissement, et dans l'apercu" {
+    # global, flux 2 (develop existe), ci (non), release, nettoyage (non), tickets (non), app (non),
+    # protection (non), livraison auto, rythme (Entrée), préversion (Entrée), confirmation
+    repondre o 2 n o n n n n o "" "" o
+    GH_DEVELOP=1 lancer
+    [ "$status" -eq 0 ]
+    [ "$(grep -c "le merge automatique exige l'App" <<<"$output")" -eq 2 ]
+    f=.github/workflows/release.yml
+    grep -q '^      delivery-auto: true' "$f"
+    grep -q '^      delivery-schedule: "0 7 \* \* 5"' "$f"
+    ! grep -q 'app-client-id' "$f"
+    ! grep -q 'preversion-obligatoire' "$f"
+    [ "$(git config -f .repowarden.conf repowarden.deliveryApproval)" = auto ]
+    if command -v actionlint >/dev/null; then actionlint "$f"; fi
 }

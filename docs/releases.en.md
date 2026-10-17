@@ -155,6 +155,46 @@ Stable versions follow a regular pace: `develop` accumulates, one delivery per w
 
 The project CI must run on pushes to `develop`: its checks apply to the head commit, and therefore to the delivery PR.
 
+### Approved or automatic delivery
+
+The delivery mode is **the project's choice**. Human approval remains the default.
+
+| | Approved (default) | Automatic |
+|---|---|---|
+| Setting | `deliveryApproval = deployment` (or `review`); `delivery-environment: production` input | `deliveryApproval = auto`; `delivery-auto: true` input (without `delivery-environment`) |
+| Human validation | one "Approve and deploy" click (or a review of the delivery PR) on each delivery | merging each ticket into `develop`; nothing to do at delivery time |
+| When the delivery goes out | after approval, on the `livraison/vX.Y.Z` snapshot | as soon as the checks required on `main` are green (`repowarden`, `livraison`), once the delivery is requested |
+| `main` rules (`repowarden proteger`) | required checks + successful deployment (or PR approval) | required checks (and `requiredReviews` if configured); no deployment rule, no environment created by default |
+| Requirement | GitHub App (otherwise manual merge) | GitHub App; without it, a warning and a manual merge |
+
+In both modes, the delivery is requested at the chosen **pace**: on every merged ticket with `delivery-on-push: true` (and `preversion-on-push: true`, so the required pre-release is published right away), or grouped (default) in the `delivery-schedule` window, by hand, or after a merge labelled `urgent`.
+
+```yaml title=".github/workflows/release.yml (automatic delivery, on every ticket)"
+    with:
+      mode: tag
+      delivery-auto: true          # the GitHub App merges the delivery once checks are green
+      delivery-on-push: true       # on every merged ticket (otherwise: delivery-schedule window)
+      preversion-on-push: true     # pre-release published right away (preversion-obligatoire)
+      app-client-id: ${{ vars.REPOWARDEN_APP_CLIENT_ID }}
+    secrets:
+      app-key: ${{ secrets.REPOWARDEN_APP_KEY }}
+```
+
+Then `deliveryApproval = auto` in `.repowarden.conf` and `repowarden proteger`.
+
+**With `repowarden bots`** (`develop` → `main` flow, “Releases” bot): three questions, default in brackets, written into the generated `release.yml` and into `.repowarden.conf`. The default answers give the usual `release.yml` (approval, grouped).
+
+| Question | Default | Other answer |
+|---|---|---|
+| Automatic delivery? | no: human approval | `delivery-auto: true` and `deliveryApproval = auto`; without a GitHub App (neither present nor chosen), a warning: the delivery PR has to be merged by hand |
+| On every ticket? | no: grouped (evening prerelease, Friday window) | `preversion-on-push: true` and `delivery-on-push: true`, no scheduled trigger |
+| Prerelease required before a stable version? | yes | `preversion-obligatoire: false` |
+
+The preview announces these choices before the confirmation; an existing `release.yml` is never rewritten (its difference from the template is shown). `delivery-auto` together with `delivery-environment` is refused (two exclusive modes); an environment without approvers is still refused by the approved mode. Back to approval: remove `delivery-auto`, restore `delivery-environment` and `deliveryApproval = deployment`, run `repowarden proteger` again.
+
+!!! note "Once armed"
+    Auto-merge stays armed on the delivery PR until it is merged: if a check fails, the delivery goes out as soon as it turns green again, with whatever `develop` then contains.
+
 ### Delivery safeguard
 
 On every run on `develop`, `release-auto` sets the **`livraison`** status on its head commit (and therefore on the delivery PR); `repowarden proteger` requires it on `main`. It fails as long as the delivery could not succeed:
@@ -237,16 +277,16 @@ Requirements:
 
 A Node project can publish its package on every release, **without a token**: npm checks that the publication comes from the repository and its `release.yml` (trusted publishing) and shows the package provenance. yarn, pnpm and bun install from the same registry. repowarden itself is published this way (`repowarden`).
 
-One-command setup, from the project repository. Everything is published by the pipeline, the first version included:
+One-command setup, from the project repository. The first version is published from your machine, the following ones by the pipeline:
 
 1. **npm login**, if needed.
 2. **Package not on npm yet** (npm only accepts trusted publishing on an existing package):
-   - a temporary npm token is created, valid for 7 days and limited to the package scope;
-   - it goes straight into the `NPM_TOKEN` secret and is never displayed; the password and 2FA code are asked as hidden input;
-   - the `REPOWARDEN_NPM` variable enables the job, then the command waits for the next release to publish the package.
-3. **Trusted publishing**: configured with `npm trust github`, no form to fill in. The secret is then deleted and the token revoked. The following releases publish without a token.
+   - the latest release of the repository (its tag) is cloned into a temporary folder and published at its version by `npm publish`, run in the terminal: npm drives its own validation (browser or code);
+   - no token is created or stored, no password is asked by repowarden;
+   - no release yet: nothing is published, run the command again after the first release; publication failed: the command stops without configuring anything.
+3. **Trusted publishing**: configured with `npm trust github`, no form to fill in, then the `REPOWARDEN_NPM` variable enables the job. A former `NPM_TOKEN` secret and former temporary tokens (previous flow) are removed. The following releases publish without a token.
 
-If interrupted (Ctrl+C), the command resumes where it left off when run again.
+If interrupted (Ctrl+C), the command resumes where it left off when run again. `--dry-run` shows what would be done without publishing anything.
 
 ```bash
 repowarden npm-publication
@@ -265,7 +305,7 @@ Then, in `.github/workflows/release.yml`:
       # environment: production     # approval before publishing (human validation)
       # directory: packages/ui      # package outside the root
     secrets:
-      npm-token: ${{ secrets.NPM_TOKEN }}   # first publication only
+      npm-token: ${{ secrets.NPM_TOKEN }}   # optional: former token flow
 ```
 
 Running the `release` workflow manually (Run workflow) publishes the latest release if it is missing from npm. The package is published at the tag version (tag mode included, without a version file). An already published version is skipped: re-running the workflow breaks nothing.
@@ -286,7 +326,7 @@ Running the `release` workflow manually (Run workflow) publishes the latest rele
 !!! warning "Workflows that deploy"
     A workflow that deploys when it is not triggered by a PR (site, environment) would be run on the release branch: list the CI workflows explicitly with `workflows:`.
 
-Outputs: `release_created`, `tag_name`, `version`, `major`, `sha`, to chain the project's own publishing:
+Outputs: `release_created`, `tag_name`, `version`, `major`, `sha` (tag mode: also `prerelease_*` and `delivery_pr`, the delivery PR number), to chain the project's own publishing:
 
 ```yaml
   publier:
