@@ -341,6 +341,13 @@ _msg_en() {
         ci.proteger.incomplete) _M="Incomplete protection: see the errors above." ;;
         ci.proteger.rulesets_unavailable) _M="Rulesets unavailable for %s: GitHub refuses them on a private repository of a free account. Make the repository public, or move to GitHub Pro / Team; the other settings are applied." ;;
         ci.proteger.no_squash) _M="Without rulesets, the merge method cannot be enforced per branch: squash disabled (merge commit only), otherwise a squashed delivery would break the main branch history." ;;
+        ci.proteger.automerge_unavailable) _M="Auto-merge unavailable on this repository (GitHub ignores it on a private repository of a free account): work PRs and deliveries are merged by hand; automatic delivery impossible." ;;
+        ci.proteger.automerge_ignored) _M="Auto-merge requested but still disabled on %s: GitHub ignores it without an error (private repository of a free account). Work PRs and deliveries are merged by hand. Make the repository public, or move to GitHub Pro / Team, then run repowarden proteger again." ;;
+        ci.proteger.automerge_delivery) _M="deliveryApproval = auto cannot work without auto-merge: the delivery PR will not merge by itself." ;;
+        ci.proteger.settings_error) _M="%s: rejected by GitHub: %s" ;;
+        ci.proteger.what_repo) _M="Repository settings (merge methods, default branch)" ;;
+        ci.proteger.what_workflow) _M="Workflow permissions" ;;
+        ci.proteger.what_environment) _M="Deployment environment" ;;
         ci.proteger.tags_fallback) _M="Tags ruleset: \"GitHub Actions\" bypass refused in this organization; tags protected as on a personal account (not moved or deleted, creation allowed)." ;;
         ci.version.usage) _M="Usage: ci/version.sh next|notes|notes-livraison [ref]" ;;
         ci.version.breaking) _M="Breaking changes" ;;
@@ -533,6 +540,8 @@ _msg_en() {
         bots.ask_npm) _M="npm publishing?" ;;
         bots.desc_delivery) _M="develop → main delivery: automatic (the GitHub App merges the delivery PR as soon as the checks are green; human validation is the merge of each ticket) or human approval (default)" ;;
         bots.ask_delivery_auto) _M="Automatic delivery? (no: human approval)" ;;
+        bots.plan_limited) _M="%s is a private repository on a free plan: GitHub offers neither branch protection, rulesets nor auto-merge there. So these will not work: required PRs and checks, work PRs merging by themselves, automatic delivery (PRs will be merged by hand). To get everything: make the repository public, or move to GitHub Pro / Team, then run repowarden bots again." ;;
+        bots.no_delivery_auto) _M="Automatic delivery not offered (no auto-merge on this repository): the delivery PR will be merged by hand." ;;
         bots.auto_no_app) _M="Automatic delivery without a GitHub App: the automatic merge requires the App (repowarden app init); without it, the delivery PR has to be merged by hand." ;;
         bots.desc_rythme) _M="Pace: on every ticket (prerelease and delivery request on every merge) or grouped (default: evening prerelease, Friday delivery window)" ;;
         bots.ask_each_ticket) _M="On every ticket? (no: grouped)" ;;
@@ -540,7 +549,7 @@ _msg_en() {
         bots.preview) _M="Preview" ;;
         bots.prev_develop) _M="branch %s created on GitHub from %s" ;;
         bots.prev_conf) _M=".repowarden.conf: integrationBranch = %s, protected branches" ;;
-        bots.prev_review) _M=".repowarden.conf: delivery approved by reviewing its PR (no GitHub App)" ;;
+        bots.prev_review) _M=".repowarden.conf: delivery approved by reviewing its PR (no GitHub App or approval environment)" ;;
         bots.prev_conf_auto) _M=".repowarden.conf: deliveryApproval = auto (automatic delivery)" ;;
         bots.prev_delivery_auto) _M="release.yml: automatic delivery (delivery-auto), the GitHub App merges the delivery PR as soon as the checks are green" ;;
         bots.prev_delivery_approval) _M="release.yml: delivery approved by a person" ;;

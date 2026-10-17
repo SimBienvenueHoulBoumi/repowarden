@@ -341,6 +341,13 @@ _msg_fr() {
         ci.proteger.incomplete) _M="Protection incomplète : voir les erreurs ci-dessus." ;;
         ci.proteger.rulesets_unavailable) _M="Rulesets indisponibles pour %s : GitHub les refuse sur un dépôt privé d'un compte gratuit. Rendre le dépôt public, ou passer à GitHub Pro / Team ; les autres réglages sont appliqués." ;;
         ci.proteger.no_squash) _M="Sans rulesets, le mode de merge ne peut pas être imposé par branche : squash désactivé (merge commit seul), sinon une livraison squashée casserait l'historique de la branche principale." ;;
+        ci.proteger.automerge_unavailable) _M="Merge automatique indisponible sur ce dépôt (GitHub l'ignore sur un dépôt privé d'un compte gratuit) : PR de travail et livraison à merger à la main ; livraison automatique impossible." ;;
+        ci.proteger.automerge_ignored) _M="Merge automatique demandé mais resté désactivé sur %s : GitHub l'ignore sans erreur (dépôt privé d'un compte gratuit). PR de travail et livraison à merger à la main. Rendre le dépôt public, ou passer à GitHub Pro / Team, puis relancer repowarden proteger." ;;
+        ci.proteger.automerge_delivery) _M="deliveryApproval = auto ne peut pas fonctionner sans merge automatique : la PR de livraison ne se mergera pas seule." ;;
+        ci.proteger.settings_error) _M="%s : refusé par GitHub : %s" ;;
+        ci.proteger.what_repo) _M="Réglages du dépôt (modes de merge, branche par défaut)" ;;
+        ci.proteger.what_workflow) _M="Permissions des workflows" ;;
+        ci.proteger.what_environment) _M="Environnement de déploiement" ;;
         ci.proteger.tags_fallback) _M="Ruleset des tags : exception « GitHub Actions » refusée dans cette organisation ; tags protégés comme sur un compte personnel (ni déplacés ni supprimés, création libre)." ;;
         ci.version.usage) _M="Usage : ci/version.sh next|notes|notes-livraison [ref]" ;;
         ci.version.breaking) _M="Changements incompatibles" ;;
@@ -533,6 +540,8 @@ _msg_fr() {
         bots.ask_npm) _M="Publication npm ?" ;;
         bots.desc_delivery) _M="Livraison develop → main : automatique (la GitHub App merge la PR de livraison dès que les vérifications sont vertes ; la validation humaine est le merge de chaque ticket) ou approbation humaine (défaut)" ;;
         bots.ask_delivery_auto) _M="Livraison automatique ? (non : approbation humaine)" ;;
+        bots.plan_limited) _M="%s est un dépôt privé d'une offre gratuite : GitHub n'y offre ni protection de branches, ni rulesets, ni merge automatique. Ne fonctionneront donc pas : les PR et vérifications exigées, la fusion seule des PR de travail, la livraison automatique (les PR seront à merger à la main). Pour tout avoir : rendre le dépôt public, ou passer à GitHub Pro / Team, puis relancer repowarden bots." ;;
+        bots.no_delivery_auto) _M="Livraison automatique non proposée (pas de merge automatique sur ce dépôt) : la PR de livraison sera mergée à la main." ;;
         bots.auto_no_app) _M="Livraison automatique sans GitHub App : le merge automatique exige l'App (repowarden app init) ; sans elle, la PR de livraison reste à merger à la main." ;;
         bots.desc_rythme) _M="Rythme : à chaque ticket (préversion et demande de livraison à chaque merge) ou regroupé (défaut : préversion le soir, fenêtre de livraison le vendredi)" ;;
         bots.ask_each_ticket) _M="À chaque ticket ? (non : regroupé)" ;;
@@ -540,7 +549,7 @@ _msg_fr() {
         bots.preview) _M="Aperçu" ;;
         bots.prev_develop) _M="branche %s créée sur GitHub depuis %s" ;;
         bots.prev_conf) _M=".repowarden.conf : integrationBranch = %s, branches protégées" ;;
-        bots.prev_review) _M=".repowarden.conf : livraison validée par la revue de sa PR (sans GitHub App)" ;;
+        bots.prev_review) _M=".repowarden.conf : livraison validée par la revue de sa PR (ni GitHub App, ni environnement d'approbation)" ;;
         bots.prev_conf_auto) _M=".repowarden.conf : deliveryApproval = auto (livraison automatique)" ;;
         bots.prev_delivery_auto) _M="release.yml : livraison automatique (delivery-auto), la GitHub App merge la PR de livraison dès que les vérifications sont vertes" ;;
         bots.prev_delivery_approval) _M="release.yml : livraison approuvée par une personne" ;;
