@@ -73,8 +73,8 @@ NAV
     [ "$(cat "$F/var.REPOWARDEN_APP_CLIENT_ID")" = Iv1.abc ]
     [ "$(cat "$F/var.REPOWARDEN_APP_SLUG")" = repowarden-moi ]
     grep -q "BEGIN RSA PRIVATE KEY" "$F/secret.REPOWARDEN_APP_KEY"
-    [[ "$output" != *"PRIVATE KEY"* ]]
-    [[ "$output" == *"repowarden-moi installée sur moi/projet"* ]]
+    [[ "$output" != *"PRIVATE KEY"* ]] || false
+    [[ "$output" == *"repowarden-moi installée sur moi/projet"* ]] || false
     # installation verifiee au nom de l'App, jeton emis par son client
     node -e 'const p=JSON.parse(Buffer.from(process.argv[1].split(".")[1],"base64url"));if(p.iss!=="Iv1.abc")process.exit(1)' \
         "$(sed 's/.*Bearer //' "$F/jwt")"
@@ -86,8 +86,8 @@ NAV
     : >"$F/log"
     run "$APP" init
     [ "$status" -eq 0 ]
-    [[ "$output" == *"déjà configurée"* ]]
-    [[ "$output" == *"non vérifiée"* ]]
+    [[ "$output" == *"déjà configurée"* ]] || false
+    [[ "$output" == *"non vérifiée"* ]] || false
     ! grep -q "app-manifests" "$F/log"
     rm -f "$F"/var.* "$F"/secret.*
     run "$APP" init --administration
@@ -104,8 +104,8 @@ NAV
     grep -q "BEGIN RSA PRIVATE KEY" "$F/secret.REPOWARDEN_BOT_KEY"
     # l'App des workflows du dépôt n'est pas touchée
     [ ! -e "$F/var.REPOWARDEN_APP_CLIENT_ID" ] && [ ! -e "$F/secret.REPOWARDEN_APP_KEY" ]
-    [[ "$output" == *"All repositories"* ]]
-    [[ "$output" == *"REPOWARDEN_BOT_CLIENT_ID"* ]]
+    [[ "$output" == *"All repositories"* ]] || false
+    [[ "$output" == *"REPOWARDEN_BOT_CLIENT_ID"* ]] || false
 }
 
 @test "app init : retour de GitHub avec un mauvais etat -> refuse, rien de range" {
@@ -126,8 +126,8 @@ NAV
     export REPOWARDEN_CONTENEUR=1
     run "$APP" init --bot
     [ "$status" -eq 1 ]
-    [[ "$output" == *"Conteneur détecté"* ]]
-    [[ "$output" == *"npx repowarden app init --repo moi/projet --bot"* ]]
+    [[ "$output" == *"Conteneur détecté"* ]] || false
+    [[ "$output" == *"npx repowarden app init --repo moi/projet --bot"* ]] || false
     [ ! -e "$F/page" ]
     ! grep -q "app-manifests" "$F/log"
     ! ls "$F"/var.* "$F"/secret.* 2>/dev/null
@@ -146,8 +146,8 @@ NAV
     export REPOWARDEN_APP_DELAI=1
     run "$APP" init --nom essai
     [ "$status" -eq 1 ]
-    [[ "$output" == *"non consultée en 1 s"* ]]
-    [[ "$output" == *"npx repowarden app init --repo moi/projet --nom essai"* ]]
+    [[ "$output" == *"non consultée en 1 s"* ]] || false
+    [[ "$output" == *"npx repowarden app init --repo moi/projet --nom essai"* ]] || false
     ! grep -q "app-manifests" "$F/log"
     ! ls "$F"/var.* "$F"/secret.* 2>/dev/null
 }
@@ -159,19 +159,19 @@ NAV
     rm -f "$F/installee"
     run "$APP" init
     [ "$status" -eq 0 ]
-    [[ "$output" == *"déjà configurée"* ]]
-    [[ "$output" != *"utilisent désormais l'App"* ]]
-    [[ "$output" != *"installée sur moi/projet"* ]]
-    [[ "$output" == *"non vérifiée"*"https://github.com/apps/repowarden-moi/installations/new"* ]]
+    [[ "$output" == *"déjà configurée"* ]] || false
+    [[ "$output" != *"utilisent désormais l'App"* ]] || false
+    [[ "$output" != *"installée sur moi/projet"* ]] || false
+    [[ "$output" == *"non vérifiée"*"https://github.com/apps/repowarden-moi/installations/new"* ]] || false
 }
 
 @test "app init : nom d'App deja pris -> echec avec la marche a suivre, aucune page ouverte" {
     echo repowarden-moi >"$F/app_existe"
     run "$APP" init
     [ "$status" -eq 1 ]
-    [[ "$output" == *"repowarden-moi"* ]]
-    [[ "$output" == *"--nom"* ]]
-    [[ "$output" == *"https://github.com/settings/apps"* ]]
+    [[ "$output" == *"repowarden-moi"* ]] || false
+    [[ "$output" == *"--nom"* ]] || false
+    [[ "$output" == *"https://github.com/settings/apps"* ]] || false
     [ ! -e "$F/page" ]
     ! grep -q "app-manifests" "$F/log"
     # autre nom : création normale

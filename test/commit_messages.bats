@@ -17,15 +17,15 @@ setup() { setup_repo; initial_commit; }
     git config repowarden.skip "secrets branch-name"
     run git commit -q --allow-empty -m "n'importe quoi"
     [ "$status" -ne 0 ]
-    [[ "$output" == *"Message de commit invalide"* ]]
-    [[ "$output" == *"nouvelle fonctionnalité"* ]]
+    [[ "$output" == *"Message de commit invalide"* ]] || false
+    [[ "$output" == *"nouvelle fonctionnalité"* ]] || false
 }
 
 @test "commit-msg : premiere ligne > 72 caracteres refusee" {
     git switch -q -c feat/x
     run git commit -q --allow-empty -m "fix: $(printf 'a%.0s' {1..80})"
     [ "$status" -ne 0 ]
-    [[ "$output" == *"trop longue"* ]]
+    [[ "$output" == *"trop longue"* ]] || false
 }
 
 @test "prepare-commit-msg : prefixe deduit de la branche" {
@@ -72,40 +72,40 @@ setup() { setup_repo; initial_commit; }
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 Co-authored-by: Alice <alice@example.com>"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"Signature d'agent IA retirée"* ]]
+    [[ "$output" == *"Signature d'agent IA retirée"* ]] || false
     msg="$(git log -1 --format=%B)"
     echo "message : $msg"
-    [[ "$msg" != *anthropic* && "$msg" != *"Generated with"* ]]
-    [[ "$msg" == *"Co-authored-by: Alice <alice@example.com>"* ]]
+    [[ "$msg" != *anthropic* && "$msg" != *"Generated with"* ]] || false
+    [[ "$msg" == *"Co-authored-by: Alice <alice@example.com>"* ]] || false
     # auteur agent : refuse
     GIT_AUTHOR_NAME=Claude GIT_AUTHOR_EMAIL=noreply@anthropic.com \
         run git commit -q --allow-empty -m "fix: autre"
     [ "$status" -ne 0 ]
-    [[ "$output" == *"agent IA"* ]]
+    [[ "$output" == *"agent IA"* ]] || false
     # reglage : agents autorises
     git config repowarden.allowAgentSignatures true
     GIT_AUTHOR_NAME=Claude GIT_AUTHOR_EMAIL=noreply@anthropic.com \
         run git commit -q --allow-empty -m "fix: autorise" -m "Co-Authored-By: Claude <noreply@anthropic.com>"
     [ "$status" -eq 0 ]
-    [[ "$(git log -1 --format=%B)" == *anthropic* ]]
+    [[ "$(git log -1 --format=%B)" == *anthropic* ]] || false
 }
 
 @test "commit-msg : type inconnu sur une branche typee -> refuse avec le type le plus proche, pas enveloppe" {
     git switch -q -c feat/panier
     run git commit -q --allow-empty -m "doc: essai"
     [ "$status" -ne 0 ]
-    [[ "$output" == *"docs: essai"* ]]
+    [[ "$output" == *"docs: essai"* ]] || false
     [ "$(subject)" = "chore: init" ]
     run git commit -q --allow-empty -m "Feat(panier): ajoute"
     [ "$status" -ne 0 ]
-    [[ "$output" == *"feat(panier): ajoute"* ]]
+    [[ "$output" == *"feat(panier): ajoute"* ]] || false
 }
 
 @test "commit-msg : description vide refusee, pas enveloppee" {
     git switch -q -c feat/panier
     run git commit -q --allow-empty -m "fix:"
     [ "$status" -ne 0 ]
-    [[ "$output" == *"Description manquante"* ]]
+    [[ "$output" == *"Description manquante"* ]] || false
     [ "$(subject)" = "chore: init" ]
 }
 
@@ -128,6 +128,6 @@ Co-authored-by: Alice <alice@example.com>"
     git switch -q -c feat/panier
     REPOWARDEN_LANG=en run git commit -q --allow-empty -m "doc: essai"
     [ "$status" -ne 0 ]
-    [[ "$output" == *"docs: essai"* ]]
-    [[ "$output" != *"inconnu"* && "$output" != *"Astuce"* ]]
+    [[ "$output" == *"docs: essai"* ]] || false
+    [[ "$output" != *"inconnu"* && "$output" != *"Astuce"* ]] || false
 }

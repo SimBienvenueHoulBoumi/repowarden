@@ -42,7 +42,8 @@ bats test/
 
 - Shell compatible **bash 3.2** (macOS) : lancer aussi les tests touchés avec
   `/bin/bash` en tête du `PATH`. Un tableau vide sous `set -u` s'écrit
-  `${t[@]+"${t[@]}"}`.
+  `${t[@]+"${t[@]}"}`. Dans un test bats, une condition s'écrit
+  `[[ … ]] || false` : sinon son échec n'arrête pas le test sous bash 3.2.
 - Un nouveau test : vérifier qu'il **échoue sans le changement**.
 
 ## Interdits

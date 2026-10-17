@@ -80,18 +80,18 @@ YML
     grep -qE '^  push:$' $w/tickets.yml
     grep -q 'types: \[opened, labeled, assigned, closed\]' $w/tickets.yml
     grep -q 'integration-branch: main' $w/tickets.yml
-    [[ "$output" == *"repowarden tickets init"* ]]
+    [[ "$output" == *"repowarden tickets init"* ]] || false
     ! grep -rqi repogarde .github
     # à faire à la main : secret à recréer, README à relire (non modifié)
-    [[ "$output" == *"REPOWARDEN_APP_KEY"* ]]
-    [[ "$output" == *"README.md"* ]]
+    [[ "$output" == *"REPOWARDEN_APP_KEY"* ]] || false
+    [[ "$output" == *"README.md"* ]] || false
     grep -q repogarde README.md
-    [[ "$output" == *"repowarden proteger"* ]]
+    [[ "$output" == *"repowarden proteger"* ]] || false
     # relance : rien à faire
     git add -A && git -c core.hooksPath=/dev/null commit -q -m "chore: migration"
     run "$MIGRER"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"Rien à migrer"* ]]
+    [[ "$output" == *"Rien à migrer"* ]] || false
     [ -z "$(git status --porcelain)" ]
 }
 
@@ -99,7 +99,7 @@ YML
     printf '#!/bin/sh\ncall_lefthook run pre-commit\n' >.git/hooks/pre-commit
     printf '#!/bin/sh\necho perso\n' >.git/hooks/post-merge
     run "$MIGRER"
-    [[ "$output" == *"Hooks lefthook résiduels dans .git/hooks ( pre-commit)"* ]]
+    [[ "$output" == *"Hooks lefthook résiduels dans .git/hooks ( pre-commit)"* ]] || false
     [ -f .git/hooks/pre-commit ]
     run "$MIGRER" --hooks
     [ "$status" -eq 0 ]
@@ -112,7 +112,7 @@ YML
     printf '[repowarden]\n    lang = en\n' >.repowarden.conf
     run "$MIGRER"
     [ "$status" -eq 0 ]
-    [[ "$output" == *".repogarde.conf et .repowarden.conf existent tous les deux"* ]]
+    [[ "$output" == *".repogarde.conf et .repowarden.conf existent tous les deux"* ]] || false
     grep -q 'lang = en' .repowarden.conf
     [ -f .repogarde.conf ]
 }
@@ -151,13 +151,13 @@ GH
     [ "$(subject)" = "chore(migration): passage de repogarde à repowarden v4" ]
     git ls-remote --exit-code origin refs/heads/chore/migration-repowarden-v4 >/dev/null
     grep -q "^pr create --head chore/migration-repowarden-v4 --title chore(migration): passage" "$GH_LOG"
-    [[ "$output" == *"PR de migration ouverte"* ]]
+    [[ "$output" == *"PR de migration ouverte"* ]] || false
     # PR déjà ouverte : rien
     git switch -q main
     : >"$GH_LOG"
     GH_PR_OPEN=1 run "$MIGRER" --pr
     [ "$status" -eq 0 ]
-    [[ "$output" == *"déjà ouverte"* ]]
+    [[ "$output" == *"déjà ouverte"* ]] || false
     ! grep -q "^pr create" "$GH_LOG"
     [ "$(git branch --show-current)" = main ]
 }
@@ -170,7 +170,7 @@ GH
     chmod +x "$BATS_TEST_TMPDIR/bin/gh"
     PATH="$BATS_TEST_TMPDIR/bin:$PATH" run "$MIGRER" --pr
     [ "$status" -eq 0 ]
-    [[ "$output" == *"Rien à migrer"* ]]
+    [[ "$output" == *"Rien à migrer"* ]] || false
     [ "$(git branch --show-current)" = main ]
     ! git show-ref -q --verify refs/heads/chore/migration-repowarden-v4
 }
@@ -195,14 +195,14 @@ YML
     git add -A && git -c core.hooksPath=/dev/null commit -q -m "chore: projet renommé"
     run "$MIGRER"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"événements du suivi des tickets complétés"* ]]
+    [[ "$output" == *"événements du suivi des tickets complétés"* ]] || false
     grep -qE '^  push:$' .github/workflows/tickets.yml
     grep -q 'integration-branch: develop' .github/workflows/tickets.yml
     [ "$(grep -c '^on:' .github/workflows/tickets.yml)" -eq 1 ]
     if command -v actionlint >/dev/null; then actionlint .github/workflows/tickets.yml; fi
     git add -A && git -c core.hooksPath=/dev/null commit -q -m "chore: migration"
     run "$MIGRER"
-    [[ "$output" == *"Rien à migrer"* ]]
+    [[ "$output" == *"Rien à migrer"* ]] || false
 }
 
 @test "migrer : release-auto sans issues: read -> ajoute (tickets lisibles sur un depot prive)" {
@@ -215,16 +215,16 @@ YML
     [ "$status" -eq 0 ]
     grep -q 'statuses: write, issues: read }$' .github/workflows/release.yml
     grep -q '^permissions: {}$' .github/workflows/release.yml
-    [[ "$output" == *"issues: read ajouté"* ]]
+    [[ "$output" == *"issues: read ajouté"* ]] || false
     git add -A && git -c core.hooksPath=/dev/null commit -q -m "chore: migration"
     run "$MIGRER"
-    [[ "$output" == *"Rien à migrer"* ]]
+    [[ "$output" == *"Rien à migrer"* ]] || false
 }
 
 @test "statut : anciens noms dans le projet -> repowarden migrer propose" {
     run "$BATS_TEST_DIRNAME/../bin/statut"
-    [[ "$output" == *"Anciens noms repogarde dans ce projet : repowarden migrer"* ]]
+    [[ "$output" == *"Anciens noms repogarde dans ce projet : repowarden migrer"* ]] || false
     "$MIGRER" >/dev/null
     run "$BATS_TEST_DIRNAME/../bin/statut"
-    [[ "$output" != *"repowarden migrer"* ]]
+    [[ "$output" != *"repowarden migrer"* ]] || false
 }

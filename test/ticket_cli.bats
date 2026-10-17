@@ -47,26 +47,26 @@ gere() {
 @test "ticket cli : branche sans ticket -> prevenu, comment le faire taire (suivi non gere)" {
     run git switch -c feat/panier
     [ "$status" -eq 0 ]
-    [[ "$output" == *"Branche feat/panier sans ticket"* ]]
-    [[ "$output" == *"repowarden.skip tickets"* ]]
-    [[ "$output" != *"ticket nouveau"* ]]
+    [[ "$output" == *"Branche feat/panier sans ticket"* ]] || false
+    [[ "$output" == *"repowarden.skip tickets"* ]] || false
+    [[ "$output" != *"ticket nouveau"* ]] || false
 }
 
 @test "ticket cli : suivi gere par repowarden -> creation du ticket proposee" {
     gere
     PATH="$F/bin:$PATH" run git switch -c feat/panier
-    [[ "$output" == *"sans ticket"* ]]
-    [[ "$output" == *"repowarden ticket nouveau"* ]]
+    [[ "$output" == *"sans ticket"* ]] || false
+    [[ "$output" == *"repowarden ticket nouveau"* ]] || false
 }
 
 @test "ticket cli : branche avec ticket, main ou skip tickets -> aucun avertissement" {
     run git switch -c feat/12-panier
-    [[ "$output" != *"sans ticket"* ]]
+    [[ "$output" != *"sans ticket"* ]] || false
     git config repowarden.skip "secrets tickets"
     run git switch -c feat/autre
-    [[ "$output" != *"sans ticket"* ]]
+    [[ "$output" != *"sans ticket"* ]] || false
     run git switch main
-    [[ "$output" != *"sans ticket"* ]]
+    [[ "$output" != *"sans ticket"* ]] || false
 }
 
 @test "ticket cli : git cc sans ticket -> commit fait, prevenu (jamais bloque)" {
@@ -74,7 +74,7 @@ gere() {
     echo a >a.txt && git add a.txt
     run "$CC" -m "ajoute le panier"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"sans ticket"* ]]
+    [[ "$output" == *"sans ticket"* ]] || false
     [ "$(subject)" = "feat(panier): ajoute le panier" ]
 }
 
@@ -86,7 +86,7 @@ gere() {
     echo a >a.txt && git add a.txt
     PATH="$F/bin:$PATH" run bash -c "printf '%s\n' '' '' '' 'ajoute le panier' '' 'o' '' '' | '$CC'"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"Ticket #42 créé"* ]]
+    [[ "$output" == *"Ticket #42 créé"* ]] || false
     git log -1 --format=%B | grep -qx 'Ticket : #42'
     grep -q 'issue create --title ajoute le panier' "$F/log"
 }
@@ -99,7 +99,7 @@ gere() {
     PATH="$F/bin:$PATH" run "$TICKET" 12
     [ "$status" -eq 0 ]
     [ "$(git branch --show-current)" = feat/12-panier ]
-    [[ "$output" == *"Sur la branche feat/12-panier (ticket #12)"* ]]
+    [[ "$output" == *"Sur la branche feat/12-panier (ticket #12)"* ]] || false
 }
 
 @test "ticket cli : repowarden ticket <n> sans branche -> creee et liee, sauf ticket a valider" {
@@ -112,7 +112,7 @@ gere() {
     gere
     FAKE_ISSUE="$(printf 'OPEN\tAutre\tstatut: à valider')" PATH="$F/bin:$PATH" run "$TICKET" 13
     [ "$status" -ne 0 ]
-    [[ "$output" == *"pas encore validé"* ]]
+    [[ "$output" == *"pas encore validé"* ]] || false
 }
 
 @test "ticket cli : repowarden ticket nouveau -> a valider si le suivi est gere" {
@@ -120,7 +120,7 @@ gere() {
     PATH="$F/bin:$PATH" run "$TICKET" nouveau "Ajoute le panier" --type fix
     [ "$status" -eq 0 ]
     grep -q -- "--label statut: à valider --label type: fix" "$F/log"
-    [[ "$output" == *"Ticket #42 créé, à valider"* ]]
+    [[ "$output" == *"Ticket #42 créé, à valider"* ]] || false
 }
 
 @test "ticket cli : repowarden ticket <n> -> le ticket est pris (assigne a soi)" {
@@ -144,12 +144,12 @@ gere() {
     grep -q "issue develop 13 --name feat/13-ajoute-le-panier --base main" "$F/log"
     [ "$(git rev-parse --abbrev-ref feat/13-ajoute-le-panier@{upstream})" = origin/feat/13-ajoute-le-panier ]
     # pas valide : aucune branche
-    [[ "$output" == *"#14"*"pas encore validé"* ]]
+    [[ "$output" == *"#14"*"pas encore validé"* ]] || false
     ! git show-ref -q --verify refs/heads/feat/14-pas-encore
-    [[ "$output" == *"#12 assigné : branche locale fix/12-total prête"* ]]
+    [[ "$output" == *"#12 assigné : branche locale fix/12-total prête"* ]] || false
     # relance : rien de nouveau
     PATH="$F/bin:$PATH" run "$BATS_TEST_DIRNAME/../bin/tickets" sync
-    [[ "$output" != *"prête"* ]]
+    [[ "$output" != *"prête"* ]] || false
 }
 
 @test "tickets sync : ticket reassigne -> signale, branche locale conservee" {
@@ -158,12 +158,13 @@ gere() {
     git branch -q feat/20-ancien
     FAKE_ASSIGNED="" FAKE_OWNER="$(printf 'OPEN\talice')" PATH="$F/bin:$PATH" \
         run "$BATS_TEST_DIRNAME/../bin/tickets" sync
-    [[ "$output" == *"#20 n'est plus assigné à toi (maintenant : alice)"* ]]
+    [[ "$output" == *"#20 n'est plus assigné à toi (maintenant : alice)"* ]] || false
     git show-ref -q --verify refs/heads/feat/20-ancien
 }
 
 @test "tickets sync : automatique dans les hooks, au plus une fois par periode ; off -> rien" {
     gere
+    git config repowarden.ticketSync auto
     git push -q --no-verify origin main
     PATH="$F/bin:$PATH" git switch -q -c feat/1-a
     [ "$(grep -c "^issue list" "$F/log")" -eq 1 ]
@@ -185,12 +186,56 @@ gere() {
     [ -z "$(git branch --list 'feat/18*')" ]
 }
 
+@test "tickets sync : clonage -> aucun appel a GitHub, aucune branche (cas #366)" {
+    gere
+    git add -A && git commit -q --no-verify -m "chore: suivi des tickets"
+    git push -q --no-verify origin main
+    git push -q --no-verify origin "main:refs/heads/fix/366-bots-release"
+    # ticket mergé dont le statut a regressé a tort : assigne, ouvert
+    export FAKE_ASSIGNED="$(printf '366\tBots release\tvalidé\\ntype: fix\\nstatut: en relecture')"
+    # hooks repowarden du poste (core.hooksPath) : le clone les execute, meme en auto
+    PATH="$F/bin:$PATH" run git -c core.hooksPath="$HOOKS" -c repowarden.ticketSync=auto clone -q "$REMOTE" "$BATS_TEST_TMPDIR/clone"
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"#366"* ]] || false
+    [ ! -s "$F/log" ]
+    [ -z "$(git -C "$BATS_TEST_TMPDIR/clone" branch --list 'fix/366*')" ]
+}
+
+@test "tickets sync : git pull sans reglage (defaut manual) -> aucun appel a GitHub, aucune branche" {
+    gere
+    git add -A && git commit -q --no-verify -m "chore: suivi des tickets"
+    git push -q --no-verify origin main
+    git push -q --no-verify origin "main:refs/heads/fix/384-clonage" "main:refs/heads/fix/383-depot"
+    export FAKE_ASSIGNED="$(printf '384\tClonage\tvalidé\\nstatut: en cours\n383\tDepot\tvalidé\\nstatut: en cours')"
+    PATH="$F/bin:$PATH" run git pull -q origin main
+    [ "$status" -eq 0 ]
+    PATH="$F/bin:$PATH" run git switch -q -c feat/1-a
+    [[ "$output" != *"prête"* ]] || false
+    [ ! -s "$F/log" ]
+    [ -z "$(git branch --list 'fix/38*')" ]
+    # volontaire : la commande garde son comportement
+    PATH="$F/bin:$PATH" run "$BATS_TEST_DIRNAME/../bin/tickets" sync
+    [[ "$output" == *"#384 assigné : branche locale fix/384-clonage prête"* ]] || false
+}
+
+@test "tickets sync : en relecture sans branche distante (PR mergee) -> branche pas recreee" {
+    gere
+    git push -q --no-verify origin main
+    export FAKE_ASSIGNED="$(printf '366\tBots release\tvalidé\\nstatut: en relecture\n13\tPanier\tvalidé\\nstatut: en cours')"
+    PATH="$F/bin:$PATH" run "$BATS_TEST_DIRNAME/../bin/tickets" sync
+    [ "$status" -eq 0 ]
+    [ "$(grep -c "issue develop 366" "$F/log")" -eq 0 ]
+    [ -z "$(git branch --list 'feat/366*')" ]
+    # ticket reellement en cours : comportement inchange
+    grep -q "issue develop 13 " "$F/log"
+}
+
 @test "tickets init : etiquettes, fichiers du modele, fin sans erreur" {
     gere
     PATH="$F/bin:$PATH" run "$BATS_TEST_DIRNAME/../bin/tickets" init --repo o/r
     [ "$status" -eq 0 ] || { echo "$output"; return 1; }
-    [[ "$output" != *"command not found"* ]]
-    [[ "$output" == *"Création auto de ticket : DÉSACTIVÉE"*"Suivi des tickets prêt."* ]]
+    [[ "$output" != *"command not found"* ]] || false
+    [[ "$output" == *"Création auto de ticket : DÉSACTIVÉE"*"Suivi des tickets prêt."* ]] || false
     grep -q '^label create type: feat --repo o/r' "$FAKE/log"
     [ -f .github/ISSUE_TEMPLATE/ticket.yml ]
     # workflow existant : laissé tel quel

@@ -47,13 +47,16 @@ EOF
 echo "gh $*" >>"$CALLS"
 case "$1 $2" in
     "release view")
+        [ -z "${GH_RELEASE_ERR:-}" ] || { echo "$GH_RELEASE_ERR" >&2; exit 1; }
         [ -n "${GH_RELEASE:-}" ] || { echo "release not found" >&2; exit 1; }
         echo "$GH_RELEASE" ;;
     "repo clone")
         mkdir -p "$4"
         printf '{\n  "name": "@own/paquet",\n  "version": "0.0.0-dev"\n}\n' >"$4/package.json" ;;
     "secret list") ;;
-    "repo view") echo main ;;
+    "repo view")
+        [ -z "${GH_REPO_ABSENT:-}" ] || { echo "GraphQL: Could not resolve to a Repository" >&2; exit 1; }
+        echo main ;;
 esac
 exit 0
 EOF
@@ -75,8 +78,8 @@ absent() { ! grep -q "$1" "$CALLS"; }
     # Publication dans le clone du tag, à la version de la release
     grep -q "^gh repo clone own/paquet .* --branch v1.2.3" "$CALLS"
     ligne="$(grep '^publication ' "$CALLS")"
-    [[ "$ligne" == "publication version=1.2.3 "* ]]
-    [[ "$ligne" != *"[cwd=$REPO]" ]]
+    [[ "$ligne" == "publication version=1.2.3 "* ]] || false
+    [[ "$ligne" != *"[cwd=$REPO]" ]] || false
     grep -q '^npm publish --access public' "$CALLS"
     # Clone temporaire effacé
     clone="${ligne##*\[cwd=}"
@@ -93,7 +96,7 @@ absent() { ! grep -q "$1" "$CALLS"; }
 @test "npm-publication : aucune release, rien publie ni configure" {
     npm_publication
     [ "$status" -eq 0 ]
-    [[ "$output" == *"release"* ]]
+    [[ "$output" == *"release"* ]] || false
     absent '^npm publish'
     absent '^gh repo clone'
     absent '^gh variable set'
@@ -113,7 +116,7 @@ absent() { ! grep -q "$1" "$CALLS"; }
     export GH_RELEASE=v1.2.3
     npm_publication --dry-run
     [ "$status" -eq 0 ]
-    [[ "$output" == *"1.2.3"* ]]
+    [[ "$output" == *"1.2.3"* ]] || false
     absent '^npm publish'
     absent '^gh variable set'
     absent '^npm trust github'
@@ -128,4 +131,36 @@ absent() { ! grep -q "$1" "$CALLS"; }
     absent '^npm publish'
     grep -q '^npm trust github @own/paquet' "$CALLS"
     grep -q '^gh variable set REPOWARDEN_NPM' "$CALLS"
+}
+
+@test "npm-publication : depot mal forme, erreur avant toute action" {
+    export GH_RELEASE=v1.2.3
+    npm_publication --repo "own/paquet,"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"own/paquet,"* ]] || false
+    [[ "$output" == *"propri"* ]] || false
+    absent '^npm '
+    absent '^gh '
+}
+
+@test "npm-publication : depot inaccessible, erreur avant toute action" {
+    export GH_RELEASE=v1.2.3 GH_REPO_ABSENT=1
+    npm_publication
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Could not resolve to a Repository"* ]] || false
+    [[ "$output" == *"own/paquet"* ]] || false
+    absent '^npm '
+    absent '^gh release'
+}
+
+@test "npm-publication : erreur de gh release view, pas prise pour aucune release" {
+    export GH_RELEASE_ERR="error connecting to api.github.com"
+    npm_publication
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"error connecting to api.github.com"* ]] || false
+    [[ "$output" != *"Aucune release"* ]] || false
+    absent '^npm publish'
+    absent '^gh repo clone'
+    absent '^gh variable set'
+    absent '^npm trust github'
 }

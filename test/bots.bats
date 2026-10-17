@@ -26,6 +26,12 @@ case "$*" in
         [ -n "${GH_DEVELOP:-}" ] && { echo develop; exit 0; }
         echo '{"message":"Branch not found","status":"404"}'
         exit 1 ;;
+    # dépôt privé d'une offre gratuite : rulesets refusés en 403
+    "api repos/moi/projet/rulesets"*)
+        [ -z "${GH_RULESETS_403:-}" ] && { echo '[]'; exit 0; }
+        echo '{"message":"Upgrade to GitHub Pro or make this repository public to enable this feature.","status":"403"}'
+        echo "gh: Upgrade to GitHub Pro or make this repository public to enable this feature. (HTTP 403)" >&2
+        exit 1 ;;
     "variable get REPOWARDEN_APP_CLIENT_ID"*) [ -n "${GH_APP:-}" ] && echo Iv1.abc || exit 1 ;;
     "api repos/moi/projet/git/ref/heads/main"*) echo abc123 ;;
 esac
@@ -46,19 +52,19 @@ lancer() { run bash -c "\"$BOTS\" <\"$F/reponses\""; }
     repondre ""
     lancer
     [ "$status" -eq 0 ]
-    [[ "$output" == *"Aucun bot configuré"* ]]
+    [[ "$output" == *"Aucun bot configuré"* ]] || false
     [ ! -e .github ] && ! grep -q -- "-X POST" "$F/log"
     ! grep -qE "^(tickets|app|proteger|npm-publication) " "$F/log"
     REPOWARDEN_INTERACTIF="" run bash -c "\"$BOTS\" </dev/null"
-    [[ "$output" == *"pas de terminal"*"repowarden bots"* ]]
+    [[ "$output" == *"pas de terminal"*"repowarden bots"* ]] || false
     GH_ADMIN=false lancer
-    [[ "$output" == *"droits d'administration"* ]]
+    [[ "$output" == *"droits d'administration"* ]] || false
     GH_AUTH=1 lancer
-    [[ "$output" == *"gh auth login"* ]]
+    [[ "$output" == *"gh auth login"* ]] || false
     # réglage forge : prioritaire sur la CI (GITHUB_ACTIONS) et sur le remote
     git config repowarden.forge gitlab
     lancer
-    [[ "$output" == *"hors de GitHub"* ]]
+    [[ "$output" == *"hors de GitHub"* ]] || false
 }
 
 @test "bots : flux main, un accord par bot, apercu puis application" {
@@ -66,7 +72,7 @@ lancer() { run bash -c "\"$BOTS\" <\"$F/reponses\""; }
     repondre o 1 o o o n o o
     lancer
     [ "$status" -eq 0 ]
-    [[ "$output" == *"Aperçu"* && "$output" == *".github/workflows/repowarden.yml : créé"* ]]
+    [[ "$output" == *"Aperçu"* && "$output" == *".github/workflows/repowarden.yml : créé"* ]] || false
     grep -q 'branches: \[main\]' .github/workflows/repowarden.yml
     ! grep -q 'fix-pr' .github/workflows/repowarden.yml
     grep -q 'release-auto.yml@v4' .github/workflows/release.yml
@@ -77,9 +83,9 @@ lancer() { run bash -c "\"$BOTS\" <\"$F/reponses\""; }
     grep -q "^proteger --repo moi/projet$" "$F/log"
     ! grep -q "^app " "$F/log"
     ! git config -f .repowarden.conf --get repowarden.integrationBranch
-    [[ "$output" == *"commiter par une PR"* ]]
+    [[ "$output" == *"commiter par une PR"* ]] || false
     # aucun langage reconnu : modèle générique, strict commenté, et c'est dit
-    [[ "$output" == *"langage non reconnu : modèle générique"* ]]
+    [[ "$output" == *"langage non reconnu : modèle générique"* ]] || false
     grep -q '^        #   strict: true' .github/workflows/repowarden.yml
     ! grep -q 'setup-python' .github/workflows/repowarden.yml
     if command -v actionlint >/dev/null; then actionlint .github/workflows/*.yml; fi
@@ -91,7 +97,7 @@ lancer() { run bash -c "\"$BOTS\" <\"$F/reponses\""; }
     repondre o 1 o n n n n o
     lancer
     [ "$status" -eq 0 ]
-    [[ "$output" == *"outillage de la CI : python"* ]]
+    [[ "$output" == *"outillage de la CI : python"* ]] || false
     w=.github/workflows/repowarden.yml
     grep -q 'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0' "$w"
     grep -q 'python-version: "3.12"' "$w"
@@ -140,8 +146,8 @@ lancer() { run bash -c "\"$BOTS\" <\"$F/reponses\""; }
     repondre o 2 o o o o n o "" "" "" o
     GH_APP=1 lancer
     [ "$status" -eq 0 ]
-    [[ "$output" == *"seul develop entre dans main (livraison)"* ]]
-    [[ "$output" == *"déjà configurée"* ]]
+    [[ "$output" == *"seul develop entre dans main (livraison)"* ]] || false
+    [[ "$output" == *"déjà configurée"* ]] || false
     grep -q "^gh api -X POST repos/moi/projet/git/refs -f ref=refs/heads/develop -f sha=abc123" "$F/log"
     [ "$(git config -f .repowarden.conf repowarden.integrationBranch)" = develop ]
     [ "$(git config -f .repowarden.conf repowarden.protectedBranches)" = "main develop" ]
@@ -198,12 +204,12 @@ lancer() { run bash -c "\"$BOTS\" <\"$F/reponses\""; }
     # global, flux 1, ci, release (non), tickets (non), app (non), protection (non), confirmation (non)
     repondre o 1 o n n n n n
     lancer
-    [[ "$output" == *"repowarden.yml existe : gardé tel quel (écart avec le modèle"* ]]
-    [[ "$output" == *"Aucun bot configuré"* ]]
+    [[ "$output" == *"repowarden.yml existe : gardé tel quel (écart avec le modèle"* ]] || false
+    [[ "$output" == *"Aucun bot configuré"* ]] || false
     repondre o 1 o n n n n o
     lancer
     [ "$(cat .github/workflows/repowarden.yml)" = "# perso" ]
-    [[ "$output" == *"repowarden.yml existe : gardé tel quel."* ]]
+    [[ "$output" == *"repowarden.yml existe : gardé tel quel."* ]] || false
 }
 
 @test "bots : un bot en echec n'arrete pas les autres ; npm propose seulement pour un paquet public" {
@@ -212,9 +218,9 @@ lancer() { run bash -c "\"$BOTS\" <\"$F/reponses\""; }
     repondre o 1 n n o n o o
     ECHEC=tickets lancer
     [ "$status" -ne 0 ]
-    [[ "$output" == *"tickets : échec"* ]]
+    [[ "$output" == *"tickets : échec"* ]] || false
     grep -q "^proteger " "$F/log"
-    [[ "$output" != *"Publication npm"* ]]
+    [[ "$output" != *"Publication npm"* ]] || false
     printf '{ "name": "x" }\n' >package.json
     : >"$F/log"
     # ... protection (non), npm, confirmation
@@ -226,12 +232,12 @@ lancer() { run bash -c "\"$BOTS\" <\"$F/reponses\""; }
 @test "install : bots proposes dans un depot GitHub, --sans-bots les fait taire" {
     REPOWARDEN_INTERACTIF="" run bash -c "\"$INSTALL\" </dev/null"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"Bots du dépôt non proposés (pas de terminal"* ]]
+    [[ "$output" == *"Bots du dépôt non proposés (pas de terminal"* ]] || false
     run "$INSTALL" --sans-bots
-    [[ "$output" == *"ne seront plus proposés"* ]]
+    [[ "$output" == *"ne seront plus proposés"* ]] || false
     [ "$(git config --local repowarden.bots)" = off ]
     REPOWARDEN_INTERACTIF="" run bash -c "\"$INSTALL\" </dev/null"
-    [[ "$output" != *"Bots du dépôt"* ]]
+    [[ "$output" != *"Bots du dépôt"* ]] || false
 }
 
 @test "bots : release.yml avec le job tickets (needs release, tag, App si presente)" {
@@ -270,8 +276,8 @@ lancer() { run bash -c "\"$BOTS\" <\"$F/reponses\""; }
     repondre o 2 n o n n n "" "" "" o
     GH_DEVELOP=1 GH_APP=1 lancer
     [ "$status" -eq 0 ]
-    [[ "$output" == *"livraison approuvée par une personne"* ]]
-    [[ "$output" == *"regroupé, préversion le soir"* && "$output" == *"préversion obligatoire avant"* ]]
+    [[ "$output" == *"livraison approuvée par une personne"* ]] || false
+    [[ "$output" == *"regroupé, préversion le soir"* && "$output" == *"préversion obligatoire avant"* ]] || false
     ! git config -f .repowarden.conf --get repowarden.deliveryApproval
     cat >"$F/attendu" <<'YAML'
 # Releases, flux develop → main (mode tag) : préversion vX.Y.Z-next.N le
@@ -329,10 +335,10 @@ YAML
     ! grep -q 'delivery-schedule' "$f"
     ! grep -q 'cron:' "$f"
     [ "$(git config -f .repowarden.conf repowarden.deliveryApproval)" = auto ]
-    [[ "$output" == *"deliveryApproval = auto"* && "$output" == *"livraison automatique (delivery-auto)"* ]]
-    [[ "$output" == *"à chaque ticket, préversion et demande de livraison"* ]]
-    [[ "$output" == *"version stable possible sans préversion"* ]]
-    [[ "$output" != *"exige l'App"* ]]
+    [[ "$output" == *"deliveryApproval = auto"* && "$output" == *"livraison automatique (delivery-auto)"* ]] || false
+    [[ "$output" == *"à chaque ticket, préversion et demande de livraison"* ]] || false
+    [[ "$output" == *"version stable possible sans préversion"* ]] || false
+    [[ "$output" != *"exige l'App"* ]] || false
     if command -v actionlint >/dev/null; then actionlint "$f"; fi
 }
 
@@ -350,4 +356,29 @@ YAML
     ! grep -q 'preversion-obligatoire' "$f"
     [ "$(git config -f .repowarden.conf repowarden.deliveryApproval)" = auto ]
     if command -v actionlint >/dev/null; then actionlint "$f"; fi
+}
+
+@test "bots : depot prive d'une offre gratuite -> explique avant les questions, pas de livraison automatique" {
+    # flux develop, App déjà là : global, flux 2, ci (non), release, nettoyage (non), tickets (non),
+    # protection, rythme (Entrée), préversion (Entrée), confirmation ; aucune question de livraison automatique
+    repondre o 2 n o n n o "" "" o
+    GH_RULESETS_403=1 GH_DEVELOP=1 GH_APP=1 lancer
+    [ "$status" -eq 0 ] || { echo "$output"; return 1; }
+    # annoncé avant la première question : ce qui ne marchera pas, et les issues
+    avant="${output%%Configurer les bots*}"
+    [[ "$avant" == *"moi/projet est un dépôt privé d'une offre gratuite"* ]] || false
+    [[ "$avant" == *"ni merge automatique"*"livraison automatique"*"rendre le dépôt public"*"GitHub Pro / Team"* ]] || false
+    [[ "$output" != *"Livraison automatique ? (non"* ]] || false
+    [[ "$output" == *"Livraison automatique non proposée"* ]] || false
+    f=.github/workflows/release.yml
+    ! grep -q 'delivery-auto' "$f"
+    # ni environnement d'approbation (indisponible sur ce dépôt) : revue de la PR de livraison
+    ! grep -q 'delivery-environment' "$f"
+    [ "$(git config -f .repowarden.conf repowarden.deliveryApproval)" = review ]
+    grep -q "^proteger --repo moi/projet$" "$F/log"
+    # dépôt public ou offre payante : rien de tout cela
+    rm -rf .github .repowarden.conf
+    repondre o 2 n o n n o n "" "" o
+    GH_DEVELOP=1 GH_APP=1 lancer
+    [[ "$output" != *"offre gratuite"* && "$output" == *"Livraison automatique ? (non"* ]] || false
 }

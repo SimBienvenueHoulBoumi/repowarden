@@ -341,6 +341,13 @@ _msg_fr() {
         ci.proteger.incomplete) _M="Protection incomplète : voir les erreurs ci-dessus." ;;
         ci.proteger.rulesets_unavailable) _M="Rulesets indisponibles pour %s : GitHub les refuse sur un dépôt privé d'un compte gratuit. Rendre le dépôt public, ou passer à GitHub Pro / Team ; les autres réglages sont appliqués." ;;
         ci.proteger.no_squash) _M="Sans rulesets, le mode de merge ne peut pas être imposé par branche : squash désactivé (merge commit seul), sinon une livraison squashée casserait l'historique de la branche principale." ;;
+        ci.proteger.automerge_unavailable) _M="Merge automatique indisponible sur ce dépôt (GitHub l'ignore sur un dépôt privé d'un compte gratuit) : PR de travail et livraison à merger à la main ; livraison automatique impossible." ;;
+        ci.proteger.automerge_ignored) _M="Merge automatique demandé mais resté désactivé sur %s : GitHub l'ignore sans erreur (dépôt privé d'un compte gratuit). PR de travail et livraison à merger à la main. Rendre le dépôt public, ou passer à GitHub Pro / Team, puis relancer repowarden proteger." ;;
+        ci.proteger.automerge_delivery) _M="deliveryApproval = auto ne peut pas fonctionner sans merge automatique : la PR de livraison ne se mergera pas seule." ;;
+        ci.proteger.settings_error) _M="%s : refusé par GitHub : %s" ;;
+        ci.proteger.what_repo) _M="Réglages du dépôt (modes de merge, branche par défaut)" ;;
+        ci.proteger.what_workflow) _M="Permissions des workflows" ;;
+        ci.proteger.what_environment) _M="Environnement de déploiement" ;;
         ci.proteger.tags_fallback) _M="Ruleset des tags : exception « GitHub Actions » refusée dans cette organisation ; tags protégés comme sur un compte personnel (ni déplacés ni supprimés, création libre)." ;;
         ci.version.usage) _M="Usage : ci/version.sh next|notes|notes-livraison [ref]" ;;
         ci.version.breaking) _M="Changements incompatibles" ;;
@@ -393,6 +400,8 @@ _msg_fr() {
         npm.npx_global) _M="npx utilise un dossier temporaire : des hooks globaux pointeraient vers un dossier effacé. Installe d'abord le paquet : npm install -g repowarden, puis repowarden install --global." ;;
         npm.no_npm) _M="npm requis : https://nodejs.org" ;;
         npm.no_package) _M="Aucun package.json à la racine du dépôt." ;;
+        npm.bad_repo) _M="Dépôt invalide : « %s ». Forme attendue : propriétaire/nom (ex. simdevWarden/repowarden). Rien n'a été fait." ;;
+        npm.repo_unreachable) _M="Dépôt %s introuvable ou inaccessible avec gh (voir ci-dessus) : rien n'a été fait." ;;
         npm.old_npm) _M="npm %s trop ancien : 11.15 au minimum (npm install -g npm@11)." ;;
         npm.step_login) _M="1/3 Compte npm" ;;
         npm.logged) _M="Connecté à npm : %s" ;;
@@ -400,6 +409,7 @@ _msg_fr() {
         npm.hint_2fa) _M="Activer : npm profile enable-2fa auth-and-writes (QR code pour une application d'authentification), ou https://www.npmjs.com/settings/%s/tfa ; puis relancer cette commande." ;;
         npm.step_first) _M="2/3 Première publication, depuis ce poste (dernière release)" ;;
         npm.no_release) _M="Aucune release encore : rien n'est publié. Relance cette commande après la première release de %s." ;;
+        npm.release_error) _M="Lecture des releases de %s impossible : %s. Rien n'est publié ni configuré ; relance cette commande." ;;
         npm.would_publish) _M="[dry-run] %s@%s serait publié depuis la release %s (npm publish, dans ce terminal)" ;;
         npm.publishing) _M="Publication de %s@%s (release %s) : npm peut demander une validation (navigateur ou code)." ;;
         npm.publish_failed) _M="Publication de %s refusée (voir ci-dessus) : rien d'autre n'a été configuré. Relance cette commande." ;;
@@ -446,6 +456,7 @@ _msg_fr() {
         tk.waiting) _M="Ticket %s à valider : un mainteneur pose l'étiquette « %s » sur le ticket." ;;
         tk.ok) _M="Ticket %s validé." ;;
         tk.merged) _M="Mergé par la PR #%s dans %s : en préprod, disponible dans la prochaine préversion." ;;
+        tk.status_kept) _M="Ticket #%s laissé en %s : un travail livré ne repasse pas en %s." ;;
         tk.branch_created) _M="Ticket validé : sa branche \`%s\` est créée depuis \`%s\`.\n\nPour y travailler :\n\n\`\`\`bash\nrepowarden ticket %s\n\`\`\`\n\n(ou \`git fetch && git switch %s\`). Le premier push ouvre la PR en brouillon." ;;
         tk.branch_notice) _M="Branche %s créée pour le ticket #%s" ;;
         tk.multi) _M="PR liée à plusieurs tickets (%s) : une PR = un ticket, la découper." ;;
@@ -533,6 +544,8 @@ _msg_fr() {
         bots.ask_npm) _M="Publication npm ?" ;;
         bots.desc_delivery) _M="Livraison develop → main : automatique (la GitHub App merge la PR de livraison dès que les vérifications sont vertes ; la validation humaine est le merge de chaque ticket) ou approbation humaine (défaut)" ;;
         bots.ask_delivery_auto) _M="Livraison automatique ? (non : approbation humaine)" ;;
+        bots.plan_limited) _M="%s est un dépôt privé d'une offre gratuite : GitHub n'y offre ni protection de branches, ni rulesets, ni merge automatique. Ne fonctionneront donc pas : les PR et vérifications exigées, la fusion seule des PR de travail, la livraison automatique (les PR seront à merger à la main). Pour tout avoir : rendre le dépôt public, ou passer à GitHub Pro / Team, puis relancer repowarden bots." ;;
+        bots.no_delivery_auto) _M="Livraison automatique non proposée (pas de merge automatique sur ce dépôt) : la PR de livraison sera mergée à la main." ;;
         bots.auto_no_app) _M="Livraison automatique sans GitHub App : le merge automatique exige l'App (repowarden app init) ; sans elle, la PR de livraison reste à merger à la main." ;;
         bots.desc_rythme) _M="Rythme : à chaque ticket (préversion et demande de livraison à chaque merge) ou regroupé (défaut : préversion le soir, fenêtre de livraison le vendredi)" ;;
         bots.ask_each_ticket) _M="À chaque ticket ? (non : regroupé)" ;;
@@ -540,7 +553,7 @@ _msg_fr() {
         bots.preview) _M="Aperçu" ;;
         bots.prev_develop) _M="branche %s créée sur GitHub depuis %s" ;;
         bots.prev_conf) _M=".repowarden.conf : integrationBranch = %s, branches protégées" ;;
-        bots.prev_review) _M=".repowarden.conf : livraison validée par la revue de sa PR (sans GitHub App)" ;;
+        bots.prev_review) _M=".repowarden.conf : livraison validée par la revue de sa PR (ni GitHub App, ni environnement d'approbation)" ;;
         bots.prev_conf_auto) _M=".repowarden.conf : deliveryApproval = auto (livraison automatique)" ;;
         bots.prev_delivery_auto) _M="release.yml : livraison automatique (delivery-auto), la GitHub App merge la PR de livraison dès que les vérifications sont vertes" ;;
         bots.prev_delivery_approval) _M="release.yml : livraison approuvée par une personne" ;;

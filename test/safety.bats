@@ -50,7 +50,7 @@ setup() {
 
     run git commit -q -m "ajoute A"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"se chevauchent"* ]]
+    [[ "$output" == *"se chevauchent"* ]] || false
     # commit : formaté, sans le travail en cours
     git show HEAD:main.go | grep -q '^func A() {}$'
     ! git show HEAD:main.go | grep -q 'travail en cours'
@@ -95,7 +95,7 @@ setup() {
 
     run git push -q origin feat/x
     [ "$status" -ne 0 ]
-    [[ "$output" == *"push refusé"* ]]
+    [[ "$output" == *"push refusé"* ]] || false
     grep -q '!= 1' x_test.go
     [ -f untracked.txt ]
     [ -z "$(git stash list)" ]
@@ -111,7 +111,7 @@ setup() {
 
     run git push -q origin fix/casse
     [ "$status" -ne 0 ]
-    [[ "$output" == *"worktree temporaire"* ]]
+    [[ "$output" == *"worktree temporaire"* ]] || false
     [ "$(git worktree list | wc -l | tr -d ' ')" = 1 ]
 
     run git push -q origin feat/x
@@ -124,5 +124,5 @@ setup() {
     git push -q origin feat/x
     run git push -q origin --delete feat/x
     [ "$status" -eq 0 ]
-    [[ "$output" == *"Rien à tester"* ]]
+    [[ "$output" == *"Rien à tester"* ]] || false
 }

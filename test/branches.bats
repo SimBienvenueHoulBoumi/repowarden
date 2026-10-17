@@ -43,10 +43,10 @@ setup() { setup_repo; initial_commit; }
 @test "post-checkout : avertit sans bloquer" {
     run git switch -c Mon_Truc
     [ "$status" -eq 0 ]
-    [[ "$output" == *"Nom de branche « Mon_Truc » non conforme"* ]]
-    [[ "$output" == *"git branch -m feat/mon-truc"* ]]
+    [[ "$output" == *"Nom de branche « Mon_Truc » non conforme"* ]] || false
+    [[ "$output" == *"git branch -m feat/mon-truc"* ]] || false
     # aide courte : ni la liste des types, ni les exceptions (elles viennent au commit)
-    [[ "$output" != *"Types"* ]]
+    [[ "$output" != *"Types"* ]] || false
     [ "$(printf '%s\n' "$output" | wc -l)" -le 5 ]
 }
 
@@ -54,7 +54,7 @@ setup() { setup_repo; initial_commit; }
     git switch -q -c Mon_Truc 2>/dev/null
     run git commit -q --allow-empty -m "feat: x"
     [ "$status" -ne 0 ]
-    [[ "$output" == *"Commit refusé : nom de branche non conforme"* ]]
+    [[ "$output" == *"Commit refusé : nom de branche non conforme"* ]] || false
 }
 
 @test "pre-push : refuse une branche mal nommee" {
@@ -62,7 +62,7 @@ setup() { setup_repo; initial_commit; }
     git commit -q --no-verify --allow-empty -m "feat: x"
     run git push -q origin Bad
     [ "$status" -ne 0 ]
-    [[ "$output" == *"Push refusé : nom de branche non conforme"* ]]
+    [[ "$output" == *"Push refusé : nom de branche non conforme"* ]] || false
     [ -z "$(git ls-remote --heads origin Bad)" ]
 }
 
@@ -78,7 +78,7 @@ setup() { setup_repo; initial_commit; }
 @test "main : commit direct refuse apres le commit initial" {
     run git commit -q --allow-empty -m "fix: x"
     [ "$status" -ne 0 ]
-    [[ "$output" == *"Commit direct sur 'main' interdit"* ]]
+    [[ "$output" == *"Commit direct sur 'main' interdit"* ]] || false
 }
 
 @test "main : repowarden.skip protect-branch l'autorise" {
@@ -92,7 +92,7 @@ setup() { setup_repo; initial_commit; }
     git commit -q --no-verify --allow-empty -m "fix: x"
     run git push -q origin main
     [ "$status" -ne 0 ]
-    [[ "$output" == *"Push direct refusé sur 'main'"* ]]
+    [[ "$output" == *"Push direct refusé sur 'main'"* ]] || false
     [ "$(git rev-parse origin/main)" != "$(git rev-parse main)" ]
 }
 
@@ -104,7 +104,7 @@ setup() { setup_repo; initial_commit; }
     git commit -q --no-verify --allow-empty -m "fix: x"
     run git push -q origin develop
     [ "$status" -ne 0 ]
-    [[ "$output" == *"Push direct refusé sur 'develop'"* ]]
+    [[ "$output" == *"Push direct refusé sur 'develop'"* ]] || false
     git switch -q -c feat/x
     run git push -q -u origin feat/x
     [ "$status" -eq 0 ]
@@ -146,7 +146,7 @@ push_branch() {
     git switch -q main
     run git pull -q
     [ "$status" -eq 0 ]
-    [[ "$output" == *"Branche locale supprimée"*"feat/x"* ]]
+    [[ "$output" == *"Branche locale supprimée"*"feat/x"* ]] || false
     ! git show-ref -q --verify refs/heads/feat/x
 }
 
@@ -159,7 +159,7 @@ push_branch() {
     git push -q origin main --no-verify
     git reset -q --hard HEAD~1
     run git pull -q
-    [[ "$output" == *"feat/y : supprimée sur le serveur mais des modifications manquent"* ]]
+    [[ "$output" == *"feat/y : supprimée sur le serveur mais des modifications manquent"* ]] || false
     git show-ref -q --verify refs/heads/feat/y
 }
 
@@ -197,7 +197,7 @@ server_squash_and_delete() {
     git switch -q main
     run git pull -q
     [ "$status" -eq 0 ]
-    [[ "$output" == *"mergée en squash"*"feat/sq"* ]]
+    [[ "$output" == *"mergée en squash"*"feat/sq"* ]] || false
     ! git show-ref -q --verify refs/heads/feat/sq
 }
 
@@ -217,11 +217,11 @@ server_squash_and_delete() {
     export REPOWARDEN_LANG=en
     run git commit -q --allow-empty -m "fix: x"
     [ "$status" -ne 0 ]
-    [[ "$output" == *"Direct commit on 'main' forbidden"* ]]
+    [[ "$output" == *"Direct commit on 'main' forbidden"* ]] || false
     git switch -q -c Bad 2>/dev/null
     git commit -q --no-verify --allow-empty -m "feat: x"
     run git push -q origin Bad
     [ "$status" -ne 0 ]
-    [[ "$output" == *"Invalid branch name"* ]]
-    [[ "$output" == *"new feature"* ]]
+    [[ "$output" == *"Invalid branch name"* ]] || false
+    [[ "$output" == *"new feature"* ]] || false
 }

@@ -24,11 +24,30 @@ pr_tickets_r() {
     REPLY="${found# }"
 }
 
-# Statut $2 sur le ticket $1 : remplace les autres étiquettes « statut: »
+# Rang d'un statut dans le cycle (REPLY) : à valider 0 … done 5, -1 sinon
+rang_statut_r() {
+    case "$1" in
+        "$S_AVALIDER") REPLY=0 ;; "$S_BACKLOG") REPLY=1 ;; "$S_ENCOURS") REPLY=2 ;;
+        "$S_RELECTURE") REPLY=3 ;; "$S_PREPROD") REPLY=4 ;; "$S_DONE") REPLY=5 ;;
+        *) REPLY=-1 ;;
+    esac
+}
+
+# Statut $2 sur le ticket $1 : remplace les autres étiquettes « statut: ».
+# Monotone pour un travail livré : un ticket en préprod ou done ne recule
+# jamais (événement en retard, branche réapparue, réassignation…), signalé.
 statut() {
-    local n="$1" s="$2" l retirer=()
+    local n="$1" s="$2" l retirer=() cible
+    rang_statut_r "$s"
+    cible="$REPLY"
     while IFS= read -r l; do
-        [[ "$l" == "statut: "* && "$l" != "$s" ]] && retirer+=(--remove-label "$l")
+        [[ "$l" == "statut: "* && "$l" != "$s" ]] || continue
+        rang_statut_r "$l"
+        if [ "$REPLY" -ge 4 ] && [ "$REPLY" -gt "$cible" ]; then
+            notice_t tk.status_kept "$n" "${l#statut: }" "${s#statut: }"
+            return 0
+        fi
+        retirer+=(--remove-label "$l")
     done < <(gh issue view "$n" --json labels -q '.labels[].name' 2>/dev/null || true)
     # ${a[@]+…} : tableau vide accepté sous set -u par le bash 3.2 de macOS
     gh issue edit "$n" --add-label "$s" ${retirer[@]+"${retirer[@]}"} >/dev/null
