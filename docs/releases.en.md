@@ -145,7 +145,7 @@ jobs:
 Stable versions follow a regular pace: `develop` accumulates, one delivery per window publishes it all as **one** version, minor or major depending on the commits. When it is out, that version's pre-releases are removed from GitHub (on npm they stay: a published version cannot be removed).
 
 !!! note "Approve whenever you want"
-    The approval covers the snapshot frozen when the request was made: work merged afterwards into `develop` does not void it, it will go out with the next delivery. A new request (urgency, manual run) replaces the previous one. Only `develop` and its `livraison/*` snapshots can enter `main`, never without approval.
+    The approval covers the snapshot frozen when the request was made: work merged afterwards into `develop` does not void it, it will go out with the next delivery. A new request (urgency, manual run) replaces the previous one; the snapshot of a replaced, declined (PR closed) or already published request is deleted at the next run, if it has no commit missing from `develop` ([branch cleanup](industrialisation.md#merged-branches-deleted-automatically)). Only `develop` and its `livraison/*` snapshots can enter `main`, never without approval.
 
 | | `develop`: testing | `main`: production |
 |---|---|---|

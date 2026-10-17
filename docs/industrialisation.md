@@ -95,6 +95,8 @@ Une PR = un commit sur `main`, dont le message est le **titre de la PR** : chang
       permissions: { contents: write, pull-requests: read }
   ```
 
+- Instantanés de livraison (mode tag avec `delivery-environment`) : le workflow `release-auto.yml` supprime lui-même une branche `livraison/vX.Y.Z` dont la version est publiée (tag stable ≥ X.Y.Z) ou dont la PR de livraison a été fermée sans fusion (demande remplacée ou refusée), à chaque run sur `develop` et après chaque release sur `main`, seulement si elle ne contient aucun commit absent de `develop`. La livraison en attente la plus récente et un instantané encore source d'une PR ouverte sont toujours conservés ; un instantané avec des commits propres est signalé (avertissement du run), à vérifier puis supprimer à la main.
+
 - Postes : le hook `post-merge` de repowarden supprime, après un `git pull`, les branches locales dont la branche distante a disparu et dont toutes les modifications sont dans la branche courante (merge classique ou squash) ; une branche avec du travail non intégré est conservée.
 
 ### GitHub
