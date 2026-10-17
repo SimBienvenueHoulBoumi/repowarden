@@ -95,6 +95,8 @@ One PR = one commit on `main`, whose message is the **PR title**: a clean change
       permissions: { contents: write, pull-requests: read }
   ```
 
+- Delivery snapshots (tag mode with `delivery-environment`): the `release-auto.yml` workflow itself deletes a `livraison/vX.Y.Z` branch whose version is published (stable tag ≥ X.Y.Z) or whose delivery PR was closed without merging (request replaced or declined), on every run on `develop` and after every release on `main`, only if it contains no commit missing from `develop`. The most recent pending delivery and a snapshot still used by an open PR are always kept; a snapshot with commits of its own is reported (run warning), to check and then delete by hand.
+
 - Developer machines: after a `git pull`, repowarden's `post-merge` hook deletes local branches whose remote branch is gone and whose changes are all in the current branch (regular merge or squash); a branch with unintegrated work is kept.
 
 ### GitHub
