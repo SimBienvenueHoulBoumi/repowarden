@@ -393,6 +393,8 @@ _msg_en() {
         npm.npx_global) _M="npx uses a temporary folder: global hooks would point to a deleted folder. Install the package first: npm install -g repowarden, then repowarden install --global." ;;
         npm.no_npm) _M="npm required: https://nodejs.org" ;;
         npm.no_package) _M="No package.json at the repository root." ;;
+        npm.bad_repo) _M="Invalid repository: \"%s\". Expected form: owner/name (e.g. simdevWarden/repowarden). Nothing was done." ;;
+        npm.repo_unreachable) _M="Repository %s not found or not accessible with gh (see above): nothing was done." ;;
         npm.old_npm) _M="npm %s is too old: 11.15 or later required (npm install -g npm@11)." ;;
         npm.step_login) _M="1/3 npm account" ;;
         npm.logged) _M="Logged in to npm: %s" ;;
@@ -400,6 +402,7 @@ _msg_en() {
         npm.hint_2fa) _M="Enable it: npm profile enable-2fa auth-and-writes (QR code for an authenticator app), or https://www.npmjs.com/settings/%s/tfa; then run this command again." ;;
         npm.step_first) _M="2/3 First publication, from this machine (latest release)" ;;
         npm.no_release) _M="No release yet: nothing is published. Run this command again after the first release of %s." ;;
+        npm.release_error) _M="Cannot read the releases of %s: %s. Nothing is published or configured; run this command again." ;;
         npm.would_publish) _M="[dry-run] %s@%s would be published from release %s (npm publish, in this terminal)" ;;
         npm.publishing) _M="Publishing %s@%s (release %s): npm may ask for a validation (browser or code)." ;;
         npm.publish_failed) _M="Publication of %s refused (see above): nothing else was configured. Run this command again." ;;

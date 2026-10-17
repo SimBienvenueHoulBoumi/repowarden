@@ -393,6 +393,8 @@ _msg_fr() {
         npm.npx_global) _M="npx utilise un dossier temporaire : des hooks globaux pointeraient vers un dossier effacé. Installe d'abord le paquet : npm install -g repowarden, puis repowarden install --global." ;;
         npm.no_npm) _M="npm requis : https://nodejs.org" ;;
         npm.no_package) _M="Aucun package.json à la racine du dépôt." ;;
+        npm.bad_repo) _M="Dépôt invalide : « %s ». Forme attendue : propriétaire/nom (ex. simdevWarden/repowarden). Rien n'a été fait." ;;
+        npm.repo_unreachable) _M="Dépôt %s introuvable ou inaccessible avec gh (voir ci-dessus) : rien n'a été fait." ;;
         npm.old_npm) _M="npm %s trop ancien : 11.15 au minimum (npm install -g npm@11)." ;;
         npm.step_login) _M="1/3 Compte npm" ;;
         npm.logged) _M="Connecté à npm : %s" ;;
@@ -400,6 +402,7 @@ _msg_fr() {
         npm.hint_2fa) _M="Activer : npm profile enable-2fa auth-and-writes (QR code pour une application d'authentification), ou https://www.npmjs.com/settings/%s/tfa ; puis relancer cette commande." ;;
         npm.step_first) _M="2/3 Première publication, depuis ce poste (dernière release)" ;;
         npm.no_release) _M="Aucune release encore : rien n'est publié. Relance cette commande après la première release de %s." ;;
+        npm.release_error) _M="Lecture des releases de %s impossible : %s. Rien n'est publié ni configuré ; relance cette commande." ;;
         npm.would_publish) _M="[dry-run] %s@%s serait publié depuis la release %s (npm publish, dans ce terminal)" ;;
         npm.publishing) _M="Publication de %s@%s (release %s) : npm peut demander une validation (navigateur ou code)." ;;
         npm.publish_failed) _M="Publication de %s refusée (voir ci-dessus) : rien d'autre n'a été configuré. Relance cette commande." ;;
