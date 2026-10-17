@@ -32,7 +32,7 @@ setup() {
     run "$BATS_TEST_TMPDIR/prefix/bin/repowarden" install --global --lang fr
     [ "$status" -eq 0 ]
     [ "$(git config --global --get core.hooksPath)" = "$PKG/hooks" ]
-    [[ "$(git config --global --get alias.cc)" == *"$PKG/bin/commit"* ]]
+    [[ "$(git config --global --get alias.cc)" == *"$PKG/bin/commit"* ]] || false
     run "$BATS_TEST_TMPDIR/prefix/bin/repowarden" uninstall --global
     [ "$status" -eq 0 ]
     [ -z "$(git config --global --get core.hooksPath || true)" ]
@@ -44,14 +44,14 @@ setup() {
     cp -R "$PKG/bin" "$PKG/hooks" "$PKG/install.sh" "$PKG/package.json" "$npx/"
     run "$npx/bin/repowarden" install --global
     [ "$status" -ne 0 ]
-    [[ "$output" == *"npm install -g"* ]]
+    [[ "$output" == *"npm install -g"* ]] || false
     [ -z "$(git config --global --get core.hooksPath || true)" ]
 }
 
 @test "npm : commande inconnue refusee, aide affichee" {
     run "$PKG/bin/repowarden" inconnue
     [ "$status" -ne 0 ]
-    [[ "$output" == *"repowarden install"* ]]
+    [[ "$output" == *"repowarden install"* ]] || false
 }
 
 @test "npm : le paquet contient les hooks, ni tests, ni CI, ni modeles" {
@@ -59,15 +59,15 @@ setup() {
     run bash -c "cd '$PKG' && npm pack --dry-run --json 2>/dev/null"
     [ "$status" -eq 0 ]
     for f in bin/repowarden bin/commit install.sh hooks/lib/common.sh hooks/pre-commit; do
-        [[ "$output" == *"\"$f\""* ]]
+        [[ "$output" == *"\"$f\""* ]] || false
     done
     # Rien d'inutile sur une machine : tests, scripts de CI (accès réseau), modèles ;
     # sauf le suivi des tickets, appelé par « repowarden tickets init »
     for f in ci/tickets.sh ci/tickets/commun.sh ci/tickets/adopter.sh; do
-        [[ "$output" == *"\"$f\""* ]]
+        [[ "$output" == *"\"$f\""* ]] || false
     done
     for d in test/ ci/check.sh ci/version.sh templates/; do
-        [[ "$output" != *"\"$d"* ]]
+        [[ "$output" != *"\"$d"* ]] || false
     done
 }
 
@@ -78,29 +78,29 @@ setup() {
     "$pkg/bin/repowarden" install --global --lang fr >/dev/null
     run "$pkg/bin/repowarden" uninstall --global --purge
     [ "$status" -eq 0 ]
-    [[ "$output" == *"npm uninstall -g repowarden"* ]]
-    [[ "$output" != *"rm -rf"* ]]
+    [[ "$output" == *"npm uninstall -g repowarden"* ]] || false
+    [[ "$output" != *"rm -rf"* ]] || false
 }
 
 @test "statut : sans argument -> etat et etape suivante, puis tout est pret apres installation" {
     git config --unset core.hooksPath
     run "$PKG/bin/repowarden"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"Hooks git non activés"* ]]
-    [[ "$output" == *"Étape suivante : repowarden install --global"* ]]
+    [[ "$output" == *"Hooks git non activés"* ]] || false
+    [[ "$output" == *"Étape suivante : repowarden install --global"* ]] || false
     "$PKG/bin/repowarden" install --global --lang fr >/dev/null
     run "$PKG/bin/repowarden" statut
-    [[ "$output" == *"Hooks git actifs pour tous les dépôts"* ]]
-    [[ "$output" == *"Assistant de commit : git cc"* ]]
-    [[ "$output" == *"Tout est prêt"* ]]
+    [[ "$output" == *"Hooks git actifs pour tous les dépôts"* ]] || false
+    [[ "$output" == *"Assistant de commit : git cc"* ]] || false
+    [[ "$output" == *"Tout est prêt"* ]] || false
 }
 
 @test "statut : lefthook.yml present -> signale comme non pris en charge" {
     printf 'pre-commit: {}\n' >lefthook.yml
     run "$PKG/bin/repowarden" statut
     [ "$status" -eq 0 ]
-    [[ "$output" == *"lefthook.yml présent : lefthook n'est plus pris en charge"* ]]
-    [[ "$output" != *"absents : "*"lefthook"* ]]
+    [[ "$output" == *"lefthook.yml présent : lefthook n'est plus pris en charge"* ]] || false
+    [[ "$output" != *"absents : "*"lefthook"* ]] || false
 }
 
 @test "statut : installation locale (sans --global) -> hooks et git cc reconnus" {
@@ -108,10 +108,10 @@ setup() {
     "$PKG/install.sh" --lang fr >/dev/null
     run "$PKG/bin/repowarden" statut
     [ "$status" -eq 0 ]
-    [[ "$output" == *"Hooks git actifs dans ce dépôt seulement"* ]]
-    [[ "$output" == *"Assistant de commit : git cc"* ]]
-    [[ "$output" != *"non activés"* ]]
-    [[ "$output" == *"Tout est prêt"* ]]
+    [[ "$output" == *"Hooks git actifs dans ce dépôt seulement"* ]] || false
+    [[ "$output" == *"Assistant de commit : git cc"* ]] || false
+    [[ "$output" != *"non activés"* ]] || false
+    [[ "$output" == *"Tout est prêt"* ]] || false
 }
 
 @test "statut : autre installation de repowarden -> signalee, reinstallation proposee" {
@@ -120,8 +120,8 @@ setup() {
     cp -R "$PKG/hooks" "$autre/"
     git config --global core.hooksPath "$autre/hooks"
     run "$PKG/bin/repowarden" statut
-    [[ "$output" == *"Hooks git d'une autre installation de repowarden"* ]]
-    [[ "$output" == *"Étape suivante : repowarden install --global"* ]]
+    [[ "$output" == *"Hooks git d'une autre installation de repowarden"* ]] || false
+    [[ "$output" == *"Étape suivante : repowarden install --global"* ]] || false
 }
 
 @test "npm : uninstall --global rappelle npm uninstall -g (le paquet reste installe)" {
@@ -131,5 +131,5 @@ setup() {
     "$pkg/bin/repowarden" install --global --lang fr >/dev/null
     run "$pkg/bin/repowarden" uninstall --global
     [ "$status" -eq 0 ]
-    [[ "$output" == *"Le paquet reste installé ; pour le retirer aussi : npm uninstall -g repowarden"* ]]
+    [[ "$output" == *"Le paquet reste installé ; pour le retirer aussi : npm uninstall -g repowarden"* ]] || false
 }

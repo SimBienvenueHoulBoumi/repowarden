@@ -18,7 +18,7 @@ setup() {
     [ -n "$(git config --local --get core.hooksPath)" ]
     run "$INSTALL" --uninstall
     [ "$status" -eq 0 ]
-    [[ "$output" == *"Hooks repowarden retirés"* ]]
+    [[ "$output" == *"Hooks repowarden retirés"* ]] || false
     [ -z "$(git config --local --get core.hooksPath || true)" ]
 }
 
@@ -26,14 +26,14 @@ setup() {
     git config core.hooksPath .husky/_
     run "$INSTALL" --uninstall
     [ "$status" -eq 0 ]
-    [[ "$output" == *"n'est pas repowarden : laissé intact"* ]]
+    [[ "$output" == *"n'est pas repowarden : laissé intact"* ]] || false
     [ "$(git config --local --get core.hooksPath)" = ".husky/_" ]
 }
 
 @test "install : --uninstall reconnait un ancien emplacement disparu" {
     git config core.hooksPath /chemin/qui/n-existe/plus/repowarden/hooks
     run "$INSTALL" --uninstall
-    [[ "$output" == *"Hooks repowarden retirés"* ]]
+    [[ "$output" == *"Hooks repowarden retirés"* ]] || false
 }
 
 @test "install : --uninstall --global --purge supprime les caches" {
@@ -43,7 +43,7 @@ setup() {
     [ "$status" -eq 0 ]
     [ -z "$(git config --global --get core.hooksPath || true)" ]
     [ ! -d "$XDG_CACHE_HOME/repowarden" ]
-    [[ "$output" == *'rm -rf'* ]]
+    [[ "$output" == *'rm -rf'* ]] || false
 }
 
 @test "install : --scan liste les depots encore branches, sans les modifier" {
@@ -54,9 +54,9 @@ setup() {
     git init -q "$BATS_TEST_TMPDIR/autre/sans-rapport"
     printf 'pre-commit: {}\n' >"$BATS_TEST_TMPDIR/autre/sans-rapport/lefthook.yml"
     run "$INSTALL" --uninstall --global --purge --scan "$BATS_TEST_TMPDIR"
-    [[ "$output" == *"$REPO  →  git -C"* ]]
-    [[ "$output" == *"projet-lefthook (lefthook)"* ]]
-    [[ "$output" != *"sans-rapport"* ]]
+    [[ "$output" == *"$REPO  →  git -C"* ]] || false
+    [[ "$output" == *"projet-lefthook (lefthook)"* ]] || false
+    [[ "$output" != *"sans-rapport"* ]] || false
     [ -n "$(git config --local --get core.hooksPath)" ] # liste seulement
 }
 
@@ -70,8 +70,8 @@ setup() {
     run "$BATS_TEST_DIRNAME/../install.sh" --lang en
     [ "$status" -eq 0 ]
     [ "$(git config --local --get repowarden.lang)" = en ]
-    [[ "$output" == *"Message language: English"* ]]
-    [[ "$output" == *"Hooks enabled"* ]]
+    [[ "$output" == *"Message language: English"* ]] || false
+    [[ "$output" == *"Hooks enabled"* ]] || false
     run "$BATS_TEST_DIRNAME/../install.sh" --lang de
     [ "$status" -ne 0 ]
 }
@@ -83,7 +83,7 @@ setup() {
     echo a >a.txt && git add a.txt
     run git commit -m "feat: a"
     [ "$status" -eq 0 ] # avertissement seulement : la CI fait foi
-    [[ "$output" == *"demande repowarden 99.0.0 ou plus récent"* ]]
+    [[ "$output" == *"demande repowarden 99.0.0 ou plus récent"* ]] || false
 }
 
 @test "version : version installee suffisante -> aucun message" {
@@ -97,7 +97,7 @@ setup() {
         echo "$v" >>a.txt && git add a.txt
         run git commit -m "feat: a"
         [ "$status" -eq 0 ]
-        [[ "$output" != *"demande repowarden"* ]]
+        [[ "$output" != *"demande repowarden"* ]] || false
     done
 }
 
@@ -155,9 +155,9 @@ faux_repowarden() {
     echo a >a.txt && git add a.txt lefthook.yml
     run git commit -m "feat: a"
     [ "$status" -eq 0 ]
-    [[ "$output" != *"LEFTHOOK-LANCE"* ]]
-    [[ "$output" == *"hook installé par lefthook, ignoré"* ]]
-    [[ "$output" == *".repowarden/pre-commit"* ]]
+    [[ "$output" != *"LEFTHOOK-LANCE"* ]] || false
+    [[ "$output" == *"hook installé par lefthook, ignoré"* ]] || false
+    [[ "$output" == *".repowarden/pre-commit"* ]] || false
 }
 
 @test "hooks : .repowarden/<hook> du projet lance a la place de lefthook" {
@@ -169,5 +169,5 @@ faux_repowarden() {
     echo a >a.txt && git add a.txt
     run git commit -m "feat: a"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"HOOK-PROJET-LANCE"* ]]
+    [[ "$output" == *"HOOK-PROJET-LANCE"* ]] || false
 }

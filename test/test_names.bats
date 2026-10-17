@@ -80,3 +80,17 @@ PY
     run git grep -n -i -e "$ancien/repowarden" -e "$ancien\.github\.io" -- . ':!CHANGELOG.md'
     [ -z "$output" ] || { echo "Liens vers l'ancien propriétaire :"; echo "$output"; return 1; }
 }
+
+@test "tests : conditions [[ ]] protegees par || false (set -e ignore leur echec sous bash 3.2)" {
+    # Sous bash < 4.1 (macOS), set -e n'arrête pas un test sur l'échec d'une
+    # condition [[ … ]] : le test passerait à tort. Hors heredocs (scripts
+    # factices), chaque ligne qui commence par [[ finit donc par || false.
+    run awk '
+        FNR == 1 { fin = "" }
+        fin != "" { t = $0; sub(/^[ \t]+/, "", t); if (t == fin) fin = ""; next }
+        /^[ \t]*\[\[/ && !/\|\| false[ \t]*$/ { print FILENAME ":" FNR ": " $0 }
+        match($0, /<<-?[ \t]*["\047]?[A-Za-z_]+/) {
+            fin = substr($0, RSTART, RLENGTH); gsub(/<<-?[ \t]*|["\047]/, "", fin)
+        }' "$BATS_TEST_DIRNAME"/*.bats
+    [ -z "$output" ] || { echo "Conditions [[ ]] sans || false :"; echo "$output"; return 1; }
+}

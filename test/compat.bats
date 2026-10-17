@@ -19,7 +19,7 @@ setup() {
     export REPOGARDE_LANG=en
     run git commit -m "feat: a"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"Old repogarde name still in use (REPOGARDE_LANG)"* ]]
+    [[ "$output" == *"Old repogarde name still in use (REPOGARDE_LANG)"* ]] || false
     [ "$(grep -c "Old repogarde name" <<<"$output")" -eq 1 ] # une fois par commit
 }
 
@@ -27,15 +27,15 @@ setup() {
     export REPOGARDE_LANG=en
     run git commit -m "feat: a"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"Ancien nom repogarde encore utilisé (REPOGARDE_LANG)"* ]]
+    [[ "$output" == *"Ancien nom repogarde encore utilisé (REPOGARDE_LANG)"* ]] || false
 }
 
 @test "compat : cle git repogarde.* lue, avec avertissement" {
     git config repogarde.skip pre-commit
     run git commit -m "feat: a"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"Ancien nom repogarde encore utilisé (repogarde.*)"* ]]
-    [[ "$output" != *"Pre-commit OK"* ]]
+    [[ "$output" == *"Ancien nom repogarde encore utilisé (repogarde.*)"* ]] || false
+    [[ "$output" != *"Pre-commit OK"* ]] || false
 }
 
 @test "compat : .repogarde.conf lu ; .repowarden.conf l'emporte" {
@@ -43,13 +43,13 @@ setup() {
     printf '[repogarde]\n    skip = secrets pre-commit\n' >.repogarde.conf
     run git commit -m "feat: a"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"(.repogarde.conf)"* ]]
-    [[ "$output" != *"Pre-commit OK"* ]]
+    [[ "$output" == *"(.repogarde.conf)"* ]] || false
+    [[ "$output" != *"Pre-commit OK"* ]] || false
     printf '[repowarden]\n    skip = secrets\n' >.repowarden.conf
     echo b >b.txt && git add b.txt
     run git commit -m "feat: b"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"Pre-commit OK"* ]]
+    [[ "$output" == *"Pre-commit OK"* ]] || false
 }
 
 @test "compat : .repogarde/<hook> lance, sauf si .repowarden/<hook> existe" {
@@ -58,15 +58,15 @@ setup() {
     chmod +x .repogarde/pre-commit
     run git commit -m "feat: a"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"ANCIEN-HOOK"* ]]
-    [[ "$output" == *"(.repogarde/)"* ]]
+    [[ "$output" == *"ANCIEN-HOOK"* ]] || false
+    [[ "$output" == *"(.repogarde/)"* ]] || false
     mkdir -p .repowarden
     printf '#!/bin/sh\necho NOUVEAU-HOOK\n' >.repowarden/pre-commit
     chmod +x .repowarden/pre-commit
     echo b >b.txt && git add b.txt
     run git commit -m "feat: b"
-    [[ "$output" == *"NOUVEAU-HOOK"* ]]
-    [[ "$output" != *"ANCIEN-HOOK"* ]]
+    [[ "$output" == *"NOUVEAU-HOOK"* ]] || false
+    [[ "$output" != *"ANCIEN-HOOK"* ]] || false
 }
 
 @test "compat : install migre les cles repogarde.* vers repowarden.*" {
@@ -76,7 +76,7 @@ setup() {
     git config --unset core.hooksPath
     run "$BATS_TEST_DIRNAME/../install.sh" --global
     [ "$status" -eq 0 ]
-    [[ "$output" == *"Réglages repogarde.* (--global) renommés en repowarden.*"* ]]
+    [[ "$output" == *"Réglages repogarde.* (--global) renommés en repowarden.*"* ]] || false
     [ "$(git config --global --get repowarden.lang)" = en ]
     [ "$(git config --global --get repowarden.skip)" = format ] # nouvelle cle gardee
     [ -z "$(git config --global --get-regexp '^repogarde\.' || true)" ]
@@ -85,6 +85,6 @@ setup() {
 @test "compat : commande repogarde relayee vers repowarden, avec avertissement" {
     run "$BATS_TEST_DIRNAME/../bin/repogarde" --version
     [ "$status" -eq 0 ]
-    [[ "$output" == *"s'appelle désormais repowarden"* ]]
-    [[ "$output" == *[0-9]* ]]
+    [[ "$output" == *"s'appelle désormais repowarden"* ]] || false
+    [[ "$output" == *[0-9]* ]] || false
 }
