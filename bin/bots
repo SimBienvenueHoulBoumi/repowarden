@@ -71,6 +71,13 @@ demander() {
 }
 
 brand "bots · $REPO"
+# Dépôt privé d'une offre gratuite : ni protection, ni rulesets, ni merge
+# automatique ; dit avant toute question, pour décider en connaissance de cause
+SANS_RULESETS=""
+if github_sans_rulesets "$REPO"; then
+    SANS_RULESETS=1
+    attention_t bots.plan_limited "$REPO"
+fi
 demander bots.ask_global n || { info_t bots.later; exit 0; }
 
 # --- Flux ------------------------------------------------------------------
@@ -125,6 +132,11 @@ done
 choisi() { [[ " ${BOTS[*]+"${BOTS[*]}"} " == *" $1 "* ]]; }
 AVEC_APP=""
 { [ -n "$APP_PRESENTE" ] || choisi app; } && AVEC_APP=1
+# Livraison approuvée par l'environnement (« Approve and deploy ») : avec
+# l'App, sauf sur un dépôt sans rulesets (ni règle de déploiement exigée, ni
+# environnement avec approbation sur un dépôt privé gratuit) : revue de sa PR
+LIVRAISON_ENV=""
+[ -z "$AVEC_APP" ] || [ -n "$SANS_RULESETS" ] || LIVRAISON_ENV=1
 
 # --- Livraison (flux develop, releases) : mode, rythme, préversion -----------
 # Défauts : le release.yml d'aujourd'hui (approbation, regroupé, préversion
@@ -133,7 +145,10 @@ LIVRAISON_AUTO="" A_CHAQUE_TICKET="" PREVERSION_OBLIGATOIRE=1
 if [ "$FLUX" = develop ] && choisi release; then
     echo >&2
     dim_t bots.desc_delivery
-    if demander bots.ask_delivery_auto n; then
+    if [ -n "$SANS_RULESETS" ]; then
+        # Livraison automatique = merge automatique, ignoré par GitHub ici
+        info_t bots.no_delivery_auto
+    elif demander bots.ask_delivery_auto n; then
         LIVRAISON_AUTO=1
         # Le merge automatique passe par la GitHub App (jeton des Actions : pas de release)
         [ -n "$AVEC_APP" ] || attention_t bots.auto_no_app
@@ -369,7 +384,7 @@ YAML
             echo "      preversion-obligatoire: false # version stable possible sans préversion"
         if [ -n "$LIVRAISON_AUTO" ]; then
             echo "      delivery-auto: true # la GitHub App merge la livraison, vérifications vertes"
-        elif [ -n "$AVEC_APP" ]; then
+        elif [ -n "$LIVRAISON_ENV" ]; then
             echo "      delivery-environment: production # « Approve and deploy » valide la livraison"
         fi
         if [ -n "$AVEC_APP" ]; then
@@ -479,7 +494,7 @@ if [ "$FLUX" = develop ]; then
     info_t bots.prev_conf "$INTEGRATION"
     if [ -n "$LIVRAISON_AUTO" ]; then
         info_t bots.prev_conf_auto
-    elif [ -z "$AVEC_APP" ]; then
+    elif [ -z "$LIVRAISON_ENV" ]; then
         info_t bots.prev_review
     fi
 fi
@@ -545,7 +560,7 @@ if [ "$FLUX" = develop ]; then
         # Choix explicite : remplace une approbation déjà réglée
         [ "$(git config -f "$conf" --get repowarden.deliveryApproval || true)" = auto ] ||
             git config -f "$conf" repowarden.deliveryApproval auto
-    elif [ -z "$AVEC_APP" ]; then
+    elif [ -z "$LIVRAISON_ENV" ]; then
         git config -f "$conf" --get repowarden.deliveryApproval >/dev/null ||
             git config -f "$conf" repowarden.deliveryApproval review
     fi

@@ -26,6 +26,12 @@ case "$*" in
         [ -n "${GH_DEVELOP:-}" ] && { echo develop; exit 0; }
         echo '{"message":"Branch not found","status":"404"}'
         exit 1 ;;
+    # dépôt privé d'une offre gratuite : rulesets refusés en 403
+    "api repos/moi/projet/rulesets"*)
+        [ -z "${GH_RULESETS_403:-}" ] && { echo '[]'; exit 0; }
+        echo '{"message":"Upgrade to GitHub Pro or make this repository public to enable this feature.","status":"403"}'
+        echo "gh: Upgrade to GitHub Pro or make this repository public to enable this feature. (HTTP 403)" >&2
+        exit 1 ;;
     "variable get REPOWARDEN_APP_CLIENT_ID"*) [ -n "${GH_APP:-}" ] && echo Iv1.abc || exit 1 ;;
     "api repos/moi/projet/git/ref/heads/main"*) echo abc123 ;;
 esac
@@ -350,4 +356,29 @@ YAML
     ! grep -q 'preversion-obligatoire' "$f"
     [ "$(git config -f .repowarden.conf repowarden.deliveryApproval)" = auto ]
     if command -v actionlint >/dev/null; then actionlint "$f"; fi
+}
+
+@test "bots : depot prive d'une offre gratuite -> explique avant les questions, pas de livraison automatique" {
+    # flux develop, App déjà là : global, flux 2, ci (non), release, nettoyage (non), tickets (non),
+    # protection, rythme (Entrée), préversion (Entrée), confirmation ; aucune question de livraison automatique
+    repondre o 2 n o n n o "" "" o
+    GH_RULESETS_403=1 GH_DEVELOP=1 GH_APP=1 lancer
+    [ "$status" -eq 0 ] || { echo "$output"; return 1; }
+    # annoncé avant la première question : ce qui ne marchera pas, et les issues
+    avant="${output%%Configurer les bots*}"
+    [[ "$avant" == *"moi/projet est un dépôt privé d'une offre gratuite"* ]]
+    [[ "$avant" == *"ni merge automatique"*"livraison automatique"*"rendre le dépôt public"*"GitHub Pro / Team"* ]]
+    [[ "$output" != *"Livraison automatique ? (non"* ]]
+    [[ "$output" == *"Livraison automatique non proposée"* ]]
+    f=.github/workflows/release.yml
+    ! grep -q 'delivery-auto' "$f"
+    # ni environnement d'approbation (indisponible sur ce dépôt) : revue de la PR de livraison
+    ! grep -q 'delivery-environment' "$f"
+    [ "$(git config -f .repowarden.conf repowarden.deliveryApproval)" = review ]
+    grep -q "^proteger --repo moi/projet$" "$F/log"
+    # dépôt public ou offre payante : rien de tout cela
+    rm -rf .github .repowarden.conf
+    repondre o 2 n o n n o n "" "" o
+    GH_DEVELOP=1 GH_APP=1 lancer
+    [[ "$output" != *"offre gratuite"* && "$output" == *"Livraison automatique ? (non"* ]]
 }
