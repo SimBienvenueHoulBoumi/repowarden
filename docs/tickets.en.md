@@ -13,6 +13,8 @@ Every change starts from a **ticket** (GitHub issue): **the branch derives from 
 | `statut: préprod` | PR merged into `develop` | branch deleted; comment on each pre-release `vX.Y.Z-next.N` |
 | `statut: done` | release on `main` | ticket **closed**, with the version |
 
+A **delivered** ticket (`préprod`, `done`) never goes back: a PR event handled late (PR edited after its merge), a branch that reappears or a reassignment does not bring it back to in progress or in review; the tracking reports it with a notice.
+
 Ticket closed as **abandoned** (*not planned*): its PR is closed and its branch deleted.
 
 **Finished** ticket (moved to `done` at release, or closed by hand) whose branch still exists, because the work went through another branch: the branch is deleted if it has no commit missing from `develop` and no open PR comes from it. Otherwise it is kept and the ticket says so: nothing is ever lost.
@@ -28,7 +30,7 @@ repowarden ticket                             # ticket of the current branch
 ```
 
 - `repowarden ticket <n>` **takes the ticket** (assigned to you) and switches to its branch; creates it and links it to the ticket (`gh issue develop`) if it does not exist yet.
-- **Assigned tickets → local branches**: on every `git pull` or branch switch (at most every 15 min, only with `gh` logged in), repowarden creates the local branch of each ticket assigned to you, without changing your current branch. A ticket reassigned to someone else is flagged, its local branch kept. On demand: `repowarden tickets sync`; setting `ticketSync = auto | manual | off`.
+- **Assigned tickets → local branches**: `repowarden tickets sync` creates the local branch of each ticket assigned to you, without changing your current branch. A ticket reassigned to someone else is flagged, its local branch kept. Never for a delivered ticket (`préprod`, `done`) or one in review whose branch is gone (PR merged). Setting `ticketSync = manual | auto | off`: `manual` by default, a `git pull` or a clone touches nothing; with `git config repowarden.ticketSync auto`, syncing also happens on every `git pull` or branch switch (at most every 15 min, only with `gh` logged in), never on clone.
 - **Branch without a ticket**: `repowarden` warns (when arriving on the branch and in `git cc`), **never blocking**: not everyone works with tickets. If the project's tickets are managed by repowarden, it **offers to create one** (`git cc` creates and references it on "yes"); otherwise it shows how to silence it: `git config repowarden.skip tickets`.
 - `git cc` references `Ticket : #12` on a `feat/12-…` branch.
 

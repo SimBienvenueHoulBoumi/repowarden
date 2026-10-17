@@ -539,6 +539,46 @@ EOF
     ! grep -q "branche-creee" "$F/events"
 }
 
+@test "tickets : PR editee apres son merge (run en retard) -> ticket reste en preprod, rien d'arme" {
+    # cas #366 : PR #368 mergee, ticket rouvert en preprod et assigne ; l'evenement
+    # « edited » de la PR, retarde par la file des runners, passe apres
+    N=366 ticket "validé" "type: fix" "statut: préprod"
+    echo moi >"$F/issues/366.assignees"
+    printf 'Ticket : #366' >"$F/pr_body"
+    for action in edited synchronize ready_for_review; do
+        PR=368 HEAD=fix/366-bots-release ACTION=$action MERGED=true APP_TOKEN=true run "$TICKETS" pr
+        [ "$status" -eq 0 ]
+    done
+    [ "$(labels 366 | grep statut)" = "statut: préprod" ]
+    run grep -qs "merge-auto" "$F/events"
+    [ "$status" -ne 0 ]
+}
+
+@test "tickets : statut monotone -> preprod et done ne regressent jamais" {
+    # PR pas encore vue mergee (evenement anterieur au merge) : statut garde
+    N=12 ticket "validé" "statut: préprod"
+    printf 'Ticket : #12' >"$F/pr_body"
+    ACTION=edited MERGED=false run "$TICKETS" pr
+    [ "$status" -eq 0 ]
+    [ "$(labels 12 | grep statut)" = "statut: préprod" ]
+    [[ "$output" == *"#12"*"préprod"* ]]
+    # assignation, revue, push : rien ne fait reculer un ticket livre
+    N=12 ticket "validé" "statut: done"
+    REVIEW_STATE=changes_requested run "$TICKETS" revue
+    ISSUE=12 ACTION=assigned run "$TICKETS" issue
+    [ "$(labels 12 | grep statut)" = "statut: done" ]
+    source "$TICKETS"
+    statut 12 "$S_PREPROD"
+    [ "$(labels 12 | grep statut)" = "statut: done" ]
+    # en avant : inchange
+    N=12 ticket "validé" "statut: préprod"
+    statut 12 "$S_DONE"
+    [ "$(labels 12 | grep statut)" = "statut: done" ]
+    N=12 ticket "validé" "statut: en relecture"
+    statut 12 "$S_ENCOURS"
+    [ "$(labels 12 | grep statut)" = "statut: en cours" ]
+}
+
 @test "tickets : merge automatique (squash) arme sur PR prete vers develop, ticket valide, avec l'App seulement" {
     N=12 ticket "validé" "statut: en cours"
     printf 'Ticket : #12' >"$F/pr_body"

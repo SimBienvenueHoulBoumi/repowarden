@@ -164,6 +164,7 @@ gere() {
 
 @test "tickets sync : automatique dans les hooks, au plus une fois par periode ; off -> rien" {
     gere
+    git config repowarden.ticketSync auto
     git push -q --no-verify origin main
     PATH="$F/bin:$PATH" git switch -q -c feat/1-a
     [ "$(grep -c "^issue list" "$F/log")" -eq 1 ]
@@ -183,6 +184,50 @@ gere() {
     [ "$status" -eq 0 ]
     ! grep -q "issue develop" "$F/log"
     [ -z "$(git branch --list 'feat/18*')" ]
+}
+
+@test "tickets sync : clonage -> aucun appel a GitHub, aucune branche (cas #366)" {
+    gere
+    git add -A && git commit -q --no-verify -m "chore: suivi des tickets"
+    git push -q --no-verify origin main
+    git push -q --no-verify origin "main:refs/heads/fix/366-bots-release"
+    # ticket mergé dont le statut a regressé a tort : assigne, ouvert
+    export FAKE_ASSIGNED="$(printf '366\tBots release\tvalidé\\ntype: fix\\nstatut: en relecture')"
+    # hooks repowarden du poste (core.hooksPath) : le clone les execute, meme en auto
+    PATH="$F/bin:$PATH" run git -c core.hooksPath="$HOOKS" -c repowarden.ticketSync=auto clone -q "$REMOTE" "$BATS_TEST_TMPDIR/clone"
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"#366"* ]]
+    [ ! -s "$F/log" ]
+    [ -z "$(git -C "$BATS_TEST_TMPDIR/clone" branch --list 'fix/366*')" ]
+}
+
+@test "tickets sync : git pull sans reglage (defaut manual) -> aucun appel a GitHub, aucune branche" {
+    gere
+    git add -A && git commit -q --no-verify -m "chore: suivi des tickets"
+    git push -q --no-verify origin main
+    git push -q --no-verify origin "main:refs/heads/fix/384-clonage" "main:refs/heads/fix/383-depot"
+    export FAKE_ASSIGNED="$(printf '384\tClonage\tvalidé\\nstatut: en cours\n383\tDepot\tvalidé\\nstatut: en cours')"
+    PATH="$F/bin:$PATH" run git pull -q origin main
+    [ "$status" -eq 0 ]
+    PATH="$F/bin:$PATH" run git switch -q -c feat/1-a
+    [[ "$output" != *"prête"* ]]
+    [ ! -s "$F/log" ]
+    [ -z "$(git branch --list 'fix/38*')" ]
+    # volontaire : la commande garde son comportement
+    PATH="$F/bin:$PATH" run "$BATS_TEST_DIRNAME/../bin/tickets" sync
+    [[ "$output" == *"#384 assigné : branche locale fix/384-clonage prête"* ]]
+}
+
+@test "tickets sync : en relecture sans branche distante (PR mergee) -> branche pas recreee" {
+    gere
+    git push -q --no-verify origin main
+    export FAKE_ASSIGNED="$(printf '366\tBots release\tvalidé\\nstatut: en relecture\n13\tPanier\tvalidé\\nstatut: en cours')"
+    PATH="$F/bin:$PATH" run "$BATS_TEST_DIRNAME/../bin/tickets" sync
+    [ "$status" -eq 0 ]
+    [ "$(grep -c "issue develop 366" "$F/log")" -eq 0 ]
+    [ -z "$(git branch --list 'feat/366*')" ]
+    # ticket reellement en cours : comportement inchange
+    grep -q "issue develop 13 " "$F/log"
 }
 
 @test "tickets init : etiquettes, fichiers du modele, fin sans erreur" {
