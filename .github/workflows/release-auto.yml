@@ -522,11 +522,12 @@ jobs:
               echo "Livraison à venir : $title (demandée dans la fenêtre de livraison)."
               exit 0
             fi
-            # Une seule demande en attente : les précédentes sont fermées
+            # Une seule demande en attente : les précédentes sont fermées (leur
+            # instantané : étape « Instantanés de livraison abandonnés »)
             while IFS=$'\t' read -r ancienne tete; do
               [ -n "$ancienne" ] || continue
               if [[ "$tete" == livraison/* ]]; then
-                gh pr close "$ancienne" --delete-branch --comment "Remplacée par une demande de livraison plus récente." >/dev/null
+                gh pr close "$ancienne" --comment "Remplacée par une demande de livraison plus récente." >/dev/null
               else
                 gh pr close "$ancienne" --comment "Remplacée par une demande de livraison sur un instantané de $INTEGRATION." >/dev/null
               fi
@@ -703,6 +704,21 @@ jobs:
             echo "major=${version%%.*}"
             echo "sha=$GITHUB_SHA"
           } >>"$GITHUB_OUTPUT"
+
+      # Instantanés livraison/* d'une demande remplacée, fermée sans fusion ou
+      # déjà publiée : supprimés s'ils n'ont aucun commit absent de la branche
+      # d'intégration ; jamais la livraison en attente la plus récente. Ici et
+      # non au nettoyage des branches : une PR fermée par le jeton des Actions
+      # ne le déclenche pas, et il ne voit pas la publication du tag.
+      - name: Instantanés de livraison abandonnés
+        if: >-
+          inputs.mode == 'tag' && inputs.delivery-environment != '' &&
+          (github.ref_name == inputs.integration-branch || github.ref_name == inputs.main-branch)
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
+          GH_REPO: ${{ github.repository }}
+          INTEGRATION: ${{ inputs.integration-branch }}
+        run: bash .repowarden-ci/ci/instantanes.sh
 
       # Mode tag : seuls develop et ses instantanés livraison/* entrent dans
       # main (vérification de branche), qui n'a donc jamais de contenu propre.

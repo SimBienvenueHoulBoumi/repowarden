@@ -1246,6 +1246,109 @@ GH
     [[ "$output" == *"::warning::livraison"* ]] || false
 }
 
+# --- ci/instantanes.sh (instantanés livraison/* abandonnés) : gh simulé ---------
+
+INSTANTANES="$BATS_TEST_DIRNAME/../ci/instantanes.sh"
+
+# Faux gh : tags $GH_TAGS, instantanés $GH_INSTANTANES (versions) ; états des
+# PR de livraison/vX dans $GH_DIR/pr-X, commits absents de develop dans
+# $GH_DIR/avance-X (0 par défaut, « erreur » : API en échec) ; appels journalisés
+fake_gh_instantanes() {
+    mkdir -p "$BATS_TEST_TMPDIR/bin" "$BATS_TEST_TMPDIR/gh"
+    cat >"$BATS_TEST_TMPDIR/bin/gh" <<'GH'
+#!/usr/bin/env bash
+echo "$*" >>"$GH_LOG"
+case "$*" in
+    "api --paginate repos/o/r/git/matching-refs/tags/v "*)
+        [ -z "${GH_ERREUR:-}" ] || exit 1
+        for t in $GH_TAGS; do echo "refs/tags/$t"; done ;;
+    "api --paginate repos/o/r/git/matching-refs/heads/livraison/v "*)
+        for v in $GH_INSTANTANES; do echo "refs/heads/livraison/v$v"; done ;;
+    "pr list --head livraison/v"*) cat "$GH_DIR/pr-${4#livraison/v}" 2>/dev/null || true ;;
+    "api repos/o/r/compare/develop...livraison/v"*)
+        a="$(cat "$GH_DIR/avance-${2##*/v}" 2>/dev/null || echo 0)"
+        [ "$a" != erreur ] || exit 1
+        echo "$a" ;;
+esac
+exit 0
+GH
+    chmod +x "$BATS_TEST_TMPDIR/bin/gh"
+    export PATH="$BATS_TEST_TMPDIR/bin:$PATH" GH_LOG="$BATS_TEST_TMPDIR/gh.log" \
+        GH_DIR="$BATS_TEST_TMPDIR/gh" GH_REPO=o/r INTEGRATION=develop
+    : >"$GH_LOG"
+}
+
+supprimes() { sed -n 's#^api -X DELETE repos/o/r/git/refs/heads/##p' "$GH_LOG" | sort | paste -sd' ' -; }
+
+@test "instantanes : version stable publiee ou PR fermee sans fusion -> supprime" {
+    fake_gh_instantanes
+    # 4.9.0 publiée (sa préversion ne compte pas) ; 4.9.1 en attente
+    export GH_TAGS="v4.8.3 v4.9.0 v4.9.1-next.2" GH_INSTANTANES="4.8.4 4.9.0 4.9.1"
+    echo "MERGED" >"$GH_DIR/pr-4.9.0"
+    echo "OPEN" >"$GH_DIR/pr-4.9.1"
+    run "$INSTANTANES"
+    [ "$status" -eq 0 ]
+    # 4.8.4 : sans PR, mais 4.9.0 publiée ; 4.9.0 : publiée
+    [ "$(supprimes)" = "livraison/v4.8.4 livraison/v4.9.0" ]
+    [[ "$output" == *"Instantané livraison/v4.8.4 supprimé (v4.9.0 publiée)"* ]] || false
+    grep -qx "api repos/o/r/compare/develop...livraison/v4.8.4 --jq .ahead_by" "$GH_LOG"
+    [[ "$output" == *"livraison/v4.9.1 conservée : livraison en attente la plus récente"* ]] || false
+    # demande remplacée (PR fermée sans fusion), non publiée : supprimée
+    export GH_TAGS="v4.9.0" GH_INSTANTANES="4.9.1 4.10.0"
+    echo "CLOSED" >"$GH_DIR/pr-4.9.1"
+    echo "OPEN" >"$GH_DIR/pr-4.10.0"
+    : >"$GH_LOG"
+    run "$INSTANTANES"
+    [ "$(supprimes)" = "livraison/v4.9.1" ]
+    [[ "$output" == *"supprimé (PR de livraison fermée sans fusion)"* ]] || false
+}
+
+@test "instantanes : en attente la plus recente, PR ouverte, commits propres -> conserves" {
+    fake_gh_instantanes
+    # 1.10.0 > 1.9.0 (comparaison numérique) : non publiée, la plus récente,
+    # conservée même si sa PR est fermée
+    export GH_TAGS="v1.9.0" GH_INSTANTANES="1.2.0 1.8.0 1.9.5 1.9.6 1.10.0"
+    echo "CLOSED" >"$GH_DIR/pr-1.10.0"
+    # publiée, mais encore source d'une PR ouverte
+    echo "CLOSED OPEN" >"$GH_DIR/pr-1.2.0"
+    # publiée, mais 2 commits absents de develop ; comparaison impossible
+    echo 2 >"$GH_DIR/avance-1.8.0"
+    echo "CLOSED" >"$GH_DIR/pr-1.9.5"
+    echo erreur >"$GH_DIR/avance-1.9.5"
+    # non publiée, sans PR, pas la plus récente : rien ne dit qu'elle est abandonnée
+    run "$INSTANTANES"
+    [ "$status" -eq 0 ]
+    [ -z "$(supprimes)" ]
+    [[ "$output" == *"livraison/v1.10.0 conservée : livraison en attente la plus récente"* ]] || false
+    [[ "$output" == *"livraison/v1.2.0 conservée : PR de livraison ouverte"* ]] || false
+    [[ "$output" == *"::warning::livraison/v1.8.0 conservée (v1.9.0 publiée) : 2 commit(s) absent(s) de develop"* ]] || false
+    [[ "$output" == *"::warning::livraison/v1.9.5 conservée (PR de livraison fermée sans fusion) : ? commit(s)"* ]] || false
+    ! grep -q "compare/develop...livraison/v1.9.6" "$GH_LOG"
+    # aucune version publiée : seule une PR fermée compte
+    export GH_TAGS="" GH_INSTANTANES="0.1.0 0.2.0"
+    echo "CLOSED" >"$GH_DIR/pr-0.1.0"
+    : >"$GH_LOG"
+    run "$INSTANTANES"
+    [ "$(supprimes)" = "livraison/v0.1.0" ]
+    # API en échec : avertissement, rien supprimé, le run n'échoue pas
+    GH_ERREUR=1 run "$INSTANTANES"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"::warning::Instantanés de livraison : tags illisibles"* ]] || false
+}
+
+@test "release-auto : instantanes nettoyes sur integration et principale, remplacement sans suppression directe" {
+    local wf="$BATS_TEST_DIRNAME/../.github/workflows/release-auto.yml" etape
+    etape="$(awk '/- name: Instantanés de livraison abandonnés$/ { j = 1 } j && /- name: / && !/abandonnés$/ { j = 0 } j' "$wf")"
+    [[ "$etape" == *"inputs.delivery-environment != ''"* ]] || false
+    [[ "$etape" == *"inputs.integration-branch"*"inputs.main-branch"* ]] || false
+    [[ "$etape" == *"bash .repowarden-ci/ci/instantanes.sh"* ]] || false
+    # après le tag et la release (version publiée) : étape placée après
+    awk '/- name: Tag et release$/ { t = NR } /- name: Instantanés de livraison abandonnés$/ { i = NR } END { exit !(t && i > t) }' "$wf"
+    # la demande remplacée garde son instantané jusqu'au contrôle (commits absents)
+    run grep -n 'delete-branch' "$wf"
+    [ -z "$output" ] || false
+}
+
 # --- Code mort (ci/check.sh deadcode) : outils simulés ---------------------------
 
 # Faux ruff et vulture : signalent une ligne de chaque fichier Python listé

@@ -145,7 +145,7 @@ jobs:
 Le rythme des versions stables est régulier : `develop` accumule, une livraison par fenêtre publie le tout en **une** version, mineure ou majeure selon les commits. À sa sortie, les préversions de cette version sont retirées de GitHub (sur npm, elles restent : une version publiée ne se retire pas).
 
 !!! note "Approuver quand on veut"
-    L'approbation porte sur l'instantané figé au moment de la demande : le travail mergé ensuite dans `develop` ne la rend pas caduque, il partira à la livraison suivante. Une nouvelle demande (urgence, relance) remplace la précédente. Seuls `develop` et ses instantanés `livraison/*` peuvent entrer dans `main`, jamais sans approbation.
+    L'approbation porte sur l'instantané figé au moment de la demande : le travail mergé ensuite dans `develop` ne la rend pas caduque, il partira à la livraison suivante. Une nouvelle demande (urgence, relance) remplace la précédente ; l'instantané d'une demande remplacée, refusée (PR fermée) ou déjà publiée est supprimé au run suivant, s'il n'a aucun commit absent de `develop` ([nettoyage des branches](industrialisation.md#branches-mergees-supprimees-automatiquement)). Seuls `develop` et ses instantanés `livraison/*` peuvent entrer dans `main`, jamais sans approbation.
 
 | | `develop` : test | `main` : production |
 |---|---|---|
