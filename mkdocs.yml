@@ -4,7 +4,7 @@ site_url: https://simdevwarden.github.io/repowarden/
 repo_url: https://github.com/simdevWarden/repowarden
 repo_name: simdevWarden/repowarden
 edit_uri: edit/main/docs/
-copyright: Licence GPL-3.0-or-later
+copyright: Licence GPL-3.0-only
 
 # Un lien cassé ou une page orpheline fait échouer la publication
 strict: true
