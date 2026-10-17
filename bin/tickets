@@ -2,7 +2,7 @@
 # Prépare le suivi des tickets d'un dépôt GitHub (relançable sans risque) :
 #   repowarden tickets init [--repo propriétaire/nom] [--sans-validation-auto]
 #   repowarden tickets sync   branches locales des tickets qui me sont assignés
-#                             (aussi automatique : réglage ticketSync = auto|manual|off)
+#                             (automatique si réglage ticketSync = auto ; défaut manual)
 #   - étiquettes : « validé », les statuts (à valider, backlog, en cours,
 #     en relecture, préprod, done) et les types (type: feat, type: fix…), qui
 #     donnent le préfixe de la branche du ticket ;

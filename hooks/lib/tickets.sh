@@ -201,16 +201,17 @@ ticket_remote_branch_r() {
 }
 
 # Branches locales des tickets qui me sont assignés (repowarden tickets sync ;
-# hooks post-merge et post-checkout en mode auto, au plus toutes les 15 min) :
+# hooks post-merge et post-checkout seulement si ticketSync = auto est posé,
+# au plus toutes les 15 min) :
 # branche distante retrouvée, ou créée et liée au ticket (validé) ; branche
 # locale de suivi créée sans changer la branche courante (jamais pour un travail
 # livré : préprod, done, ou en relecture sans branche). Ticket qui ne m'est
 # plus assigné : signalé, sa branche locale conservée. Réglage ticketSync :
-# auto (défaut), manual (commande seulement), off. $1 = force (commande).
+# manual (défaut : commande seulement, un pull ne touche à rien), auto, off. $1 = force (commande).
 tickets_sync() {
     local force="${1:-}" stamp now last base n titre etiquettes branche b qui etat
     local miens=" "
-    cfg_r ticketSync auto
+    cfg_r ticketSync manual
     [ "$REPLY" != off ] || return 0
     if [ -z "$force" ]; then
         [ "$REPLY" = auto ] && tickets_managed && command -v gh >/dev/null || return 0
