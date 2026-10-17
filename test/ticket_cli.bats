@@ -196,7 +196,7 @@ gere() {
     # hooks repowarden du poste (core.hooksPath) : le clone les execute, meme en auto
     PATH="$F/bin:$PATH" run git -c core.hooksPath="$HOOKS" -c repowarden.ticketSync=auto clone -q "$REMOTE" "$BATS_TEST_TMPDIR/clone"
     [ "$status" -eq 0 ]
-    [[ "$output" != *"#366"* ]]
+    [[ "$output" != *"#366"* ]] || false
     [ ! -s "$F/log" ]
     [ -z "$(git -C "$BATS_TEST_TMPDIR/clone" branch --list 'fix/366*')" ]
 }
@@ -210,12 +210,12 @@ gere() {
     PATH="$F/bin:$PATH" run git pull -q origin main
     [ "$status" -eq 0 ]
     PATH="$F/bin:$PATH" run git switch -q -c feat/1-a
-    [[ "$output" != *"prête"* ]]
+    [[ "$output" != *"prête"* ]] || false
     [ ! -s "$F/log" ]
     [ -z "$(git branch --list 'fix/38*')" ]
     # volontaire : la commande garde son comportement
     PATH="$F/bin:$PATH" run "$BATS_TEST_DIRNAME/../bin/tickets" sync
-    [[ "$output" == *"#384 assigné : branche locale fix/384-clonage prête"* ]]
+    [[ "$output" == *"#384 assigné : branche locale fix/384-clonage prête"* ]] || false
 }
 
 @test "tickets sync : en relecture sans branche distante (PR mergee) -> branche pas recreee" {

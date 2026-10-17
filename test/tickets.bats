@@ -561,7 +561,7 @@ EOF
     ACTION=edited MERGED=false run "$TICKETS" pr
     [ "$status" -eq 0 ]
     [ "$(labels 12 | grep statut)" = "statut: préprod" ]
-    [[ "$output" == *"#12"*"préprod"* ]]
+    [[ "$output" == *"#12"*"préprod"* ]] || false
     # assignation, revue, push : rien ne fait reculer un ticket livre
     N=12 ticket "validé" "statut: done"
     REVIEW_STATE=changes_requested run "$TICKETS" revue
