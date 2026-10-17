@@ -88,7 +88,7 @@ SH
     grep -q '^| `o/b` | off | ignoré' "$F/rapport.md"
     grep -q '^| `o/c` | auto | ✔ appliquée | ✔ PR ouverte |$' "$F/rapport.md"
     grep -q '^| `o/d` | pr | ⚠ périmée : repowarden proteger | rien à migrer |$' "$F/rapport.md"
-    [[ "$output" == *"Rapport du bot repowarden"* ]]
+    [[ "$output" == *"Rapport du bot repowarden"* ]] || false
 }
 
 @test "bot --dry-run : rien d'applique, migration dans le clone jetable" {
@@ -97,7 +97,7 @@ SH
     grep -q "^proteger o/c checks=repowarden,tests verifier$" "$F/log"
     ! grep -q "^proteger o/c checks=repowarden,tests$" "$F/log"
     grep -q "^migrer o_c  ident=" "$F/log"
-    [[ "$output" == *"Aperçu (dry-run)"* ]]
+    [[ "$output" == *"Aperçu (dry-run)"* ]] || false
     ! grep -q "installation/repositories" "$F/log"
 }
 
@@ -108,7 +108,7 @@ SH
     grep -q '^| `o/b` | `peut-etre` | ✖ bot = peut-etre : auto, pr ou off attendu' "$F/rapport.md"
     grep -q '^| `o/c` | auto | ✖ Ruleset « repowarden » refusé par GitHub : Validation Failed |' "$F/rapport.md"
     grep -q '^| `o/e` | auto | ✔ appliquée' "$F/rapport.md"
-    [[ "$output" == *"2 erreur(s)"* ]]
+    [[ "$output" == *"2 erreur(s)"* ]] || false
 }
 
 @test "bot : protection a jour -> rien d'applique" {
@@ -140,6 +140,6 @@ SH
     if command -v actionlint >/dev/null; then actionlint .github/workflows/bot.yml; fi
     echo "# perso" >.github/workflows/bot.yml
     run "$BOT" init
-    [[ "$output" == *"existe déjà"* ]]
+    [[ "$output" == *"existe déjà"* ]] || false
     [ "$(cat .github/workflows/bot.yml)" = "# perso" ]
 }

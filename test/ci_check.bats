@@ -26,7 +26,7 @@ setup() {
     git commit -q --no-verify --allow-empty -m "fix(api): b"
     run "$CHECK" commits
     [ "$status" -eq 0 ]
-    [[ "$output" == *"2 commit(s) conforme(s)"* ]]
+    [[ "$output" == *"2 commit(s) conforme(s)"* ]] || false
 }
 
 @test "ci : commit non conforme refuse" {
@@ -34,14 +34,14 @@ setup() {
     git commit -q --no-verify --allow-empty -m "wip"
     run "$CHECK" commits
     [ "$status" -ne 0 ]
-    [[ "$output" == *"« wip »"* ]]
+    [[ "$output" == *"« wip »"* ]] || false
 }
 
 @test "ci : fixup! refuse (a squasher avant merge)" {
     git commit -q --no-verify --allow-empty -m "fixup! feat: a"
     run "$CHECK" commits
     [ "$status" -ne 0 ]
-    [[ "$output" == *"squasher"* ]]
+    [[ "$output" == *"squasher"* ]] || false
 }
 
 @test "ci : nom de branche" {
@@ -49,7 +49,7 @@ setup() {
     [ "$status" -eq 0 ]
     REPOWARDEN_BRANCH=Mauvais run "$CHECK" branch
     [ "$status" -ne 0 ]
-    [[ "$output" == *"feat/mauvais"* ]]
+    [[ "$output" == *"feat/mauvais"* ]] || false
 }
 
 @test "ci : branche detectee depuis les variables GitLab" {
@@ -73,7 +73,7 @@ setup() {
     git commit -q --no-verify -m "feat: a"
     run "$CHECK" format
     [ "$status" -ne 0 ]
-    [[ "$output" == *"a.py : non formaté"* ]]
+    [[ "$output" == *"a.py : non formaté"* ]] || false
     [ -z "$(git status --porcelain)" ]
 }
 
@@ -93,7 +93,7 @@ setup() {
     git commit -q --no-verify -m "build: make"
     run "$CHECK" tests
     [ "$status" -ne 0 ]
-    [[ "$output" == *"ci-make"* ]]
+    [[ "$output" == *"ci-make"* ]] || false
 }
 
 @test "ci : secrets detectes" {
@@ -112,7 +112,7 @@ setup() {
     git commit -q --no-verify -m "chore: conf"
     run "$CHECK" commits
     [ "$status" -eq 0 ]
-    [[ "$output" == *"Désactivé par .repowarden.conf"* ]]
+    [[ "$output" == *"Désactivé par .repowarden.conf"* ]] || false
 }
 
 @test "ci : mode strict, outil manquant = echec" {
@@ -122,13 +122,13 @@ setup() {
     git commit -q --no-verify -m "feat: js"
     run env PATH="$(dirname "$(command -v git)"):/usr/bin:/bin" REPOWARDEN_STRICT=true "$CHECK" format
     [ "$status" -ne 0 ]
-    [[ "$output" == *"prettier introuvable"* ]]
+    [[ "$output" == *"prettier introuvable"* ]] || false
 }
 
 @test "ci : annotations GitHub" {
     git commit -q --no-verify --allow-empty -m "wip"
     GITHUB_ACTIONS=true run "$CHECK" commits
-    [[ "$output" == *"::error title=repowarden::"* ]]
+    [[ "$output" == *"::error title=repowarden::"* ]] || false
 }
 
 @test "ci : verification inconnue" {
@@ -149,10 +149,10 @@ setup() {
     git commit -q --no-verify --allow-empty -m "feat: a"
     REPOWARDEN_PR_TITLE="feat(api): ajoute la route" run "$CHECK" commits
     [ "$status" -eq 0 ]
-    [[ "$output" == *"Titre de la PR conforme"* ]]
+    [[ "$output" == *"Titre de la PR conforme"* ]] || false
     REPOWARDEN_PR_TITLE="Ajout de la route" run "$CHECK" commits
     [ "$status" -ne 0 ]
-    [[ "$output" == *"Titre de la PR « Ajout de la route »"* ]]
+    [[ "$output" == *"Titre de la PR « Ajout de la route »"* ]] || false
 }
 
 @test "ci : requirements.txt sans tests (ex. outils de doc) -> pas d'exigence pytest en strict" {
@@ -163,8 +163,8 @@ setup() {
     git commit -q --no-verify -m "docs: site"
     run env REPOWARDEN_STRICT=true PATH="$(dirname "$(command -v git)"):/usr/bin:/bin" "$CHECK" tests
     [ "$status" -eq 0 ]
-    [[ "$output" == *"Python : aucun test"* ]]
-    [[ "$output" != *"pytest absent"* ]]
+    [[ "$output" == *"Python : aucun test"* ]] || false
+    [[ "$output" != *"pytest absent"* ]] || false
 }
 
 @test "ci : suffixe (#NN) d'un merge squash non compte dans les 72 caracteres" {
@@ -220,8 +220,8 @@ setup() {
     git update-ref refs/remotes/origin/develop HEAD
     REPOWARDEN_TARGET=main run "$CHECK" branch
     [ "$status" -ne 0 ]
-    [[ "$output" == *"la branche develop existe mais .repowarden.conf ne déclare pas"* ]]
-    [[ "$output" == *"integrationBranch = develop"* ]]
+    [[ "$output" == *"la branche develop existe mais .repowarden.conf ne déclare pas"* ]] || false
+    [[ "$output" == *"integrationBranch = develop"* ]] || false
     # develop elle-même, ou une autre cible : rien à signaler
     REPOWARDEN_BRANCH=develop REPOWARDEN_TARGET=main run "$CHECK" branch
     [ "$status" -eq 0 ]
@@ -231,13 +231,13 @@ setup() {
     git config --unset repowarden.mainBranch
     # le statut le signale aussi
     run "$BATS_TEST_DIRNAME/../bin/statut"
-    [[ "$output" == *"flux develop → main n'est pas déclaré"* ]]
+    [[ "$output" == *"flux develop → main n'est pas déclaré"* ]] || false
     # flux déclaré : règles du flux develop, plus d'alerte
     git config repowarden.integrationBranch develop
     REPOWARDEN_TARGET=develop run "$CHECK" branch
     [ "$status" -eq 0 ]
     run "$BATS_TEST_DIRNAME/../bin/statut"
-    [[ "$output" != *"n'est pas déclaré"* ]]
+    [[ "$output" != *"n'est pas déclaré"* ]] || false
     # sans branche develop : projet « main seule », PR vers main admise
     git config --unset repowarden.integrationBranch
     git update-ref -d refs/remotes/origin/develop
@@ -249,8 +249,8 @@ setup() {
     git config repowarden.integrationBranch develop
     REPOWARDEN_TARGET=main run "$CHECK" branch
     [ "$status" -ne 0 ]
-    [[ "$output" == *"cible attendue develop"* ]]
-    [[ "$output" == *"gh pr edit --base develop"* ]]
+    [[ "$output" == *"cible attendue develop"* ]] || false
+    [[ "$output" == *"gh pr edit --base develop"* ]] || false
 }
 
 @test "ci : PR depuis une branche persistante -> jamais rouge (inversee sans objet, retour sans titre)" {
@@ -259,13 +259,13 @@ setup() {
     for paire in develop:feat/184-x develop:release/1.0.0 main:feat/x; do
         REPOWARDEN_BRANCH="${paire%%:*}" REPOWARDEN_TARGET="${paire#*:}" run "$CHECK"
         [ "$status" -eq 0 ] || { echo "devrait passer : $paire"; echo "$output"; return 1; }
-        [[ "$output" == *"sans objet"* && "$output" == *"git merge origin/develop"* ]]
+        [[ "$output" == *"sans objet"* && "$output" == *"git merge origin/develop"* ]] || false
     done
     # retour main -> develop : titre libre (merge commit), le reste verifie
     git commit -q --no-verify --allow-empty -m "fix: a"
     REPOWARDEN_BRANCH=main REPOWARDEN_TARGET=develop REPOWARDEN_PR_TITLE="Main" run "$CHECK" commits branch
     [ "$status" -eq 0 ]
-    [[ "$output" == *"titre de la PR n'est pas vérifié"* ]]
+    [[ "$output" == *"titre de la PR n'est pas vérifié"* ]] || false
     # une PR de travail garde la verification du titre
     REPOWARDEN_TARGET=develop REPOWARDEN_PR_TITLE="Main" run "$CHECK" commits
     [ "$status" -ne 0 ]
@@ -274,7 +274,7 @@ setup() {
 @test "ci : sans integrationBranch, toute cible acceptee" {
     REPOWARDEN_TARGET=develop run "$CHECK" branch
     [ "$status" -eq 0 ]
-    [[ "$output" != *"Cible"* ]]
+    [[ "$output" != *"Cible"* ]] || false
 }
 
 # --- ci/fix-pr.sh (entrée fix-pr de l'action) : gh simulé ----------------------
@@ -470,8 +470,8 @@ print(json.dumps(out))' <<<"$(sed -n '/^{/,$p' <<<"$1")"
         assert b["rules"][3]["parameters"]["required_status_checks"][0]["context"]=="repowarden"; \
         assert b["rules"][3]["parameters"]["strict_required_status_checks_policy"] is True; \
         assert t["target"]=="tag" and t["conditions"]["ref_name"]["include"]==["refs/tags/v*"]' "$(rulesets_json "$output")"
-    [[ "$output" == *"suppression auto des branches : true"* ]]
-    [[ "$output" != *"branche par défaut"* ]]
+    [[ "$output" == *"suppression auto des branches : true"* ]] || false
+    [[ "$output" != *"branche par défaut"* ]] || false
 }
 
 @test "proteger : flux develop -> main en merge commit, develop squash seul, defaut develop" {
@@ -497,19 +497,19 @@ print(json.dumps(out))' <<<"$(sed -n '/^{/,$p' <<<"$1")"
         assert len(d["rules"])==4; \
         assert e["reviewers"]==[{"type":"User","id":101}] and e["prevent_self_review"] is False; \
         assert t["name"]=="repowarden (tags)"' "$(rulesets_json "$output")"
-    [[ "$output" == *"suppression auto des branches : false"* ]]
-    [[ "$output" == *"branche par défaut : develop"* ]]
-    [[ "$output" == *"livraison vers main : approbation du déploiement « production »"* ]]
+    [[ "$output" == *"suppression auto des branches : false"* ]] || false
+    [[ "$output" == *"branche par défaut : develop"* ]] || false
+    [[ "$output" == *"livraison vers main : approbation du déploiement « production »"* ]] || false
     # sans workflow de nettoyage : avertissement ; avec : rien
-    [[ "$output" == *"ajouter un workflow qui appelle nettoyage-branches.yml"* ]]
+    [[ "$output" == *"ajouter un workflow qui appelle nettoyage-branches.yml"* ]] || false
     mkdir -p .github/workflows
     printf 'jobs:\n  n:\n    uses: o/r/.github/workflows/nettoyage-branches.yml@v4\n' >.github/workflows/nettoyage.yml
     GH_BRANCHES="main develop" run "$PROTEGER" --dry-run --checks "repowarden"
-    [[ "$output" != *"nettoyage-branches.yml"* ]]
-    [[ "$output" == *"merge automatique des PR de travail vers develop : true"* ]]
+    [[ "$output" != *"nettoyage-branches.yml"* ]] || false
+    [[ "$output" == *"merge automatique des PR de travail vers develop : true"* ]] || false
     git config repowarden.autoMergeWork false
     GH_BRANCHES="main develop" run "$PROTEGER" --dry-run
-    [[ "$output" == *"merge automatique des PR de travail vers develop : false"* ]]
+    [[ "$output" == *"merge automatique des PR de travail vers develop : false"* ]] || false
     git config repowarden.autoMergeWork peut-etre
     GH_BRANCHES="main develop" run "$PROTEGER" --dry-run
     [ "$status" -ne 0 ]
@@ -520,7 +520,7 @@ print(json.dumps(out))' <<<"$(sed -n '/^{/,$p' <<<"$1")"
     python3 -c 'import json,sys; r=json.loads(sys.argv[1]); assert len(r)==3; m=r[0]; \
         assert m["rules"][2]["parameters"]["required_approving_review_count"]==1 and len(m["rules"])==4' \
         "$(rulesets_json "$output")"
-    [[ "$output" == *"livraison vers main : 1 approbation(s) exigée(s)"* ]]
+    [[ "$output" == *"livraison vers main : 1 approbation(s) exigée(s)"* ]] || false
     git config repowarden.deliveryApproval peut-etre
     GH_BRANCHES="main develop" run "$PROTEGER" --dry-run
     [ "$status" -ne 0 ]
@@ -539,7 +539,7 @@ print(json.dumps(out))' <<<"$(sed -n '/^{/,$p' <<<"$1")"
     mkdir -p .github/workflows
     printf 'jobs:\n  r:\n    uses: o/r/.github/workflows/release-auto.yml@v4\n' >.github/workflows/release.yml
     GH_BRANCHES="main develop" run "$PROTEGER" --dry-run
-    [[ "$output" == *"vérification « livraison » exigée"* ]]
+    [[ "$output" == *"vérification « livraison » exigée"* ]] || false
     python3 -c 'import json,sys; r=json.loads(sys.argv[1]); m,d=r[0],r[1]; \
         assert [c["context"] for c in m["rules"][3]["parameters"]["required_status_checks"]]==["repowarden","livraison"]; \
         assert [c["context"] for c in d["rules"][3]["parameters"]["required_status_checks"]]==["repowarden"]' \
@@ -560,7 +560,7 @@ print(json.dumps(out))' <<<"$(sed -n '/^{/,$p' <<<"$1")"
     : >"$GH_LOG"
     GH_BRANCHES="main develop" run "$PROTEGER" --dry-run
     ! grep -q "^label create" "$GH_LOG"
-    [[ "$output" == *"urgent"* ]]
+    [[ "$output" == *"urgent"* ]] || false
 }
 
 @test "proteger --verifier : regles en ligne comparees a celles attendues" {
@@ -573,13 +573,13 @@ print(json.dumps(out))' <<<"$(sed -n '/^{/,$p' <<<"$1")"
     export GH_RULESETS="$(python3 -c 'import json,sys; r=json.loads(sys.argv[1]); [x.__setitem__("id",i+1) for i,x in enumerate(r) if "name" in x]; print(json.dumps([x for x in r if "name" in x]))' "$(rulesets_json "$output")")"
     GH_BRANCHES="main develop" run "$PROTEGER" --verifier
     [ "$status" -eq 0 ]
-    [[ "$output" == *"à jour"* ]]
+    [[ "$output" == *"à jour"* ]] || false
     # en ligne : 1 approbation et pas de regle de deploiement (cas #267) -> ecart
     export GH_RULESETS="$(python3 -c 'import json,sys; r=json.loads(sys.argv[1]); m=r[0]; m["rules"][2]["parameters"]["required_approving_review_count"]=1; m["rules"]=m["rules"][:4]; print(json.dumps(r))' "$GH_RULESETS")"
     GH_BRANCHES="main develop" run "$PROTEGER" --verifier
     [ "$status" -ne 0 ]
-    [[ "$output" == *"approbations=1"* && "$output" == *"approbations=0"* ]]
-    [[ "$output" == *"repowarden proteger"* ]]
+    [[ "$output" == *"approbations=1"* && "$output" == *"approbations=0"* ]] || false
+    [[ "$output" == *"repowarden proteger"* ]] || false
     # ruleset absent -> ecart
     GH_RULESETS='[]' GH_BRANCHES="main develop" run "$PROTEGER" --verifier
     [ "$status" -ne 0 ]
@@ -600,7 +600,7 @@ ancien_ruleset() {
          \"rules\": [{\"type\": \"required_status_checks\", \"parameters\": {\"required_status_checks\": [{\"context\": \"build\"}]}}]}]"
     GH_BRANCHES="main" run "$PROTEGER"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"ancien ruleset « Protection de main » repris"* ]]
+    [[ "$output" == *"ancien ruleset « Protection de main » repris"* ]] || false
     # mis a jour en place (renomme), aucun second ruleset de branche, l'autre intact
     grep -q "^api -X PUT repos/moi/projet/rulesets/7 " "$GH_LOG"
     ! grep -q "rulesets/9" <(grep -- "-X" "$GH_LOG")
@@ -613,14 +613,14 @@ ancien_ruleset() {
     export GH_RULESETS="[$(ancien_ruleset 7 "Protection de main" '["refs/heads/main"]'), $(ancien_ruleset 8 "Vieux" '["~ALL"]')]"
     GH_BRANCHES="main" run "$PROTEGER"
     [ "$status" -ne 0 ]
-    [[ "$output" == *"ancien ruleset « Protection de main » repris"* ]]
-    [[ "$output" == *"Ancien ruleset « Vieux » (id 8)"* ]]
-    [[ "$output" == *"gh api -X DELETE repos/moi/projet/rulesets/8"* ]]
+    [[ "$output" == *"ancien ruleset « Protection de main » repris"* ]] || false
+    [[ "$output" == *"Ancien ruleset « Vieux » (id 8)"* ]] || false
+    [[ "$output" == *"gh api -X DELETE repos/moi/projet/rulesets/8"* ]] || false
     ! grep -q "DELETE" <(grep "^api" "$GH_LOG")
     # --verifier : l'ancien ruleset compte comme un ecart
     GH_BRANCHES="main" run "$PROTEGER" --verifier
     [ "$status" -ne 0 ]
-    [[ "$output" == *"Protection de main (id 7) : ancien ruleset"* ]]
+    [[ "$output" == *"Protection de main (id 7) : ancien ruleset"* ]] || false
 }
 
 @test "proteger : sans rulesets, flux develop -> squash desactive (merge commit seul)" {
@@ -629,11 +629,11 @@ ancien_ruleset() {
     git config repowarden.protectedBranches "main develop"
     GH_RULESETS_403=1 GH_BRANCHES="main develop" run "$PROTEGER"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"squash désactivé (merge commit seul)"* ]]
+    [[ "$output" == *"squash désactivé (merge commit seul)"* ]] || false
     grep -q "allow_squash_merge=false" "$GH_LOG"
     # squash désactivé : ni titre ni corps du squash (sinon PATCH refusé en 422)
     ! grep -q "squash_merge_commit" "$GH_LOG"
-    [[ "$output" != *"Validation Failed"* ]]
+    [[ "$output" != *"Validation Failed"* ]] || false
     # avec rulesets : squash gardé (imposé par branche)
     : >"$GH_LOG"
     GH_BRANCHES="main develop" run "$PROTEGER"
@@ -644,8 +644,8 @@ ancien_ruleset() {
     fake_gh_repo
     GH_REFUSE_PATCH=1 GH_BRANCHES="main" run "$PROTEGER"
     [ "$status" -ne 0 ]
-    [[ "$output" == *"Réglages du dépôt (modes de merge, branche par défaut) : refusé par GitHub : Validation Failed"* ]]
-    [[ "$output" == *"Protection incomplète"* ]]
+    [[ "$output" == *"Réglages du dépôt (modes de merge, branche par défaut) : refusé par GitHub : Validation Failed"* ]] || false
+    [[ "$output" == *"Protection incomplète"* ]] || false
     grep -q "^api -X PUT repos/moi/projet/actions/permissions/workflow" "$GH_LOG"
     grep -q "^api -X POST repos/moi/projet/rulesets" "$GH_LOG"
 }
@@ -654,11 +654,11 @@ ancien_ruleset() {
     fake_gh_repo
     # annoncé dès l'aperçu
     GH_RULESETS_403=1 GH_BRANCHES="main" run "$PROTEGER" --dry-run
-    [[ "$output" == *"Merge automatique indisponible sur ce dépôt"* ]]
+    [[ "$output" == *"Merge automatique indisponible sur ce dépôt"* ]] || false
     # PATCH accepté mais allow_auto_merge resté faux : relu et signalé
     GH_RULESETS_403=1 GH_AUTO_MERGE=false GH_BRANCHES="main" run "$PROTEGER"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"Merge automatique demandé mais resté désactivé sur moi/projet"*"GitHub Pro / Team"* ]]
+    [[ "$output" == *"Merge automatique demandé mais resté désactivé sur moi/projet"*"GitHub Pro / Team"* ]] || false
     grep -q "^api repos/moi/projet --jq .allow_auto_merge" "$GH_LOG"
     # livraison automatique : impossible, échec
     git config repowarden.integrationBranch develop
@@ -666,41 +666,41 @@ ancien_ruleset() {
     git config repowarden.deliveryApproval auto
     GH_RULESETS_403=1 GH_AUTO_MERGE=false GH_BRANCHES="main develop" run "$PROTEGER"
     [ "$status" -ne 0 ]
-    [[ "$output" == *"deliveryApproval = auto ne peut pas fonctionner sans merge automatique"* ]]
-    [[ "$output" != *"Validation Failed"* ]]
+    [[ "$output" == *"deliveryApproval = auto ne peut pas fonctionner sans merge automatique"* ]] || false
+    [[ "$output" != *"Validation Failed"* ]] || false
     # merge automatique bien pris en compte : rien à signaler
     GH_BRANCHES="main develop" run "$PROTEGER"
-    [[ "$output" != *"resté désactivé"* ]]
+    [[ "$output" != *"resté désactivé"* ]] || false
 }
 
 @test "proteger : tags refuses dans une organisation -> regle des comptes personnels, avertissement" {
     fake_gh_repo
     GH_OWNER_TYPE=Organization GH_REFUSE_INTEGRATION=1 GH_BRANCHES="main" run "$PROTEGER"
     [ "$status" -eq 0 ] || { echo "$output"; return 1; }
-    [[ "$output" == *"exception « GitHub Actions » refusée dans cette organisation"* ]]
+    [[ "$output" == *"exception « GitHub Actions » refusée dans cette organisation"* ]] || false
     # second envoi : sans l'exception GitHub Actions, création libre
     grep -q '"actor_type": "RepositoryRole"' "$GH_LOG"
-    [[ "$output" != *"refusé par GitHub"* ]]
+    [[ "$output" != *"refusé par GitHub"* ]] || false
 }
 
 @test "proteger : rulesets indisponibles (prive, compte gratuit) -> message clair, reglages appliques" {
     fake_gh_repo
     GH_RULESETS_403=1 GH_BRANCHES="main" run "$PROTEGER"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"Rulesets indisponibles pour moi/projet"*"GitHub Pro"* ]]
+    [[ "$output" == *"Rulesets indisponibles pour moi/projet"*"GitHub Pro"* ]] || false
     grep -q "^api -X PATCH repos/moi/projet " "$GH_LOG"
     ! grep -q "^api -X POST repos/moi/projet/rulesets" "$GH_LOG"
     GH_RULESETS_403=1 GH_BRANCHES="main" run "$PROTEGER" --verifier
     [ "$status" -ne 0 ]
-    [[ "$output" == *"Rulesets indisponibles"* ]]
+    [[ "$output" == *"Rulesets indisponibles"* ]] || false
 }
 
 @test "proteger : refus de GitHub affiche avec son detail, les autres rulesets appliques" {
     fake_gh_repo
     GH_REFUSE="repowarden" GH_BRANCHES="main" run "$PROTEGER"
     [ "$status" -ne 0 ]
-    [[ "$output" == *"Ruleset « repowarden » refusé par GitHub : Validation Failed : Invalid rule"* ]]
-    [[ "$output" == *"Protection incomplète"* ]]
+    [[ "$output" == *"Ruleset « repowarden » refusé par GitHub : Validation Failed : Invalid rule"* ]] || false
+    [[ "$output" == *"Protection incomplète"* ]] || false
     grep -q '"name": "repowarden (tags)"' "$GH_LOG"
 }
 
@@ -712,22 +712,22 @@ ancien_ruleset() {
     # aucun workflow de release avec delivery-environment : main serait bloquee
     GH_BRANCHES="main develop" run "$PROTEGER" --dry-run
     [ "$status" -eq 0 ]
-    [[ "$output" == *"déploiement que rien ne crée"* ]]
+    [[ "$output" == *"déploiement que rien ne crée"* ]] || false
     # workflow complet : rien a signaler
     mkdir -p .github/workflows
     printf 'on:\n  workflow_dispatch:\nconcurrency:\n  group: g\n  cancel-in-progress: ${{ github.event_name != %s }}\njobs:\n  r:\n    uses: o/r/.github/workflows/release-auto.yml@v4\n    with:\n      delivery-environment: production\n' "'push'" >.github/workflows/release.yml
     GH_BRANCHES="main develop" run "$PROTEGER" --dry-run
-    [[ "$output" != *"déploiement que rien ne crée"* ]]
-    [[ "$output" != *"remplace celle en attente"* ]]
+    [[ "$output" != *"déploiement que rien ne crée"* ]] || false
+    [[ "$output" != *"remplace celle en attente"* ]] || false
     # ancienne concurrence avec workflow_dispatch : une demande oubliee bloquerait les suivantes
     sed -i.bak 's/cancel-in-progress: .*/cancel-in-progress: false/' .github/workflows/release.yml
     GH_BRANCHES="main develop" run "$PROTEGER" --dry-run
-    [[ "$output" == *"remplace celle en attente"* ]]
+    [[ "$output" == *"remplace celle en attente"* ]] || false
     # revue de PR au lieu du deploiement : pas de regle de deploiement, pas d'avertissement
     rm -rf .github
     git config repowarden.deliveryApproval review
     GH_BRANCHES="main develop" run "$PROTEGER" --dry-run
-    [[ "$output" != *"déploiement que rien ne crée"* ]]
+    [[ "$output" != *"déploiement que rien ne crée"* ]] || false
 }
 
 @test "proteger : livraison automatique -> verifications exigees gardees, ni deploiement ni environnement" {
@@ -747,9 +747,9 @@ ancien_ruleset() {
         assert m["rules"][2]["parameters"]["required_approving_review_count"]==0; \
         assert len(m["rules"])==4 and {x["type"] for x in m["rules"]}>={"deletion","non_fast_forward"}; \
         assert not any("reviewers" in x for x in r)' "$(rulesets_json "$output")"
-    [[ "$output" == *"livraison vers main : automatique"* ]]
-    [[ "$output" != *"déploiement que rien ne crée"* ]]
-    [[ "$output" != *"delivery-auto: true"* ]]
+    [[ "$output" == *"livraison vers main : automatique"* ]] || false
+    [[ "$output" != *"déploiement que rien ne crée"* ]] || false
+    [[ "$output" != *"delivery-auto: true"* ]] || false
     # relectures configurees : gardees sur main
     GH_BRANCHES="main develop" run "$PROTEGER" --dry-run --relecteurs 1
     python3 -c 'import json,sys; m=json.loads(sys.argv[1])[0]; \
@@ -758,12 +758,12 @@ ancien_ruleset() {
     rm -rf .github
     GH_BRANCHES="main develop" run "$PROTEGER" --dry-run
     [ "$status" -eq 0 ]
-    [[ "$output" == *"delivery-auto: true"* ]]
+    [[ "$output" == *"delivery-auto: true"* ]] || false
     # merge automatique coupe : incompatible, refuse
     git config repowarden.autoMergeWork false
     GH_BRANCHES="main develop" run "$PROTEGER" --dry-run
     [ "$status" -ne 0 ]
-    [[ "$output" == *"autoMergeWork"* ]]
+    [[ "$output" == *"autoMergeWork"* ]] || false
 }
 
 @test "release-auto : livraison automatique armee par l'App, sortie delivery_pr exposee" {
@@ -777,11 +777,11 @@ ancien_ruleset() {
     local etape
     etape="$(awk '/- name: Livraison automatique$/ { j = 1 } j && /- name: / && !/Livraison automatique$/ { j = 0 } j' "$wf")"
     [ -n "$etape" ]
-    [[ "$etape" == *"inputs.delivery-auto"* ]]
-    [[ "$etape" == *'GH_TOKEN: ${{ steps.app.outputs.token }}'* ]]
-    [[ "$etape" != *"github.token"* ]]
-    [[ "$etape" == *'gh pr merge "$PR" --auto --merge'* ]]
-    [[ "$etape" == *"::warning::"* ]]
+    [[ "$etape" == *"inputs.delivery-auto"* ]] || false
+    [[ "$etape" == *'GH_TOKEN: ${{ steps.app.outputs.token }}'* ]] || false
+    [[ "$etape" != *"github.token"* ]] || false
+    [[ "$etape" == *'gh pr merge "$PR" --auto --merge'* ]] || false
+    [[ "$etape" == *"::warning::"* ]] || false
     # deux modes exclusifs : erreur explicite ; job livraison (approbation) inchange
     grep -q 'delivery-auto et delivery-environment' "$wf"
     grep -q 'Approbation humaine' "$wf"
@@ -796,7 +796,7 @@ ancien_ruleset() {
     python3 -c 'import json,sys; r=json.loads(sys.argv[1]); \
         assert all(x["rules"][2]["parameters"]["require_extra_approval_for_unattributed_changes"] is False for x in r if x.get("target")=="branch")' \
         "$(rulesets_json "$output")"
-    [[ "$output" == *"changements non attribués : false"* ]]
+    [[ "$output" == *"changements non attribués : false"* ]] || false
     git config repowarden.unattributedApproval true
     GH_BRANCHES="main develop" run "$PROTEGER" --dry-run
     python3 -c 'import json,sys; r=json.loads(sys.argv[1]); \
@@ -815,7 +815,7 @@ ancien_ruleset() {
     python3 -c 'import json,sys; b=json.loads(sys.argv[1])[0]; p=b["rules"][2]["parameters"]; \
         assert p["required_approving_review_count"]==2 and p["require_code_owner_review"] is True; \
         assert p["require_last_push_approval"] is True and p["dismiss_stale_reviews_on_push"] is True' "$(rulesets_json "$output")"
-    [[ "$output" == *"contournement explicite"* ]]
+    [[ "$output" == *"contournement explicite"* ]] || false
     GH_BRANCHES="main" run "$PROTEGER" --dry-run --relecteurs beaucoup
     [ "$status" -ne 0 ]
 }
@@ -827,7 +827,7 @@ ancien_ruleset() {
     [ "$status" -eq 0 ]
     python3 -c 'import json,sys; p=json.loads(sys.argv[1])[0]["rules"][2]["parameters"]; \
         assert p["required_approving_review_count"]==1 and p["require_last_push_approval"] is False' "$(rulesets_json "$output")"
-    [[ "$output" == *"dépôt solo"* ]]
+    [[ "$output" == *"dépôt solo"* ]] || false
     # livraison en revue de PR : pas de minimum forcé à 1 en solo
     git config repowarden.integrationBranch develop
     git config repowarden.protectedBranches "main develop"
@@ -839,7 +839,7 @@ ancien_ruleset() {
     GH_WRITERS=2 GH_BRANCHES="main develop" run "$PROTEGER" --dry-run --relecteurs 1
     python3 -c 'import json,sys; p=json.loads(sys.argv[1])[0]["rules"][2]["parameters"]; \
         assert p["required_approving_review_count"]==1 and p["require_last_push_approval"] is True' "$(rulesets_json "$output")"
-    [[ "$output" != *"dépôt solo"* ]]
+    [[ "$output" != *"dépôt solo"* ]] || false
 }
 
 @test "proteger : reglages lus dans .repowarden.conf" {
@@ -849,7 +849,7 @@ ancien_ruleset() {
     git config repowarden.codeOwnerReview true
     GH_BRANCHES="main" run "$PROTEGER" --dry-run
     [ "$status" -eq 0 ]
-    [[ "$output" == *"approbations exigées : 1 ; revue des CODEOWNERS : true"* ]]
+    [[ "$output" == *"approbations exigées : 1 ; revue des CODEOWNERS : true"* ]] || false
 }
 
 @test "proteger : environnement de deploiement approuve par des personnes" {
@@ -860,7 +860,7 @@ ancien_ruleset() {
     python3 -c 'import json,sys; e=json.loads(sys.argv[1])[-1]; \
         assert e["reviewers"]==[{"type":"User","id":101}] and e["prevent_self_review"] is False; \
         assert e["deployment_branch_policy"]["custom_branch_policies"] is True' "$(rulesets_json "$output")"
-    [[ "$output" == *"environnement « production » : approbation de moi"* ]]
+    [[ "$output" == *"environnement « production » : approbation de moi"* ]] || false
     GH_BRANCHES="main" run "$PROTEGER" --dry-run --environnement production --approbateurs "moi alice"
     python3 -c 'import json,sys; e=json.loads(sys.argv[1])[-1]; \
         assert [r["id"] for r in e["reviewers"]]==[101,102] and e["prevent_self_review"] is True' "$(rulesets_json "$output")"
@@ -884,7 +884,7 @@ ancien_ruleset() {
     python3 -c 'import json,sys; t=json.loads(sys.argv[1])[-1]; \
         assert [r["type"] for r in t["rules"]]==["update","deletion"]; \
         assert t["bypass_actors"][0]["actor_type"]=="RepositoryRole"' "$(rulesets_json "$output")"
-    [[ "$output" == *"compte personnel"* ]]
+    [[ "$output" == *"compte personnel"* ]] || false
     GH_BRANCHES="main" run "$PROTEGER" --dry-run --sans-tags
     python3 -c 'import json,sys; r=json.loads(sys.argv[1]); assert all(x["target"]=="branch" for x in r)' "$(rulesets_json "$output")"
 }
@@ -913,8 +913,8 @@ ancien_ruleset() {
         : >"$GH_LOG"
         GH_BRANCHES="main" run "$PROTEGER" $mode
         [ "$status" -ne 0 ]
-        [[ "$output" == *"« develop » absente"*"rien n'a été modifié"* ]]
-        [[ "$output" == *"git push origin main:refs/heads/develop"* ]]
+        [[ "$output" == *"« develop » absente"*"rien n'a été modifié"* ]] || false
+        [[ "$output" == *"git push origin main:refs/heads/develop"* ]] || false
         ! grep -qE -- "-X (PATCH|PUT|POST)" "$GH_LOG"
     done
 }
@@ -923,7 +923,7 @@ ancien_ruleset() {
     fake_gh_repo
     GH_BRANCHES="" run "$PROTEGER" --dry-run
     [ "$status" -ne 0 ]
-    [[ "$output" == *"Aucune des branches"* ]]
+    [[ "$output" == *"Aucune des branches"* ]] || false
 }
 
 @test "ci : agents IA -> auteur, committer ou signature refuses (commits et description de PR), bots acceptes" {
@@ -931,20 +931,20 @@ ancien_ruleset() {
         git commit -q --no-verify --allow-empty -m "fix: par un agent"
     run "$CHECK" commits
     [ "$status" -ne 0 ]
-    [[ "$output" == *"agent IA (Claude <noreply@anthropic.com>)"* ]]
-    [[ "$output" != *"nouvelle fonctionnalité"* ]]
+    [[ "$output" == *"agent IA (Claude <noreply@anthropic.com>)"* ]] || false
+    [[ "$output" != *"nouvelle fonctionnalité"* ]] || false
     # signature dans le message
     git reset -q --hard "$REPOWARDEN_BASE"
     git commit -q --no-verify --allow-empty -m "fix: a" -m "Co-Authored-By: Claude Opus <noreply@anthropic.com>"
     run "$CHECK" commits
     [ "$status" -ne 0 ]
-    [[ "$output" == *"signature d'agent IA dans le message"* ]]
+    [[ "$output" == *"signature d'agent IA dans le message"* ]] || false
     # description de PR (corps du commit en squash)
     git reset -q --hard "$REPOWARDEN_BASE"
     git commit -q --no-verify --allow-empty -m "fix: b"
     REPOWARDEN_PR_BODY=$'Corrige b.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)' run "$CHECK" commits
     [ "$status" -ne 0 ]
-    [[ "$output" == *"Description de la PR"* ]]
+    [[ "$output" == *"Description de la PR"* ]] || false
     # bots d'automatisation : acceptes
     git reset -q --hard "$REPOWARDEN_BASE"
     GIT_AUTHOR_NAME='github-actions[bot]' GIT_AUTHOR_EMAIL='41898282+github-actions[bot]@users.noreply.github.com' \
@@ -969,15 +969,15 @@ ancien_ruleset() {
         git commit -q --no-verify --allow-empty -m "Update dependency x"
     REPOWARDEN_BRANCH=renovate/x run "$CHECK" commits
     [ "$status" -ne 0 ]
-    [[ "$output" == *"« Update dependency x »"* ]]
+    [[ "$output" == *"« Update dependency x »"* ]] || false
 }
 
 @test "ci : humain -> longueur toujours limitee, aide sans force push en premier" {
     git commit -q --no-verify --allow-empty -m "fix(deps): bump org.apache.maven:apache-maven from 3.9.16 to 3.10.0 in the prod group"
     REPOWARDEN_PR_TITLE="fix(deps): bump org.apache.maven:apache-maven from 3.9.16 to 3.10.0 in the prod" run "$CHECK" commits
     [ "$status" -ne 0 ]
-    [[ "$output" == *"72 caractères"* ]]
-    [[ "$output" == *"le corriger suffit"* ]]
+    [[ "$output" == *"72 caractères"* ]] || false
+    [[ "$output" == *"le corriger suffit"* ]] || false
 }
 
 # --- ci/version.sh (releases en mode tag) ----------------------------------------
@@ -1042,7 +1042,7 @@ c() { git commit -q --no-verify --allow-empty -m "$1"; }
     echo c >c; git add c; git commit -q --no-verify -m "fix: suite"
     [ "$("$VERSION" next 2>/dev/null)" = 1.1.1 ]
     run "$VERSION" notes
-    [[ "$output" == *"- fix: suite"* && "$output" != *"feat: panier"* ]]
+    [[ "$output" == *"- fix: suite"* && "$output" != *"feat: panier"* ]] || false
 }
 
 @test "version : notes groupees, incompatibles en tete" {
@@ -1053,21 +1053,21 @@ c() { git commit -q --no-verify --allow-empty -m "$1"; }
     c "docs: guide"
     run "$VERSION" notes
     [ "$status" -eq 0 ]
-    [[ "$output" == *"### ⚠ Changements incompatibles"*"- feat!: nouvelle API"* ]]
-    [[ "$output" == *"### Fonctionnalités"*"- feat: panier"* ]]
-    [[ "$output" == *"### Corrections"*"- fix(api): timeout"* ]]
-    [[ "$output" == *"### Maintenance"*"- docs: guide"* ]]
-    [[ "$output" == *"_Depuis v1.0.0._"* ]]
+    [[ "$output" == *"### ⚠ Changements incompatibles"*"- feat!: nouvelle API"* ]] || false
+    [[ "$output" == *"### Fonctionnalités"*"- feat: panier"* ]] || false
+    [[ "$output" == *"### Corrections"*"- fix(api): timeout"* ]] || false
+    [[ "$output" == *"### Maintenance"*"- docs: guide"* ]] || false
+    [[ "$output" == *"_Depuis v1.0.0._"* ]] || false
 }
 
 @test "langue en CI : anglais par defaut, langue du projet si reglee" {
     git commit -q --no-verify --allow-empty -m "wip"
     REPOWARDEN_LANG= CI=true GIT_CONFIG_GLOBAL=/dev/null run "$CHECK" commits
     [ "$status" -ne 0 ]
-    [[ "$output" == *"expected format <type>(<scope>)"* ]]
+    [[ "$output" == *"expected format <type>(<scope>)"* ]] || false
     printf '[repowarden]\n\tlang = fr\n' >.repowarden.conf
     REPOWARDEN_LANG= CI=true GIT_CONFIG_GLOBAL=/dev/null run "$CHECK" commits
-    [[ "$output" == *"format attendu <type>(<scope>)"* ]]
+    [[ "$output" == *"format attendu <type>(<scope>)"* ]] || false
 }
 
 @test "version : titres des notes dans la langue du projet" {
@@ -1075,8 +1075,8 @@ c() { git commit -q --no-verify --allow-empty -m "$1"; }
     c "feat: panier"
     c "fix: arrondi"
     REPOWARDEN_LANG=en run "$VERSION" notes
-    [[ "$output" == *"### Features"*"### Bug fixes"* ]]
-    [[ "$output" == *"_Since v1.0.0._"* ]]
+    [[ "$output" == *"### Features"*"### Bug fixes"* ]] || false
+    [[ "$output" == *"_Since v1.0.0._"* ]] || false
 }
 
 # Faux gh des notes : tickets #12 (feat), #13 (fix) et #14 (docs) ; PR de
@@ -1111,19 +1111,19 @@ GH
     run "$VERSION" notes
     [ "$status" -eq 0 ]
     # fonctionnalités, puis corrections, puis le reste ; un ticket une seule fois
-    [[ "$output" == *"### En bref"*"- Panier : total affiché (#12)"*"- API : délai dépassé géré (#13)"*"- Guide : installation (#14)"*"### À faire"* ]]
+    [[ "$output" == *"### En bref"*"- Panier : total affiché (#12)"*"- API : délai dépassé géré (#13)"*"- Guide : installation (#14)"*"### À faire"* ]] || false
     [ "$(grep -c "(#12)" <<<"$output")" -eq 1 ]
-    [[ "$output" == *"### À faire"*"- relancer repowarden proteger"*"- /v1 retirée"* ]]
-    [[ "$output" == *"### Mettre à jour"*'`npm update -g mon-outil`'* ]]
-    [[ "$output" == *"### Tickets livrés"*"#12, #13, #14"*"### ⚠ Changements incompatibles"* ]]
-    [[ "$output" == *"### Fonctionnalités"*"- feat: panier"* ]]
+    [[ "$output" == *"### À faire"*"- relancer repowarden proteger"*"- /v1 retirée"* ]] || false
+    [[ "$output" == *"### Mettre à jour"*'`npm update -g mon-outil`'* ]] || false
+    [[ "$output" == *"### Tickets livrés"*"#12, #13, #14"*"### ⚠ Changements incompatibles"* ]] || false
+    [[ "$output" == *"### Fonctionnalités"*"- feat: panier"* ]] || false
 }
 
 @test "version : sans ticket, sans gh ni reglage -> notes sans introduction" {
     git tag v1.0.0
     c "feat: panier"
     run "$VERSION" notes
-    [[ "$output" != *"En bref"* && "$output" != *"Mettre à jour"* && "$output" != *"Tickets livrés"* ]]
+    [[ "$output" != *"En bref"* && "$output" != *"Mettre à jour"* && "$output" != *"Tickets livrés"* ]] || false
     # tickets cités mais gh absent ou muet : pas de partie tickets
     mkdir -p "$BATS_TEST_TMPDIR/bin"
     printf '#!/usr/bin/env bash\nexit 1\n' >"$BATS_TEST_TMPDIR/bin/gh"
@@ -1131,8 +1131,8 @@ GH
     git commit -q --no-verify --allow-empty -m "fix: b" -m "Ticket : #99"
     PATH="$BATS_TEST_TMPDIR/bin:$PATH" run "$VERSION" notes
     [ "$status" -eq 0 ]
-    [[ "$output" != *"En bref"* && "$output" != *"Tickets livrés"* ]]
-    [[ "$output" == *"Tickets illisibles ( #99)"* ]]
+    [[ "$output" != *"En bref"* && "$output" != *"Tickets livrés"* ]] || false
+    [[ "$output" == *"Tickets illisibles ( #99)"* ]] || false
 }
 
 @test "version : tickets illisibles (depot prive sans issues: read) -> avertissement, notes inchangees" {
@@ -1142,9 +1142,9 @@ GH
     git commit -q --no-verify --allow-empty -m "fix: b" -m "Ticket : #99"
     run bash -c "\"$VERSION\" notes 2>\"$BATS_TEST_TMPDIR/err\""
     [ "$status" -eq 0 ]
-    [[ "$(cat "$BATS_TEST_TMPDIR/err")" == *"::warning::Tickets illisibles ( #99)"*"issues: read"* ]]
-    [[ "$output" != *"::warning::"* ]]
-    [[ "$output" == *"- Panier : total affiché (#12)"* ]]
+    [[ "$(cat "$BATS_TEST_TMPDIR/err")" == *"::warning::Tickets illisibles ( #99)"*"issues: read"* ]] || false
+    [[ "$output" != *"::warning::"* ]] || false
+    [[ "$output" == *"- Panier : total affiché (#12)"* ]] || false
 }
 
 @test "version : release -> notes de la PR de livraison relue, sinon recalculees" {
@@ -1155,11 +1155,11 @@ GH
     GH_LIVRAISON="$(printf 'Merger cette PR publie **v1.1.0**.\n\n### En bref\n\n- Corrigé à la relecture\n\n---\n_Tenue à jour (repowarden)._')" \
         run "$VERSION" notes-livraison HEAD
     [ "$status" -eq 0 ]
-    [[ "$output" == *"- Corrigé à la relecture"* ]]
-    [[ "$output" != *"Merger cette PR"* && "$output" != *"Tenue à jour"* && "$output" != *"feat: panier"* ]]
+    [[ "$output" == *"- Corrigé à la relecture"* ]] || false
+    [[ "$output" != *"Merger cette PR"* && "$output" != *"Tenue à jour"* && "$output" != *"feat: panier"* ]] || false
     # aucune PR : notes recalculées
     run "$VERSION" notes-livraison HEAD
-    [[ "$output" == *"### Fonctionnalités"*"- feat: panier"* ]]
+    [[ "$output" == *"### Fonctionnalités"*"- feat: panier"* ]] || false
 }
 
 @test "workflows : release-auto demande issues: read (tickets des notes), repowarden l'accorde" {
@@ -1204,20 +1204,20 @@ GH
     c "feat: panier"
     run "$LIVRAISON"
     [ "$status" -eq 0 ]
-    [[ "$output" == failure*"v1.1.0 : aucune préversion v1.1.0-next.N"*"Run workflow sur develop"* ]]
+    [[ "$output" == failure*"v1.1.0 : aucune préversion v1.1.0-next.N"*"Run workflow sur develop"* ]] || false
     # publiée dans le même run, ou déjà taguée
     PREVERSION_CREEE=v1.1.0-next.3 run "$LIVRAISON"
-    [[ "$output" == success*"v1.1.0 : préversion testée"* ]]
+    [[ "$output" == success*"v1.1.0 : préversion testée"* ]] || false
     git tag v1.1.0-next.2
     run "$LIVRAISON"
-    [[ "$output" == success* ]]
+    [[ "$output" == success* ]] || false
     # préversion d'une autre version : ne compte pas
     c "feat!: refonte"
     run "$LIVRAISON"
-    [[ "$output" == failure*"v2.0.0"* ]]
+    [[ "$output" == failure*"v2.0.0"* ]] || false
     # non exigée, ou maintenance seule : livrable
     OBLIGATOIRE=false run "$LIVRAISON"
-    [[ "$output" == success*"non exigée"* ]]
+    [[ "$output" == success*"non exigée"* ]] || false
 }
 
 @test "livraison : protection du flux develop absente -> en echec, repowarden proteger" {
@@ -1226,24 +1226,24 @@ GH
     git tag v1.1.0-next.1
     c "feat: panier"
     GH_REGLES="pull_request" run "$LIVRAISON"
-    [[ "$output" == failure*"repowarden proteger"* ]]
+    [[ "$output" == failure*"repowarden proteger"* ]] || false
     GH_REGLAGES="false false" run "$LIVRAISON"
-    [[ "$output" == failure*"repowarden proteger"* ]]
+    [[ "$output" == failure*"repowarden proteger"* ]] || false
     GH_REGLAGES="true true" run "$LIVRAISON"
-    [[ "$output" == failure*"repowarden proteger"* ]]
+    [[ "$output" == failure*"repowarden proteger"* ]] || false
     # rulesets indisponibles (privé, compte gratuit) : seule la règle manque, réglages bons
     GH_RULESETS_403=1 GH_REGLES="" run "$LIVRAISON"
-    [[ "$output" == success* ]]
+    [[ "$output" == success* ]] || false
     GH_RULESETS_403=1 GH_REGLES="" GH_REGLAGES="true true" run "$LIVRAISON"
-    [[ "$output" == failure*"repowarden proteger"* ]]
+    [[ "$output" == failure*"repowarden proteger"* ]] || false
     # réglages non renvoyés par l'API (jeton sans droits) : pas de faux échec
     GH_REGLAGES="null null" run "$LIVRAISON"
-    [[ "$output" == success* ]]
+    [[ "$output" == success* ]] || false
     # statut posté sur le commit, description limitée à 140 caractères
     : >"$GH_LOG"
     GH_REGLES="pull_request" run "$LIVRAISON" poster abc123
     grep -q "^api repos/moi/projet/statuses/abc123 -f state=failure -f context=livraison -f description=" "$GH_LOG"
-    [[ "$output" == *"::warning::livraison"* ]]
+    [[ "$output" == *"::warning::livraison"* ]] || false
 }
 
 # --- Code mort (ci/check.sh deadcode) : outils simulés ---------------------------
@@ -1286,10 +1286,10 @@ python_dead_code() {
     python_dead_code
     run "$CHECK" deadcode
     [ "$status" -ne 0 ]
-    [[ "$output" == *"nouveau.py:1 : \`os\` imported but unused (code mort prouvé)"* ]]
-    [[ "$output" == *"nouveau.py:2 : unused function 'aide' (60 %) (candidat"* ]]
-    [[ "$output" != *"ancien.py"* ]]
-    [[ "$output" == *"1 élément(s) de code mort prouvé"* ]]
+    [[ "$output" == *"nouveau.py:1 : \`os\` imported but unused (code mort prouvé)"* ]] || false
+    [[ "$output" == *"nouveau.py:2 : unused function 'aide' (60 %) (candidat"* ]] || false
+    [[ "$output" != *"ancien.py"* ]] || false
+    [[ "$output" == *"1 élément(s) de code mort prouvé"* ]] || false
 }
 
 @test "code mort : modes warn (rien ne bloque) et strict (candidats compris)" {
@@ -1302,7 +1302,7 @@ python_dead_code() {
     git config repowarden.deadcodeIgnore "nouveau.py"
     run "$CHECK" deadcode
     [ "$status" -eq 0 ]
-    [[ "$output" == *"Aucun nouveau code mort"* ]]
+    [[ "$output" == *"Aucun nouveau code mort"* ]] || false
 }
 
 @test "code mort : outil absent -> signale, sans echec meme en mode strict" {
@@ -1313,7 +1313,7 @@ python_dead_code() {
     python_dead_code
     REPOWARDEN_STRICT=true run "$CHECK" deadcode
     [ "$status" -eq 0 ]
-    [[ "$output" == *"ruff / vulture absent"* ]]
+    [[ "$output" == *"ruff / vulture absent"* ]] || false
 }
 
 @test "code mort : sortie PMD (Java) interpretee" {
@@ -1330,7 +1330,7 @@ python_dead_code() {
     git commit -q --no-verify -m "feat: a"
     run "$CHECK" deadcode
     [ "$status" -ne 0 ]
-    [[ "$output" == *"src/a/A.java:3 : Unused import x (code mort prouvé)"* ]]
+    [[ "$output" == *"src/a/A.java:3 : Unused import x (code mort prouvé)"* ]] || false
 }
 
 # --- ci/notifier.sh (canal de l'équipe) : curl simulé ---------------------------
@@ -1368,7 +1368,7 @@ T
     [ ! -e "$CURL_BODY" ]
     CURL_EXIT=22 REPOWARDEN_WEBHOOK=https://hooks.slack.com/x run "$NOTIFIER" ci.notify.released a v1 u
     [ "$status" -eq 0 ]
-    [[ "$output" == *"release non affectée"* ]]
+    [[ "$output" == *"release non affectée"* ]] || false
 }
 
 @test "code mort : script isole sans fichier de projet -> analyse quand meme" {
@@ -1379,7 +1379,7 @@ T
     git commit -q --no-verify -m "feat: script"
     run "$CHECK" deadcode
     [ "$status" -ne 0 ]
-    [[ "$output" == *"script.py:1"*"(code mort prouvé)"* ]]
+    [[ "$output" == *"script.py:1"*"(code mort prouvé)"* ]] || false
 }
 
 @test "code mort : aucun fichier analysable -> le dire, sans pretendre que tout va bien" {
@@ -1389,16 +1389,16 @@ T
     git commit -q --no-verify -m "docs: note"
     run "$CHECK" deadcode
     [ "$status" -eq 0 ]
-    [[ "$output" == *"rien à vérifier"* ]]
-    [[ "$output" != *"Aucun nouveau code mort"* ]]
+    [[ "$output" == *"rien à vérifier"* ]] || false
+    [[ "$output" != *"Aucun nouveau code mort"* ]] || false
 }
 
 @test "code-mort : aucune modification -> message clair, pas aucun langage" {
     git update-ref refs/remotes/origin/main HEAD
     run "$BATS_TEST_DIRNAME/../bin/code-mort"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"Aucune modification par rapport à origin/main"* ]]
-    [[ "$output" != *"langage analysable"* ]]
+    [[ "$output" == *"Aucune modification par rapport à origin/main"* ]] || false
+    [[ "$output" != *"langage analysable"* ]] || false
 }
 
 # --- ci/merger-pr.sh : validation par la CI puis merge (gh simulé) --------------
@@ -1454,7 +1454,7 @@ GH
     printf 'a: 1\n' >conf.yml
     run "$BATS_TEST_DIRNAME/../bin/code-mort"
     [ "$status" -eq 0 ]
-    [[ "$output" != *"JavaScript"* ]]
+    [[ "$output" != *"JavaScript"* ]] || false
 }
 
 @test "langue : scripts sans configuration complete -> lang du .repowarden.conf (meme en CI)" {

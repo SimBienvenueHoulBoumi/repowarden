@@ -125,7 +125,7 @@ ticket() { printf '%s\n' "$@" >"$F/issues/$N.labels"; }
     grep -qxF "statut: à valider" "$F/issues/42.labels"
     grep -q "Ticket : #42" "$F/pr_body"
     grep -qx "statut-pr failure" "$F/events"
-    [[ "$output" == *"#42 à valider"* ]]
+    [[ "$output" == *"#42 à valider"* ]] || false
 }
 
 @test "tickets : PR sans ticket -> echec verification avec marche a suivre (auto-create=false)" {
@@ -312,7 +312,7 @@ EOF
     ticket_branch_r 12 "Corrige le total de"
     [ "$REPLY" = "feat/12-corrige-le-total" ]
     ticket_branch_r 12 "Tickets : chaque ticket garde la trace de sa branche"
-    [[ "$REPLY" != *-de && "$REPLY" != *- ]]
+    [[ "$REPLY" != *-de && "$REPLY" != *- ]] || false
     # portee = prefixe du titre avant le premier « : », sujet = le reste
     ticket_pr_title_r feat "Tickets : ajoute le panier"
     [ "$REPLY" = "feat(tickets): ajoute le panier" ]
@@ -323,8 +323,8 @@ EOF
     t="$REPLY"
     authored_length "$t"
     [ "$REPLY" -le 72 ]
-    [[ "$t" != *" " ]]
-    [[ " un titre vraiment très long qui doit être coupé sur un mot entier " == *" ${t##* } "* ]]
+    [[ "$t" != *" " ]] || false
+    [[ " un titre vraiment très long qui doit être coupé sur un mot entier " == *" ${t##* } "* ]] || false
 }
 
 @test "tickets : titre de PR brouillon = en-tete du premier commit, (#N) retire" {
@@ -355,8 +355,8 @@ EOF
     t="$REPLY"
     authored_length "$t"
     [ "$REPLY" -le 72 ]
-    [[ "$t" == "feat(modules-a-la-demande): assistants IA "* ]]
-    [[ " $s " == *" ${t##* } "* ]]
+    [[ "$t" == "feat(modules-a-la-demande): assistants IA "* ]] || false
+    [[ " $s " == *" ${t##* } "* ]] || false
     # un seul mot trop long : jamais tronque au caractere, titre vide (repli)
     ticket_pr_title_r feat "Tickets : $(printf 'mot%.0s' {1..30})"
     [ -z "$REPLY" ]
@@ -401,7 +401,7 @@ EOF
     [ "$(grep -c "repowarden:branche feat/13-a-la-main" "$F/issues/13.comments")" -eq 1 ]
     # seconde branche pour le meme ticket : inscrite et signalee
     FAKE_PR_HEAD=9 PUSH_BRANCH=feat/13-autre SHA=d run "$TICKETS" push
-    [[ "$output" == *"feat/13-autre"*"feat/13-a-la-main"* ]]
+    [[ "$output" == *"feat/13-autre"*"feat/13-a-la-main"* ]] || false
     grep -q "repowarden:branche feat/13-autre" "$F/issues/13.comments"
 }
 
@@ -425,7 +425,7 @@ EOF
     grep -q "repowarden:branche feat/panier" "$F/issues/21.comments"
     grep -q "PR #5" "$F/issues/21.comments"
     grep -q "repowarden:branche fix/22-total" "$F/issues/22.comments"
-    [[ "$output" == *"3"*"2"* ]]
+    [[ "$output" == *"3"*"2"* ]] || false
     # relance : rien de nouveau
     : >"$F/events"
     run "$TICKETS" adopter
@@ -440,7 +440,7 @@ EOF
     ACTION=opened HEAD=develop BASE=feat/184-x run "$TICKETS" pr
     [ "$status" -eq 0 ]
     grep -qx "pr-fermee 7" "$F/events"
-    [[ "$output" == *"git merge origin/develop"* ]]
+    [[ "$output" == *"git merge origin/develop"* ]] || false
     grep -qx "statut-pr success" "$F/events"
     # retour main -> develop sans contenu : ferme
     : >"$F/events"
@@ -472,7 +472,7 @@ EOF
     DELIVERY_WORKFLOW=true ACTION=opened HEAD=develop BASE=main AUTHOR=dev run "$TICKETS" pr
     [ "$status" -eq 0 ]
     grep -qx "pr-fermee 7" "$F/events"
-    [[ "$output" == *"Approve and deploy"* ]]
+    [[ "$output" == *"Approve and deploy"* ]] || false
     # ouverte par le workflow (bot) ou instantane livraison/* : jamais fermee
     : >"$F/events"
     DELIVERY_WORKFLOW=true ACTION=opened HEAD=develop BASE=main AUTHOR='github-actions[bot]' run "$TICKETS" pr
@@ -586,12 +586,12 @@ EOF
     APP_TOKEN=true ACTION=ready_for_review DRAFT=false run "$TICKETS" pr
     [ "$status" -eq 0 ]
     grep -qx "merge-auto 7" "$F/events"
-    [[ "$output" == *"merge automatique armé"* ]]
+    [[ "$output" == *"merge automatique armé"* ]] || false
     # sans App : rien d'arme, explication
     : >"$F/events"
     APP_TOKEN=false ACTION=synchronize DRAFT=false run "$TICKETS" pr
     ! grep -q "merge-auto" "$F/events"
-    [[ "$output" == *"pas de GitHub App"* ]]
+    [[ "$output" == *"pas de GitHub App"* ]] || false
     # repassee en brouillon -> desarme
     : >"$F/events"
     APP_TOKEN=true ACTION=converted_to_draft DRAFT=true run "$TICKETS" pr
@@ -622,7 +622,7 @@ EOF
     # conception absente : refusee
     touch "$F/issues/12.sansconception"
     ACTION=synchronize run "$TICKETS" pr
-    [[ "$output" == *"Conception absente sur #12"* ]]
+    [[ "$output" == *"Conception absente sur #12"* ]] || false
     grep -qx "statut-pr failure" "$F/events"
     # reglage : conception non exigee
     : >"$F/events"
@@ -634,19 +634,19 @@ EOF
     printf 'Tickets : #12, #13' >"$F/pr_body"
     : >"$F/events"
     ACTION=synchronize run "$TICKETS" pr
-    [[ "$output" == *"plusieurs tickets (#12, #13)"* ]]
+    [[ "$output" == *"plusieurs tickets (#12, #13)"* ]] || false
     grep -qx "statut-pr failure" "$F/events"
     # branche hors convention (cas de feat/ticket201-test)
     printf 'Ticket : #12' >"$F/pr_body"
     : >"$F/events"
     HEAD=feat/ticket12-test ACTION=synchronize run "$TICKETS" pr
-    [[ "$output" == *"doit porter le numéro du ticket"* ]]
+    [[ "$output" == *"doit porter le numéro du ticket"* ]] || false
     grep -qx "statut-pr failure" "$F/events"
     # commit qui cite un autre ticket
     printf 'fix: x\n\nTicket : #12\nfeat: y\n\nTicket : #13\n' >"$F/pr_commits"
     : >"$F/events"
     ACTION=synchronize run "$TICKETS" pr
-    [[ "$output" == *"cite le ticket #13"* ]]
+    [[ "$output" == *"cite le ticket #13"* ]] || false
     grep -qx "statut-pr failure" "$F/events"
     # tout en regle
     printf 'fix: x\n\nTicket : #12\n' >"$F/pr_commits"

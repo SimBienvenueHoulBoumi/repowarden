@@ -47,8 +47,8 @@ load_engine() {
 
 @test "detection : extension -> plugins candidats" {
     load_engine
-    [[ " $(plugins_for_file_r src/A.java; echo "$REPLY") " == *" maven "* ]]
-    [[ " $(plugins_for_file_r src/A.java; echo "$REPLY") " == *" gradle "* ]]
+    [[ " $(plugins_for_file_r src/A.java; echo "$REPLY") " == *" maven "* ]] || false
+    [[ " $(plugins_for_file_r src/A.java; echo "$REPLY") " == *" gradle "* ]] || false
     plugins_for_file_r deploy.sh
     [ "$(echo "$REPLY" | tr -d ' ')" = shell ]
     plugins_for_file_r image.png
@@ -77,8 +77,8 @@ load_engine() {
     git add -A
     run git commit -q -m "ajoute les deux"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"go (backend)"* ]]
-    [[ "$output" == *"python (frontend)"* ]]
+    [[ "$output" == *"go (backend)"* ]] || false
+    [[ "$output" == *"python (frontend)"* ]] || false
     git show HEAD:backend/main.go | grep -q '^func main() {}$'
     [ "$(git show HEAD:frontend/app.py)" = "y = 2" ]
 }
@@ -114,7 +114,7 @@ load_engine() {
     git add NOTES.md
     run git commit -q -m "ajoute notes"
     [ "$status" -eq 0 ]
-    [[ "$output" != *"prettier introuvable"* ]]
+    [[ "$output" != *"prettier introuvable"* ]] || false
 }
 
 # --- .repowarden.conf -------------------------------------------------------------
@@ -143,7 +143,7 @@ load_engine() {
     git commit -q -m "ajoute conf"
     run git push -q origin feat/x
     [ "$status" -ne 0 ]
-    [[ "$output" == *"tests-perso"* ]]
+    [[ "$output" == *"tests-perso"* ]] || false
 }
 
 @test ".repowarden.conf : test personnalise recoit les fichiers modifies sur stdin" {
@@ -190,14 +190,14 @@ load_engine() {
     git commit -q -am "test: modifie ok"
     run git push -q origin feat/x
     [ "$status" -eq 0 ]
-    [[ "$output" == *"Tests go (ok)"* ]]
-    [[ "$output" != *"(ko)"* ]]
+    [[ "$output" == *"Tests go (ok)"* ]] || false
+    [[ "$output" != *"(ko)"* ]] || false
 
     echo "// modif" >>ko/x_test.go
     git commit -q -am "test: modifie ko"
     run git push -q origin feat/x
     [ "$status" -ne 0 ]
-    [[ "$output" == *"Échec des tests go (ko)"* ]]
+    [[ "$output" == *"Échec des tests go (ko)"* ]] || false
 }
 
 @test "pre-push : fichier non-code d'un projet (README) -> tests du projet" {
@@ -219,7 +219,7 @@ load_engine() {
     git commit -q -m "build: makefile"
     run git push -q origin feat/x
     [ "$status" -ne 0 ]
-    [[ "$output" == *"make-test-lance"* ]]
+    [[ "$output" == *"make-test-lance"* ]] || false
 }
 
 @test "pre-push : Makefile ignore quand un langage est reconnu" {
@@ -230,7 +230,7 @@ load_engine() {
     git commit -q -m "build: go + make"
     run git push -q origin feat/x
     [ "$status" -eq 0 ]
-    [[ "$output" == *"Tests go"* ]]
+    [[ "$output" == *"Tests go"* ]] || false
 }
 
 @test "pre-push : simple script sans projet -> rien a tester, push OK" {
@@ -239,7 +239,7 @@ load_engine() {
     git commit -q -m "ajoute script"
     run git push -q origin feat/x
     [ "$status" -eq 0 ]
-    [[ "$output" == *"Aucun projet testable"* ]]
+    [[ "$output" == *"Aucun projet testable"* ]] || false
 }
 
 @test "find_up : s'arrete a la racine du depot (chemins Windows/Git Bash)" {
@@ -280,7 +280,7 @@ load_engine() {
     git add casse.py
     run git commit -q -m "ajoute casse"
     [ "$status" -ne 0 ]
-    [[ "$output" == *"Échec du formatage"* ]]
+    [[ "$output" == *"Échec du formatage"* ]] || false
 }
 
 @test "format : outil du projet (.venv) prioritaire sur celui du poste" {
@@ -291,7 +291,7 @@ load_engine() {
     printf 'x = 1\n' >a.py
     git add a.py pyproject.toml
     run git commit -q -m "ajoute a"
-    [[ "$output" == *"RUFF-DU-PROJET"* ]]
+    [[ "$output" == *"RUFF-DU-PROJET"* ]] || false
 }
 
 # --- Infrastructure as code ---------------------------------------------------
@@ -314,7 +314,7 @@ load_engine() {
     [ "$(nearest_project infra/vars.tf terraform)" = "terraform infra" ]
     [ "$(nearest_project ansible/site.yml "ansible node")" = "ansible ansible" ]
     [ "$(nearest_project img/vars.pkrvars.hcl packer)" = "packer img" ]
-    [[ " $(plugins_for_file_r Dockerfile.prod; echo "$REPLY") " == *" docker "* ]]
+    [[ " $(plugins_for_file_r Dockerfile.prod; echo "$REPLY") " == *" docker "* ]] || false
     has_marker . actions
 }
 
@@ -326,7 +326,7 @@ load_engine() {
     git commit -q -m "ci: workflow"
     run git push -q origin feat/x
     [ "$status" -ne 0 ]
-    [[ "$output" == *"actionlint"* ]]
+    [[ "$output" == *"actionlint"* ]] || false
 }
 
 @test "pre-push : shellcheck bloque sur warning (SC2034) avec severite par defaut" {
@@ -340,7 +340,7 @@ load_engine() {
     git commit -q -am "modifie script"
     run git push -q origin feat/x
     [ "$status" -ne 0 ]
-    [[ "$output" == *"SC2034"* ]]
+    [[ "$output" == *"SC2034"* ]] || false
 }
 
 @test "pre-push : severite=warning n bloque pas sur style/info (SC2248)" {
@@ -354,7 +354,7 @@ load_engine() {
     git commit -q -am "modifie script"
     run git push -q origin feat/x
     [ "$status" -eq 0 ]
-    [[ "$output" != *"SC2248"* ]]
+    [[ "$output" != *"SC2248"* ]] || false
 }
 
 @test "pre-push : actionlint sur workflow modifie -> bloque si invalide" {
@@ -369,7 +369,7 @@ load_engine() {
     git commit -q -am "modifie workflow"
     run git push -q origin feat/x
     [ "$status" -ne 0 ]
-    [[ "$output" == *"actionlint"* ]]
+    [[ "$output" == *"actionlint"* ]] || false
 }
 
 @test "pre-push : repowarden.skip lint desactive le linting" {
@@ -412,7 +412,7 @@ load_engine() {
     git commit -q -am "modifie script"
     run git push -q origin feat/x
     [ "$status" -ne 0 ]
-    [[ "$output" == *"SC2248"* ]]
+    [[ "$output" == *"SC2248"* ]] || false
 }
 
 @test "pre-push : shellcheck detecte script sans extension avec shebang" {
@@ -426,7 +426,7 @@ load_engine() {
     git commit -q -am "modifie script"
     run git push -q origin feat/x
     [ "$status" -ne 0 ]
-    [[ "$output" == *"SC2034"* ]]
+    [[ "$output" == *"SC2034"* ]] || false
 }
 
 @test "pre-push : lint.missing recoit outil, fichier et commande installation" {
@@ -444,9 +444,9 @@ load_engine() {
     run git push -q origin feat/x
     [ "$status" -ne 0 ]
     # Le message d'avertissement doit contenir les 3 valeurs
-    [[ "$output" == *"shellcheck"* ]]
-    [[ "$output" == *"script.sh"* ]]
-    [[ "$output" == *"brew install shellcheck"* || "$output" == *"apt-get install shellcheck"* || "$output" == *"choco install shellcheck"* || "$output" == *"https://www.shellcheck.net/"* ]]
+    [[ "$output" == *"shellcheck"* ]] || false
+    [[ "$output" == *"script.sh"* ]] || false
+    [[ "$output" == *"brew install shellcheck"* || "$output" == *"apt-get install shellcheck"* || "$output" == *"choco install shellcheck"* || "$output" == *"https://www.shellcheck.net/"* ]] || false
 }
 
 @test "python : pas de faux succes avec un .pyc perime (meme taille, meme seconde)" {
@@ -472,7 +472,7 @@ load_engine() {
     printf 'from calc import add\n\n\ndef test_add():\n    assert add(1, 2) == 3\n' >tests/test_calc.py
     run python_test
     [ "$status" -eq 0 ]
-    [[ "$output" != *"ModuleNotFoundError"* ]]
+    [[ "$output" != *"ModuleNotFoundError"* ]] || false
 }
 
 @test "config : lue une seule fois, cles insensibles a la casse, derniere valeur" {
