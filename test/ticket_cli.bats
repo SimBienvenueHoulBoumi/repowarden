@@ -185,6 +185,33 @@ gere() {
     [ -z "$(git branch --list 'feat/18*')" ]
 }
 
+@test "tickets sync : clonage -> aucun appel a GitHub, aucune branche (cas #366)" {
+    gere
+    git add -A && git commit -q --no-verify -m "chore: suivi des tickets"
+    git push -q --no-verify origin main
+    git push -q --no-verify origin "main:refs/heads/fix/366-bots-release"
+    # ticket mergé dont le statut a regressé a tort : assigne, ouvert
+    export FAKE_ASSIGNED="$(printf '366\tBots release\tvalidé\\ntype: fix\\nstatut: en relecture')"
+    # hooks repowarden du poste (core.hooksPath) : le clone les execute
+    PATH="$F/bin:$PATH" run git -c core.hooksPath="$HOOKS" clone -q "$REMOTE" "$BATS_TEST_TMPDIR/clone"
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"#366"* ]]
+    [ ! -s "$F/log" ]
+    [ -z "$(git -C "$BATS_TEST_TMPDIR/clone" branch --list 'fix/366*')" ]
+}
+
+@test "tickets sync : en relecture sans branche distante (PR mergee) -> branche pas recreee" {
+    gere
+    git push -q --no-verify origin main
+    export FAKE_ASSIGNED="$(printf '366\tBots release\tvalidé\\nstatut: en relecture\n13\tPanier\tvalidé\\nstatut: en cours')"
+    PATH="$F/bin:$PATH" run "$BATS_TEST_DIRNAME/../bin/tickets" sync
+    [ "$status" -eq 0 ]
+    [ "$(grep -c "issue develop 366" "$F/log")" -eq 0 ]
+    [ -z "$(git branch --list 'feat/366*')" ]
+    # ticket reellement en cours : comportement inchange
+    grep -q "issue develop 13 " "$F/log"
+}
+
 @test "tickets init : etiquettes, fichiers du modele, fin sans erreur" {
     gere
     PATH="$F/bin:$PATH" run "$BATS_TEST_DIRNAME/../bin/tickets" init --repo o/r

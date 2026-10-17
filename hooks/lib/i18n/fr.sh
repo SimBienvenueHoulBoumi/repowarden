@@ -446,6 +446,7 @@ _msg_fr() {
         tk.waiting) _M="Ticket %s à valider : un mainteneur pose l'étiquette « %s » sur le ticket." ;;
         tk.ok) _M="Ticket %s validé." ;;
         tk.merged) _M="Mergé par la PR #%s dans %s : en préprod, disponible dans la prochaine préversion." ;;
+        tk.status_kept) _M="Ticket #%s laissé en %s : un travail livré ne repasse pas en %s." ;;
         tk.branch_created) _M="Ticket validé : sa branche \`%s\` est créée depuis \`%s\`.\n\nPour y travailler :\n\n\`\`\`bash\nrepowarden ticket %s\n\`\`\`\n\n(ou \`git fetch && git switch %s\`). Le premier push ouvre la PR en brouillon." ;;
         tk.branch_notice) _M="Branche %s créée pour le ticket #%s" ;;
         tk.multi) _M="PR liée à plusieurs tickets (%s) : une PR = un ticket, la découper." ;;

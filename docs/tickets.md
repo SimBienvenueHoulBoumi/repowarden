@@ -13,6 +13,8 @@ Chaque changement part d'un **ticket** (issue GitHub) : **la branche découle du
 | `statut: préprod` | PR mergée dans `develop` | branche supprimée ; commentaire à chaque préversion `vX.Y.Z-next.N` |
 | `statut: done` | release sur `main` | ticket **fermé**, avec la version |
 
+Un ticket **livré** (`préprod`, `done`) ne recule jamais : un événement de PR traité en retard (PR éditée après son merge), une branche réapparue ou une réassignation ne le ramènent pas en cours ou en relecture ; le suivi le signale par une notice.
+
 Ticket fermé comme **abandonné** (*not planned*) : sa PR est fermée et sa branche supprimée.
 
 Ticket **terminé** (passé en `done` à la release, ou fermé à la main) dont la branche existe encore, parce que le travail est passé par une autre branche : elle est supprimée si elle n'a aucun commit absent de `develop` et qu'aucune PR ouverte n'en part. Sinon elle est gardée et le ticket le signale : rien n'est jamais perdu.
@@ -28,7 +30,7 @@ repowarden ticket                             # ticket de la branche courante
 ```
 
 - `repowarden ticket <n>` **prend le ticket** (assigné à soi) et se place sur sa branche ; la crée et la lie au ticket (`gh issue develop`) si elle n'existe pas encore.
-- **Tickets assignés → branches locales** : à chaque `git pull` ou changement de branche (au plus toutes les 15 min, seulement avec `gh` connecté), repowarden crée la branche locale de chaque ticket qui t'est assigné, sans changer ta branche courante. Un ticket réassigné à quelqu'un d'autre est signalé, sa branche locale conservée. À la demande : `repowarden tickets sync` ; réglage `ticketSync = auto | manual | off`.
+- **Tickets assignés → branches locales** : à chaque `git pull` ou changement de branche (au plus toutes les 15 min, seulement avec `gh` connecté), repowarden crée la branche locale de chaque ticket qui t'est assigné, sans changer ta branche courante. Un ticket réassigné à quelqu'un d'autre est signalé, sa branche locale conservée. Jamais au clonage, ni pour un ticket livré (`préprod`, `done`) ou en relecture dont la branche a disparu (PR mergée). À la demande : `repowarden tickets sync` ; réglage `ticketSync = auto | manual | off`.
 - **Branche sans ticket** : `repowarden` prévient (à l'arrivée sur la branche et dans `git cc`), **sans jamais bloquer** : tout le monde ne travaille pas avec des tickets. Si le projet fait gérer ses tickets par repowarden, il **propose d'en créer un** (`git cc` le crée et le cite sur un « oui ») ; sinon, il indique comment ne plus le voir : `git config repowarden.skip tickets`.
 - `git cc` cite `Ticket : #12` sur une branche `feat/12-…`.
 

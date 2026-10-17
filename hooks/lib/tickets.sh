@@ -203,7 +203,8 @@ ticket_remote_branch_r() {
 # Branches locales des tickets qui me sont assignés (repowarden tickets sync ;
 # hooks post-merge et post-checkout en mode auto, au plus toutes les 15 min) :
 # branche distante retrouvée, ou créée et liée au ticket (validé) ; branche
-# locale de suivi créée sans changer la branche courante. Ticket qui ne m'est
+# locale de suivi créée sans changer la branche courante (jamais pour un travail
+# livré : préprod, done, ou en relecture sans branche). Ticket qui ne m'est
 # plus assigné : signalé, sa branche locale conservée. Réglage ticketSync :
 # auto (défaut), manual (commande seulement), off. $1 = force (commande).
 tickets_sync() {
@@ -231,6 +232,8 @@ tickets_sync() {
         ticket_remote_branch_r "$n"
         branche="$REPLY"
         if [ -z "$branche" ]; then
+            # En relecture sans branche : PR mergée, branche supprimée ; jamais recréée
+            grep -qxF "$S_RELECTURE" <<<"$etiquettes" && continue
             if tickets_managed && ! grep -qxF "$VALIDE" <<<"$etiquettes"; then
                 info_t tk.sync.not_validated "$n"
                 continue

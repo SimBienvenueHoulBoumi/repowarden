@@ -21,6 +21,8 @@ if ! skipped branch-name && ! branch_name_valid "$BRANCH"; then
 fi
 # Branche de travail sans ticket : prévenu, jamais bloqué
 ticket_hint "$BRANCH"
-# Branches locales des tickets qui me sont assignés (au plus toutes les 15 min)
-tickets_sync || true
+# Branches locales des tickets qui me sont assignés (au plus toutes les 15 min).
+# Pas au clonage (ancienne référence nulle) : un clone ne touche ni GitHub ni
+# les branches ; la synchronisation viendra au changement de branche suivant.
+[[ "${1:-}" =~ ^0+$ ]] || tickets_sync || true
 exit 0

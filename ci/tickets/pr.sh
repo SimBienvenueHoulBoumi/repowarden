@@ -54,6 +54,9 @@ cmd_pr() {
         done
         return 0
     fi
+    # PR déjà mergée, événement en retard (edited, synchronize…) : le ticket est
+    # livré, ni statut, ni vérification, ni merge automatique
+    [ "${MERGED:-false}" != true ] || return 0
 
     # Aucun ticket : si auto-create activé, créé à partir de la PR, à valider,
     # et relié à la PR ; sinon, échec de la vérification avec la marche à suivre.

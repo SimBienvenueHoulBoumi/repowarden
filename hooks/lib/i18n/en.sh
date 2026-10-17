@@ -446,6 +446,7 @@ _msg_en() {
         tk.waiting) _M="Ticket %s awaiting validation: a maintainer adds the \"%s\" label to the ticket." ;;
         tk.ok) _M="Ticket %s validated." ;;
         tk.merged) _M="Merged by PR #%s into %s: in pre-production, available in the next pre-release." ;;
+        tk.status_kept) _M="Ticket #%s kept in %s: delivered work does not go back to %s." ;;
         tk.branch_created) _M="Ticket validated: its branch \`%s\` is created from \`%s\`.\n\nTo work on it:\n\n\`\`\`bash\nrepowarden ticket %s\n\`\`\`\n\n(or \`git fetch && git switch %s\`). The first push opens the draft PR." ;;
         tk.branch_notice) _M="Branch %s created for ticket #%s" ;;
         tk.multi) _M="PR linked to several tickets (%s): one PR = one ticket, split it." ;;
